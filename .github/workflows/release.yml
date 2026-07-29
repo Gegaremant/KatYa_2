@@ -1,0 +1,85 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: Generate APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set execution flag for gradlew
+        run: chmod +x gradlew
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android Build Tools
+        run: |
+          sdkmanager "build-tools;36.0.0"
+          sdkmanager "build-tools;29.0.3"
+      - name: Build APK
+        run: bash ./gradlew :androidApp:assembleFossDebug --stacktrace
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk
+
+  release:
+    name: Release APK
+    needs: [apk]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4.1.7
+        with:
+          name: debug-apk
+
+      - name: Rename assets
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mv androidApp-foss-debug.apk "Katya-${VERSION}-android-debug.apk"
+
+      - name: Extract changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -f RELEASE_NOTES.md ]; then
+            sed -n "/^## v${VERSION}/,/^## v/{ /^## v${VERSION}/d; /^## v/d; p; }" RELEASE_NOTES.md > changelog.txt
+          fi
+          # Fallback if RELEASE_NOTES.md missing or section empty
+          if [ ! -s changelog.txt ]; then
+            PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^${GITHUB_REF_NAME}$" | head -n1)
+            if [ -z "$PREVIOUS_TAG" ]; then
+              git log --pretty=format:"- %s" "${GITHUB_REF_NAME}" > changelog.txt
+            else
+              git log --pretty=format:"- %s" "${PREVIOUS_TAG}..${GITHUB_REF_NAME}" --no-merges > changelog.txt
+            fi
+          fi
+
+      - name: Create Github Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body_path: changelog.txt
+          files: Katya-*
