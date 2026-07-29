@@ -48,9 +48,6 @@ kotlin {
         withHostTest {}
     }
 
-        }
-
-    
     sourceSets {
         val commonMain by getting {
             kotlin.srcDir(layout.buildDirectory.dir("generated/src/commonMain/kotlin"))
@@ -127,26 +124,6 @@ kotlin {
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
         }
-                            }
-}
-
-        nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)
-            packageName = "Katya"
-            packageVersion = libs.versions.appVersion.get()
-
-            macOS {
-                iconFile.set(project.file("icon.icns"))
-            }
-            windows {
-                iconFile.set(project.file("icon.ico"))
-                menuGroup = "Kai"
-            }
-            linux {
-                iconFile.set(project.file("icon.png"))
-                modules("jdk.security.auth")
-            }
-        }
     }
 }
 
@@ -171,8 +148,6 @@ class VersionGeneratorPlugin : Plugin<Project> {
                 }
                 """.trimIndent(),
             )
-
-            
         }
     }
 }
