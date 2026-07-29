@@ -10,7 +10,7 @@
 <img src="https://img.shields.io/badge/Platform-Android-34a853.svg?logo=android" alt="Android" />
 <div align="center">
 <br>
-<img src="docs/img/logo.png" height="150">
+<img src="docs/img/logo.png" height="350">
 <br>
 <br>
 
@@ -96,7 +96,7 @@ An **open-source AI assistant with persistent memory** designed specifically for
 <img src="https://img.shields.io/badge/Platform-Android-34a853.svg?logo=android" alt="Android" />
 <div align="center">
 <br>
-<img src="docs/img/logo.png" height="150">
+<img src="docs/img/logo.png" height="350">
 <br>
 <br>
 
