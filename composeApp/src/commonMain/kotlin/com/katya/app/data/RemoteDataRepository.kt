@@ -703,7 +703,7 @@ class RemoteDataRepository(
         return ordered.filterIndexed { index, entry -> index == 0 || !entry.service.isOnDevice }
     }
 
-    override suspend fun ask(question: String?, files: List<PlatformFile>, uiSubmission: UiSubmission?, activeSkillId: String?) {
+    override suspend fun ask(question: String?, files: List<com.katya.app.data.KatyaFile>, uiSubmission: UiSubmission?, activeSkillId: String?) {
         // The active skill (if any) is consumed for this single turn only — stored in a
         // field rather than a parameter on getActiveSystemPrompt so the existing internal
         // callers (heartbeat, askWithTools, etc.) don't all need a new parameter. The
@@ -729,7 +729,7 @@ class RemoteDataRepository(
     /** Built-in skill id; matches the bundled SKILL.md under composeResources. */
     private val createSkillId = "create-skill"
 
-    private suspend fun askInternal(question: String?, files: List<PlatformFile>, uiSubmission: UiSubmission?) {
+    private suspend fun askInternal(question: String?, files: List<com.katya.app.data.KatyaFile>, uiSubmission: UiSubmission?) {
         // Allocate a conversation id immediately for fresh chats. Without this,
         // the very first tool call lands here with _currentConversationId.value
         // still null, so per-conversation routing (e.g. the sandbox shell)
@@ -757,7 +757,7 @@ class RemoteDataRepository(
                 FileCategory.IMAGE -> MAX_RAW_IMAGE_BYTES.toLong()
                 FileCategory.UNSUPPORTED -> 0L
             }
-            if (file.size() > rawSizeLimit) throw FileTooLargeException()
+            // if (file.size() > rawSizeLimit) throw FileTooLargeException() // Removed per user request
 
             val rawBytes = file.readBytes()
 
@@ -766,7 +766,7 @@ class RemoteDataRepository(
                     val compressed = compressImageBytes(rawBytes, fileMimeType ?: "image/jpeg")
                     // compressImageBytes can fall back to the original bytes on failure or on
                     // platforms without compression — guard against Base64 OOM for oversized input.
-                    if (compressed.size > MAX_IMAGE_BYTES) throw FileTooLargeException()
+                    // if (compressed.size > MAX_IMAGE_BYTES) throw FileTooLargeException() // Removed per user request
                     Attachment(
                         data = Base64.encode(compressed),
                         mimeType = "image/jpeg",

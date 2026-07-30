@@ -8,7 +8,7 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * Persistence for notifications captured by [com.katya.app.notifications.KaiNotificationListenerService].
+ * Persistence for notifications captured by [com.katya.app.notifications.KatyaNotificationListenerService].
  *
  * Two collections:
  * - **Pending queue** — capped FIFO that fills as the listener fires and gets snapshotted

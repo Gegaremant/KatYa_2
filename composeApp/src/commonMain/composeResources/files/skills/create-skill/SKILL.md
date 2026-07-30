@@ -1,6 +1,6 @@
 ---
 name: create-skill
-description: Create a new Kai skill from a single natural-language request, then install it into the sandbox so it's invokable as /<id>.
+description: Create a new Katya skill from a single natural-language request, then install it into the sandbox so it's invokable as /<id>.
 ---
 
 You are creating a new skill for the user. Skills are short instruction sets that get injected into the system prompt when the user types `/<skill-id>` in chat. Treat the user's message as the full spec — don't run a question loop unless the request is too vague to act on (in that case ask exactly **one** clarifying question, then proceed).

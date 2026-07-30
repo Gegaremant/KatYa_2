@@ -11,7 +11,7 @@ expect class NotificationListenerController() {
     /** True when the build supports the listener at all (Android FOSS only). */
     fun isSupported(): Boolean
 
-    /** True when the user has enabled Kai under system notification-access settings. */
+    /** True when the user has enabled Katya under system notification-access settings. */
     fun isAccessGranted(): Boolean
 
     /** Open the system notification-access settings screen. No-op on unsupported platforms. */

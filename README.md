@@ -10,7 +10,7 @@
 <img src="https://img.shields.io/badge/Platform-Android-34a853.svg?logo=android" alt="Android" />
 <div align="center">
 <br>
-<img src="docs/img/logo.png" height="350">
+<img src="katya_icon.png" height="350">
 <br>
 <br>
 

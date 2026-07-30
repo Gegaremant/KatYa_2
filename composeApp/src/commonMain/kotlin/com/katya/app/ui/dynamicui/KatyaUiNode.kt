@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 @Immutable
 @Serializable
-sealed interface KaiUiNode {
+sealed interface KatyaUiNode {
     val id: String?
 }
 
@@ -20,31 +20,31 @@ sealed interface KaiUiNode {
 @SerialName("column")
 data class ColumnNode(
     override val id: String? = null,
-    @Contextual val children: ImmutableList<KaiUiNode> = persistentListOf(),
-) : KaiUiNode
+    @Contextual val children: ImmutableList<KatyaUiNode> = persistentListOf(),
+) : KatyaUiNode
 
 @Immutable
 @Serializable
 @SerialName("row")
 data class RowNode(
     override val id: String? = null,
-    @Contextual val children: ImmutableList<KaiUiNode> = persistentListOf(),
-) : KaiUiNode
+    @Contextual val children: ImmutableList<KatyaUiNode> = persistentListOf(),
+) : KatyaUiNode
 
 @Immutable
 @Serializable
 @SerialName("card")
 data class CardNode(
     override val id: String? = null,
-    @Contextual val children: ImmutableList<KaiUiNode> = persistentListOf(),
-) : KaiUiNode
+    @Contextual val children: ImmutableList<KatyaUiNode> = persistentListOf(),
+) : KatyaUiNode
 
 @Immutable
 @Serializable
 @SerialName("divider")
 data class DividerNode(
     override val id: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Content nodes ---
 
@@ -58,7 +58,7 @@ data class TextNode(
     val bold: Boolean? = null,
     val italic: Boolean? = null,
     val color: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -69,7 +69,7 @@ data class ImageNode(
     val alt: String? = null,
     val height: Int? = null,
     val aspectRatio: Float? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Interactive nodes ---
 
@@ -82,7 +82,7 @@ data class ButtonNode(
     val action: UiAction? = null,
     val variant: ButtonVariant? = null,
     val enabled: Boolean? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -93,7 +93,7 @@ data class TextInputNode(
     val placeholder: String? = null,
     val value: String? = null,
     val multiline: Boolean? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -102,7 +102,7 @@ data class CheckboxNode(
     override val id: String = "",
     val label: String = "",
     val checked: Boolean? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -112,7 +112,7 @@ data class SelectNode(
     val label: String? = null,
     @Contextual val options: ImmutableList<String> = persistentListOf(),
     val selected: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Interactive nodes (additional) ---
 
@@ -123,7 +123,7 @@ data class SwitchNode(
     override val id: String = "",
     val label: String = "",
     val checked: Boolean? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -135,7 +135,7 @@ data class SliderNode(
     val min: Float? = null,
     val max: Float? = null,
     val step: Float? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -145,7 +145,7 @@ data class RadioGroupNode(
     val label: String? = null,
     @Contextual val options: ImmutableList<String> = persistentListOf(),
     val selected: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Feedback nodes ---
 
@@ -156,7 +156,7 @@ data class ProgressNode(
     override val id: String? = null,
     val value: Float? = null,
     val label: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -166,7 +166,7 @@ data class AlertNode(
     val message: String = "",
     val title: String? = null,
     val severity: AlertSeverity? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -176,7 +176,7 @@ data class CountdownNode(
     val seconds: Int = 0,
     val label: String? = null,
     val action: UiAction? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Selection nodes ---
 
@@ -188,7 +188,7 @@ data class ChipGroupNode(
     @Contextual val chips: ImmutableList<ChipItem> = persistentListOf(),
     /** "single" (default), "multi", or "none" for display-only tags. */
     val selection: String = "single",
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -207,7 +207,7 @@ data class IconNode(
     val name: String = "",
     val size: Int? = null,
     val color: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -216,7 +216,7 @@ data class CodeNode(
     override val id: String? = null,
     val code: String = "",
     val language: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Layout nodes (additional) ---
 
@@ -225,9 +225,9 @@ data class CodeNode(
 @SerialName("box")
 data class BoxNode(
     override val id: String? = null,
-    @Contextual val children: ImmutableList<KaiUiNode> = persistentListOf(),
+    @Contextual val children: ImmutableList<KatyaUiNode> = persistentListOf(),
     val contentAlignment: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -236,13 +236,13 @@ data class TabsNode(
     override val id: String? = null,
     @Contextual val tabs: ImmutableList<TabItem> = persistentListOf(),
     val selectedIndex: Int? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
 data class TabItem(
     val label: String = "",
-    @Contextual val children: ImmutableList<KaiUiNode> = persistentListOf(),
+    @Contextual val children: ImmutableList<KatyaUiNode> = persistentListOf(),
 )
 
 @Immutable
@@ -251,9 +251,9 @@ data class TabItem(
 data class AccordionNode(
     override val id: String? = null,
     val title: String = "",
-    @Contextual val children: ImmutableList<KaiUiNode> = persistentListOf(),
+    @Contextual val children: ImmutableList<KatyaUiNode> = persistentListOf(),
     val expanded: Boolean? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Display nodes ---
 
@@ -264,7 +264,7 @@ data class QuoteNode(
     override val id: String? = null,
     val text: String = "",
     val source: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -273,7 +273,7 @@ data class BadgeNode(
     override val id: String? = null,
     val value: String = "",
     val color: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -283,7 +283,7 @@ data class StatNode(
     val value: String = "",
     val label: String = "",
     val description: String? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -293,7 +293,7 @@ data class AvatarNode(
     val name: String? = null,
     val imageUrl: String? = null,
     val size: Int? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Data display nodes ---
 
@@ -302,9 +302,9 @@ data class AvatarNode(
 @SerialName("list")
 data class ListNode(
     override val id: String? = null,
-    @Contextual val items: ImmutableList<KaiUiNode> = persistentListOf(),
+    @Contextual val items: ImmutableList<KatyaUiNode> = persistentListOf(),
     val ordered: Boolean? = null,
-) : KaiUiNode
+) : KatyaUiNode
 
 @Immutable
 @Serializable
@@ -313,7 +313,7 @@ data class TableNode(
     override val id: String? = null,
     @Contextual val headers: ImmutableList<String> = persistentListOf(),
     @Contextual val rows: ImmutableList<@Contextual ImmutableList<String>> = persistentListOf(),
-) : KaiUiNode
+) : KatyaUiNode
 
 // --- Enums ---
 

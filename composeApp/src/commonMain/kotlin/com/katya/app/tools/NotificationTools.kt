@@ -43,7 +43,7 @@ object NotificationTools {
             if (!reader.hasAccess()) {
                 return mapOf(
                     "success" to false,
-                    "error" to "Notification access not granted. Ask the user to enable Kai under " +
+                    "error" to "Notification access not granted. Ask the user to enable Katya under " +
                         "system Notification access settings.",
                 )
             }

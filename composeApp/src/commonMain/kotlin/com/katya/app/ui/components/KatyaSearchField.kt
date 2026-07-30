@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.katya.app.ui.handCursor
 
 @Composable
-fun KaiSearchField(
+fun KatyaSearchField(
     query: String,
     onQueryChange: (String) -> Unit,
     placeholder: String,

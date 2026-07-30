@@ -14,8 +14,8 @@ import com.katya.app.network.UiError
 import com.katya.app.network.toUiError
 import com.katya.app.tools.LocalNetworkPermissionController
 import com.katya.app.tools.isLocalNetworkUrl
-import com.katya.app.ui.markdown.KaiUiBlock
-import com.katya.app.ui.markdown.KaiUiError
+import com.katya.app.ui.markdown.KatyaUiBlock
+import com.katya.app.ui.markdown.KatyaUiError
 import com.katya.app.ui.markdown.parseMarkdown
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.extension
@@ -269,9 +269,9 @@ class ChatViewModel(
             try {
                 dataRepository.ask(strippedQuestion, files, uiSubmission, activeSkillId)
 
-                // Auto-retry in interactive mode if the response has no valid kai-ui
+                // Auto-retry in interactive mode if the response has no valid katya-ui
                 if (_state.value.isInteractiveMode) {
-                    retryIfNoValidKaiUi()
+                    retryIfNoValidKatyaUi()
                 }
 
                 _state.update {
@@ -302,24 +302,24 @@ class ChatViewModel(
         return localNetworkPermissionController.requestPermission()
     }
 
-    private suspend fun retryIfNoValidKaiUi(maxRetries: Int = 2) {
+    private suspend fun retryIfNoValidKatyaUi(maxRetries: Int = 2) {
         repeat(maxRetries) {
             currentCoroutineContext().ensureActive()
             val lastAssistant = dataRepository.chatHistory.value.lastRenderedAssistant() ?: return
 
             val blocks = parseMarkdown(lastAssistant.content).blocks
-            val hasValidUi = blocks.any { it is KaiUiBlock }
+            val hasValidUi = blocks.any { it is KatyaUiBlock }
             if (hasValidUi) return
 
             // Build error feedback for the AI
-            val errorBlock = blocks.filterIsInstance<KaiUiError>().firstOrNull()
+            val errorBlock = blocks.filterIsInstance<KatyaUiError>().firstOrNull()
             val errorDetail = if (errorBlock != null) {
                 "JSON parse error in: ${errorBlock.rawJson.take(200)}"
             } else {
-                "No kai-ui code fence found in your response."
+                "No katya-ui code fence found in your response."
             }
             val retryMessage = "[SYSTEM] Your previous response failed to render as interactive UI. $errorDetail " +
-                "Remember: respond with ONLY a single ```kai-ui code fence containing valid JSON. No text outside the fence."
+                "Remember: respond with ONLY a single ```katya-ui code fence containing valid JSON. No text outside the fence."
 
             dataRepository.ask(retryMessage, emptyList())
         }
@@ -365,7 +365,7 @@ class ChatViewModel(
         }
     }
 
-    private fun addFile(file: PlatformFile) {
+    private fun addFile(file: com.katya.app.data.KatyaFile) {
         val ext = file.extension.lowercase()
         val supported = dataRepository.supportedFileExtensions()
         if (ext.isEmpty() || ext !in supported) {
@@ -379,7 +379,7 @@ class ChatViewModel(
         }
     }
 
-    private fun removeFile(file: PlatformFile) {
+    private fun removeFile(file: com.katya.app.data.KatyaFile) {
         _state.update {
             it.copy(files = it.files.filterNot { f -> f == file }.toImmutableList())
         }

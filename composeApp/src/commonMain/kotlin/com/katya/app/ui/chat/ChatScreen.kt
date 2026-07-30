@@ -100,10 +100,10 @@ import com.katya.app.ui.components.LogoAnimation
 import com.katya.app.ui.components.VerticalScrollbarForList
 import com.katya.app.ui.components.animatedGradientBorder
 import com.katya.app.ui.dynamicui.FrozenSubmission
-import com.katya.app.ui.dynamicui.KaiUiRenderer
+import com.katya.app.ui.dynamicui.KatyaUiRenderer
 import com.katya.app.ui.dynamicui.toSpeakableText
 import com.katya.app.ui.handCursor
-import com.katya.app.ui.markdown.KaiUiBlock
+import com.katya.app.ui.markdown.KatyaUiBlock
 import com.katya.app.ui.markdown.parseMarkdown
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.fallback_answered_by
@@ -198,7 +198,7 @@ private fun InteractiveModeScreen(
     val hasAssistantResponse = remember(uiState.history) {
         uiState.history.any { it.role == History.Role.ASSISTANT }
     }
-    // Interactive mode drives a tool-calling loop and emits kai-ui JSON, so the
+    // Interactive mode drives a tool-calling loop and emits katya-ui JSON, so the
     // switcher only lists services/models capable of agentic flows.
     val interactiveServices = remember(uiState.availableServices) {
         uiState.availableServices
@@ -430,7 +430,7 @@ private fun InteractiveModeContent(
                 modifier = Modifier.fillMaxSize(),
             ) { _ ->
                 val blocks = remember(lastAssistant.content) { parseMarkdown(lastAssistant.content).blocks }
-                val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
+                val uiBlocks = blocks.filterIsInstance<KatyaUiBlock>()
 
                 if (uiBlocks.isNotEmpty()) {
                     Column(
@@ -441,7 +441,7 @@ private fun InteractiveModeContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         for (block in uiBlocks) {
-                            KaiUiRenderer(
+                            KatyaUiRenderer(
                                 node = block.node,
                                 isInteractive = !uiState.isLoading,
                                 onCallback = { event, data ->
@@ -452,7 +452,7 @@ private fun InteractiveModeContent(
                         }
                     }
                 } else if (uiState.error == null) {
-                    // AI responded with no valid kai-ui AND there's no API error underneath —
+                    // AI responded with no valid katya-ui AND there's no API error underneath —
                     // this is a genuine parse failure (retries exhausted). When an API error is
                     // set, the ErrorMessage overlay below takes over with the correct message.
                     Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -597,7 +597,7 @@ private fun ChatModeScreen(
                             }
                             override fun onDrop(event: DragAndDropEvent): Boolean {
                                 val file = onDragAndDropEventDropped(event)
-                                if (file != null) addFile(file)
+                                if (file != null) addFile(com.katya.app.data.PlatformKatyaFile(file))
                                 isDropping = false
                                 return file != null
                             }
@@ -613,7 +613,7 @@ private fun ChatModeScreen(
                             ),
                     ) {
                         if (uiState.history.isEmpty()) {
-                            // Interactive UI mode isn't offered on on-device LiteRT: the kai-ui
+                            // Interactive UI mode isn't offered on on-device LiteRT: the katya-ui
                             // component schema is too large for small Gemma models to coherently
                             // attend to, and even the minimal variant we tried was unreliable.
                             val primaryIsOnDevice = uiState.availableServices
@@ -654,7 +654,7 @@ private fun ChatModeScreen(
                             }
 
                             val lastAssistantId = remember(uiState.history) { uiState.history.lastRenderedAssistant()?.id }
-                            // Pair every user submission with its originating assistant so the kai-ui
+                            // Pair every user submission with its originating assistant so the katya-ui
                             // renders once (on the assistant side) with a frozen snapshot — never as a
                             // separate user-side card. pressedEvent + values persist across the loading
                             // transition; isPending is only set for the latest in-flight submission.
@@ -773,7 +773,7 @@ private fun ChatModeScreen(
                                     items(uiState.history, key = { it.id }, contentType = { it.role }) { history ->
                                         when (history.role) {
                                             History.Role.USER -> {
-                                                // Submissions are shown by the paired assistant's frozen kai-ui card
+                                                // Submissions are shown by the paired assistant's frozen katya-ui card
                                                 // above; the "Responded with: …" text bubble would be redundant.
                                                 if (history.uiSubmission == null) {
                                                     UserMessage(
@@ -853,7 +853,7 @@ private fun ChatModeScreen(
                                             }
                                         }
                                     }
-                                    // Skip the generic "thinking" row during a pending kai-ui submission — the
+                                    // Skip the generic "thinking" row during a pending katya-ui submission — the
                                     // pressed button's pulse already signals work in flight. Keep it for tool
                                     // activity so tool feedback isn't lost.
                                     val showWaitingRow = uiState.isLoading &&

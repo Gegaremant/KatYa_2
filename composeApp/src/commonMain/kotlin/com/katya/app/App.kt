@@ -45,6 +45,7 @@ import com.katya.app.tools.SetupNotificationPermissionHandler
 import com.katya.app.tools.SetupSmsPermissionHandler
 import com.katya.app.tools.SetupSmsSendPermissionHandler
 import com.katya.app.tools.SmsPermissionController
+import com.katya.app.tools.SmsSendPermissionController
 import com.katya.app.tools.SetupExactAlarmPermissionHandler
 import com.katya.app.tools.SetupBatteryOptimizationPermissionHandler
 import com.katya.app.tools.ExactAlarmPermissionController

@@ -15,7 +15,7 @@
 - **Smart Reconnection:** SSH tunnel now automatically retries connection using exponential backoff when network drops.
 - **Termux MCP Servers:** Added pre-configured Local MCP Servers (GitHub, SQLite, Filesystem) for root environment.
 ### Changed
-- Rebranded remaining references from Kai to Katya.
+- Rebranded remaining references from Katya to Katya.
 - Global package renamed to `com.katya.app`.
 - Removed all multiplatform unused code (iosApp, site, flatpak, aur) to focus heavily on the Android application.
 - Exported configurations now default to `[date]_Katya_config.json`.

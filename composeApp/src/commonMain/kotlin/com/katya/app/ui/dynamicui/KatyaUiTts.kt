@@ -4,20 +4,20 @@ import com.katya.app.ui.markdown.parseMarkdown
 import com.katya.app.ui.markdown.toSpeakableText
 
 /**
- * TTS-friendly text for a message that may contain kai-ui fences. Routed through the unified
- * markdown parser: formatting is stripped, code blocks dropped, and kai-ui blocks walked for
+ * TTS-friendly text for a message that may contain katya-ui fences. Routed through the unified
+ * markdown parser: formatting is stripped, code blocks dropped, and katya-ui blocks walked for
  * their human-readable labels (titles, alerts, chips, table cells) so the user hears what the
  * form says, not the JSON behind it.
  */
 fun String.toSpeakableText(): String = parseMarkdown(this).toSpeakableText()
 
-internal fun KaiUiNode.collectSpeakableText(): String {
+internal fun KatyaUiNode.collectSpeakableText(): String {
     val parts = mutableListOf<String>()
     walk(parts)
     return parts.asSequence().filter { it.isNotBlank() }.joinToString(". ")
 }
 
-private fun KaiUiNode.walk(parts: MutableList<String>) {
+private fun KatyaUiNode.walk(parts: MutableList<String>) {
     when (this) {
         is TextNode -> parts += value
 

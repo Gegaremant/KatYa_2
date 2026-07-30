@@ -99,7 +99,7 @@ fun Modifier.katyaAdaptiveCardSurface(shape: Shape = CardDefaults.shape): Modifi
     )
 
 val LightColorScheme = lightColorScheme(
-    primary = darkPurple,
+    primary = Color(0xFF333333),
     onPrimary = Color(0xFFFFFFFF),
     surface = Color(0xFFF2F2F2),
     background = Color(0xFFFFFFFF),

@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.katya.app.data.ThemeMode
 import com.katya.app.ui.KaiOutlinedTextField
-import com.katya.app.ui.components.KaiSlider
+import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.handCursor
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.ic_arrow_drop_down
@@ -264,22 +264,7 @@ private fun VoiceResponseToggle(
             checked = isVoiceResponseEnabled,
             onCheckedChange = onToggleVoiceResponse,
         )
-        if (com.katya.app.currentPlatform == com.katya.app.Platform.Mobile.Android) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                androidx.compose.material3.OutlinedButton(
-                    onClick = { com.katya.app.openTtsSettings() },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Выбор системного TTS", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                }
-                androidx.compose.material3.Button(
-                    onClick = { uriHandler.openUri("market://details?id=com.github.olga_yakovleva.rhvoice.android") },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Скачать RHVoice", textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                }
-            }
-        }
+        // Removed system TTS and RHVoice buttons to declutter UI as requested by user
 
         if (textToSpeech != null && textToSpeech.voices.toList().isNotEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -309,7 +294,7 @@ private fun VoiceResponseToggle(
                     onDismissRequest = { expanded = false },
                     shape = RoundedCornerShape(16.dp),
                 ) {
-                    val voices = textToSpeech.voices.toList()
+                    val voices = textToSpeech.voices.toList().distinctBy { it.name }
                     voices.forEach { voice ->
                         val isSelected = voice.name == selectedVoice
                         DropdownMenuItem(
@@ -458,7 +443,7 @@ private fun UiScaleSection(
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
-        KaiSlider(
+        KatyaSlider(
             value = sliderValue,
             onValueChange = { sliderValue = it },
             onValueChangeFinished = { onChangeUiScale(sliderValue) },

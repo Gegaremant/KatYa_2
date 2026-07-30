@@ -112,7 +112,7 @@
 # The Compose Gradle plugin ships default-compose-desktop-rules.pro with only
 # targeted keeps (Skia, Skiko, SliderDefaults, SnapshotStateKt__DerivedStateKt,
 # coroutine volatile fields, kotlinx.serialization infra). We add broader,
-# defensive keeps for the libraries Kai actually uses on desktop. Size cost is
+# defensive keeps for the libraries Katya actually uses on desktop. Size cost is
 # small because the app already references most of these APIs.
 
 # kotlinx.io — Ktor 3.x public functions take kotlinx.io.Source/Sink/Buffer/

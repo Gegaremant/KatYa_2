@@ -215,7 +215,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.katya.app.ui.KaiOutlinedTextField
-import com.katya.app.ui.components.KaiChip
+import com.katya.app.ui.components.KatyaChip
 import com.katya.app.ui.handCursor
 import com.katya.app.ui.katyaAdaptiveCardBorder
 import com.katya.app.ui.katyaAdaptiveCardColors
@@ -232,7 +232,7 @@ import kotlin.time.Duration.Companion.seconds
 val LocalPreviewImages = staticCompositionLocalOf<Map<String, ImageBitmap>> { emptyMap() }
 
 /**
- * A frozen snapshot of a user's kai-ui submission: the values they submitted, plus the
+ * A frozen snapshot of a user's katya-ui submission: the values they submitted, plus the
  * event of the button they pressed. Matching a button uses event + collected form data
  * rather than event alone (multiple buttons often share an event but carry distinct
  * per-button data payloads, e.g. a quiz with one event and different `choice` values).
@@ -249,8 +249,8 @@ data class FrozenSubmission(
 private val LocalFrozenSubmission = compositionLocalOf<FrozenSubmission?> { null }
 
 @Composable
-fun KaiUiRenderer(
-    node: KaiUiNode,
+fun KatyaUiRenderer(
+    node: KatyaUiNode,
     isInteractive: Boolean,
     onCallback: (event: String, data: Map<String, String>) -> Unit,
     modifier: Modifier = Modifier,
@@ -329,7 +329,7 @@ private const val DEFAULT_IMAGE_ASPECT_RATIO = 1.91f
 
 @Composable
 private fun RenderNode(
-    node: KaiUiNode,
+    node: KatyaUiNode,
     isInteractive: Boolean,
     formState: SnapshotStateMap<String, String>,
     toggleState: SnapshotStateMap<String, Boolean>,
@@ -375,7 +375,7 @@ private fun RenderNode(
 
 @Composable
 private fun RenderChildren(
-    children: ImmutableList<KaiUiNode>,
+    children: ImmutableList<KatyaUiNode>,
     isInteractive: Boolean,
     formState: SnapshotStateMap<String, String>,
     toggleState: SnapshotStateMap<String, Boolean>,
@@ -1137,7 +1137,7 @@ private fun RenderChipGroup(
             val value = chip.value.ifEmpty { chip.label }
             key(value) {
                 if (isDisplayOnly) {
-                    KaiChip { Text(chip.label) }
+                    KatyaChip { Text(chip.label) }
                 } else {
                     val isSelected by remember {
                         derivedStateOf {
@@ -1145,10 +1145,10 @@ private fun RenderChipGroup(
                             csv.split(",").contains(value)
                         }
                     }
-                    KaiChip(
+                    KatyaChip(
                         selected = isSelected,
                         onClick = {
-                            if (!isInteractive) return@KaiChip
+                            if (!isInteractive) return@KatyaChip
                             val current = (formState[node.id] ?: "").split(",").filter { it.isNotEmpty() }.toSet()
                             val newSelection = if (isMulti) {
                                 if (isSelected) current - value else current + value
@@ -1678,7 +1678,7 @@ private fun resolveIcon(name: String): ImageVector? = when (name) {
 
 // --- Form state initialization ---
 
-private fun initializeFormState(node: KaiUiNode, formState: MutableMap<String, String>) {
+private fun initializeFormState(node: KatyaUiNode, formState: MutableMap<String, String>) {
     when (node) {
         is TextInputNode -> node.value?.let { if (node.id !in formState) formState[node.id] = it }
 

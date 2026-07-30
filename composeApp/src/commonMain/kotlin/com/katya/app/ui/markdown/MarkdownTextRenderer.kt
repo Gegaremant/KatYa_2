@@ -4,7 +4,7 @@ import com.katya.app.ui.dynamicui.collectSpeakableText
 
 /**
  * TTS-friendly text extracted from a parsed [MarkdownDocument]. Strips markdown formatting,
- * drops code blocks, reads link text (not URLs), and walks kai-ui blocks for their human-
+ * drops code blocks, reads link text (not URLs), and walks katya-ui blocks for their human-
  * readable labels.
  */
 fun MarkdownDocument.toSpeakableText(): String {
@@ -30,8 +30,8 @@ private fun blockToSpeakable(block: BlockNode): String = when (block) {
     is Table -> tableToSpeakable(block)
     HorizontalRule -> ""
     is DisplayMath -> block.latex
-    is KaiUiBlock -> block.node.collectSpeakableText()
-    is KaiUiError -> ""
+    is KatyaUiBlock -> block.node.collectSpeakableText()
+    is KatyaUiError -> ""
 }
 
 private fun itemToSpeakable(item: ListItem): String {
@@ -97,9 +97,9 @@ private fun blockToPlain(block: BlockNode): String = when (block) {
 
     is DisplayMath -> block.latex
 
-    is KaiUiBlock -> block.node.collectSpeakableText()
+    is KatyaUiBlock -> block.node.collectSpeakableText()
 
-    is KaiUiError -> ""
+    is KatyaUiError -> ""
 }
 
 private fun itemToPlain(item: ListItem): String = item.children.joinToString("\n") { blockToPlain(it) }.trim()

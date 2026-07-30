@@ -4,36 +4,36 @@ import com.katya.app.data.SharedJson
 import kotlinx.collections.immutable.toImmutableList
 
 /**
- * Decodes the body of a `kai-ui` fenced JSON block into a [KaiUiNode].
+ * Decodes the body of a `katya-ui` fenced JSON block into a [KatyaUiNode].
  *
  * The parse pipeline runs each block through three stages:
- *   1. **Block extraction** — the markdown parser locates `kai-ui` fences and hands the raw
+ *   1. **Block extraction** — the markdown parser locates `katya-ui` fences and hands the raw
  *      body to [parseUiBlockBody].
  *   2. **Syntax repair** — fix broken key syntax, trim mismatched braces, close truncated JSON
  *      so `parseToJsonElement` can succeed.
  *   3. **Direct build** — walk the resulting [kotlinx.serialization.json.JsonElement] tree via
- *      [parseNode] in `KaiUiNodeBuilders.kt`, constructing [KaiUiNode] instances field-by-field.
+ *      [parseNode] in `KatyaUiNodeBuilders.kt`, constructing [KatyaUiNode] instances field-by-field.
  *      Each reader tolerates common LLM mistakes locally, so missing or miscoerced fields fall
  *      back to their data-class defaults and the node still builds.
  *
  * Only the `parseToJsonElement` call in stage 3 can produce a [UiBlockResult.Error];
  * everything downstream of that returns a best-effort node or a null that callers filter out.
  */
-object KaiUiParser {
+object KatyaUiParser {
 
     // =========================================================================================
     // Public API
     // =========================================================================================
 
-    /** Result of decoding a kai-ui fence body; consumed by the markdown parser. */
+    /** Result of decoding a katya-ui fence body; consumed by the markdown parser. */
     sealed interface UiBlockResult {
-        data class Ui(val node: KaiUiNode, val rawJson: String) : UiBlockResult
+        data class Ui(val node: KatyaUiNode, val rawJson: String) : UiBlockResult
         data class Error(val rawJson: String) : UiBlockResult
     }
 
     /**
-     * Decode the raw body of a kai-ui fence (everything between the opening and closing triple
-     * backticks). Returns either a decoded [KaiUiNode] or an [UiBlockResult.Error] carrying the
+     * Decode the raw body of a katya-ui fence (everything between the opening and closing triple
+     * backticks). Returns either a decoded [KatyaUiNode] or an [UiBlockResult.Error] carrying the
      * repaired JSON so callers can display it as a code block.
      *
      * Supports two shapes:
@@ -58,7 +58,7 @@ object KaiUiParser {
         return try {
             parseSingleNode(json)?.let { UiBlockResult.Ui(it, json) }
         } catch (e: Exception) {
-            println("kai-ui parse error: ${e.message} | ${json.take(500)}")
+            println("katya-ui parse error: ${e.message} | ${json.take(500)}")
             UiBlockResult.Error(json)
         }
     }
@@ -68,15 +68,15 @@ object KaiUiParser {
     // =========================================================================================
 
     /** Try to parse a single NDJSON line, retrying with `sanitizeJson` on the first failure. */
-    private fun tryParseLine(line: String): KaiUiNode? = runCatching { parseSingleNode(line) }.getOrNull()
+    private fun tryParseLine(line: String): KatyaUiNode? = runCatching { parseSingleNode(line) }.getOrNull()
         ?: runCatching { parseSingleNode(sanitizeJson(line)) }.getOrNull()
         ?: run {
-            println("kai-ui parse error: failed to deserialize line | ${line.take(500)}")
+            println("katya-ui parse error: failed to deserialize line | ${line.take(500)}")
             null
         }
 
-    /** Parse a repaired JSON string into a [KaiUiNode] via the direct builder pipeline. */
-    private fun parseSingleNode(json: String): KaiUiNode? = parseNode(SharedJson.parseToJsonElement(json))
+    /** Parse a repaired JSON string into a [KatyaUiNode] via the direct builder pipeline. */
+    private fun parseSingleNode(json: String): KatyaUiNode? = parseNode(SharedJson.parseToJsonElement(json))
 
     // =========================================================================================
     // Stage 2: syntax repair

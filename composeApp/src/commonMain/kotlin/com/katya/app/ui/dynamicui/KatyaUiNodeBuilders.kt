@@ -13,14 +13,14 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 
-// Tolerant field-by-field builders that turn a JsonElement tree into a KaiUiNode.
+// Tolerant field-by-field builders that turn a JsonElement tree into a KatyaUiNode.
 //
 // Philosophy: every reader here knows the expected type because the builder calls the
 // right one. Readers never throw — if a value can't be coerced, the field falls back to
 // its data-class default and the node still builds. Unknown node `type` discriminators
 // return null and are filtered out of `children`/`items` by readNodeList.
 //
-// This replaces the old field-name-keyed coercion pipeline in KaiUiParser with direct
+// This replaces the old field-name-keyed coercion pipeline in KatyaUiParser with direct
 // construction, so each LLM-mistake handler lives next to the field it owns.
 
 // =============================================================================================
@@ -28,16 +28,16 @@ import kotlinx.serialization.json.longOrNull
 // =============================================================================================
 
 /**
- * Build a [KaiUiNode] from an arbitrary [JsonElement], or return null if the element can't
+ * Build a [KatyaUiNode] from an arbitrary [JsonElement], or return null if the element can't
  * represent any known node type.
  */
-internal fun parseNode(element: JsonElement): KaiUiNode? = when (element) {
+internal fun parseNode(element: JsonElement): KatyaUiNode? = when (element) {
     is JsonObject -> parseObjectNode(element)
     is JsonPrimitive -> if (element.isString) TextNode(value = element.content) else null
     else -> null
 }
 
-private fun parseObjectNode(obj: JsonObject): KaiUiNode? = when (obj.readNullableString("type")) {
+private fun parseObjectNode(obj: JsonObject): KatyaUiNode? = when (obj.readNullableString("type")) {
     "column" -> parseColumnNode(obj)
     "row" -> parseRowNode(obj)
     "card" -> parseCardNode(obj)
@@ -242,7 +242,7 @@ internal fun JsonObject.readStringList(key: String): ImmutableList<String> {
  *
  * Covers `children` and `items`.
  */
-internal fun JsonObject.readNodeList(key: String): ImmutableList<KaiUiNode> {
+internal fun JsonObject.readNodeList(key: String): ImmutableList<KatyaUiNode> {
     val array = this[key] as? JsonArray ?: return persistentListOf()
     return array.mapNotNull { element ->
         when (element) {
@@ -332,7 +332,7 @@ internal fun JsonObject.readTabList(key: String): ImmutableList<TabItem> {
  * carried over when constructing a `TextNode`, so `{"value":"x","bold":true}` inside a
  * `children` array keeps its formatting.
  */
-private fun inferBareObject(obj: JsonObject): KaiUiNode? {
+private fun inferBareObject(obj: JsonObject): KatyaUiNode? {
     // `{"title":"...","subtitle":"..."}` → column with styled title + caption. Checked
     // first because both fields in one object is a strong signal.
     if ("title" in obj && "subtitle" in obj) {

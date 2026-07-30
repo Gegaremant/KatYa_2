@@ -18,7 +18,7 @@ class KatyaApplication : Application() {
         super.onCreate()
         context = this
         startKoin {
-            androidContext(this@KaiApplication)
+            androidContext(this@KatyaApplication)
             modules(appModule, sandboxModule, com.katya.app.stt.sttModule)
         }
         // Track app foreground state so the scheduler only pushes a heartbeat notification

@@ -40,7 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.katya.app.formatContextWindow
 import com.katya.app.formatReleaseDate
 import com.katya.app.ui.KaiOutlinedTextField
-import com.katya.app.ui.components.KaiSearchField
+import com.katya.app.ui.components.KatyaSearchField
 import com.katya.app.ui.components.VerticalScrollbarForGrid
 import com.katya.app.ui.handCursor
 import katya.composeapp.generated.resources.Res
@@ -113,7 +113,7 @@ internal fun ModelSelection(
                     }
                 }
                 if (models.size > 6) {
-                    KaiSearchField(
+                    KatyaSearchField(
                         query = searchQuery,
                         onQueryChange = { searchQuery = it },
                         placeholder = stringResource(Res.string.settings_model_search),

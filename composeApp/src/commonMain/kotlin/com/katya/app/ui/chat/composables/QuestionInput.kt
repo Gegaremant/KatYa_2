@@ -28,7 +28,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
@@ -71,6 +73,10 @@ import com.katya.app.ui.gradientBrush
 import com.katya.app.ui.handCursor
 import com.katya.app.ui.outlineTextFieldColors
 import io.github.vinceglb.filekit.PlatformFile
+import com.katya.app.data.KatyaFile
+import com.katya.app.data.PlatformKatyaFile
+import com.katya.app.data.BytesKatyaFile
+import com.katya.app.tools.rememberImageCaptureLauncher
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.extension
@@ -93,9 +99,9 @@ import org.koin.compose.koinInject
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuestionInput(
-    files: ImmutableList<PlatformFile>,
-    addFile: (PlatformFile) -> Unit,
-    removeFile: (PlatformFile) -> Unit,
+    files: ImmutableList<KatyaFile>,
+    addFile: (KatyaFile) -> Unit,
+    removeFile: (KatyaFile) -> Unit,
     ask: (String) -> Unit,
     supportedFileExtensions: ImmutableList<String>,
     textState: TextFieldValue,
@@ -209,18 +215,24 @@ fun QuestionInput(
             rememberFilePickerLauncher(
                 type = FileKitType.File(extensions = supportedFileExtensions),
             ) { file ->
-                if (file != null) addFile(file)
+                if (file != null) addFile(PlatformKatyaFile(file))
             }
         } else {
             null
         }
 
+        val cameraLauncher = rememberImageCaptureLauncher(onResult = { bytes ->
+            if (bytes != null) {
+                addFile(BytesKatyaFile(bytes, "camera_capture.jpg", "jpg", "image/jpeg"))
+            }
+        })
+
         LaunchedEffect(wakeWordTriggerCount) {
             if (wakeWordTriggerCount > 0) {
                 if (audioPermissionController?.requestPermission() == true) {
                     sttController?.startListening { result ->
-                        onTextStateChange(TextFieldValue(result, TextRange(result.length)))
-                        submitQuestion()
+                        onTextStateChange(TextFieldValue(""))
+                        ask(result.trim())
                     }
                 }
             }
@@ -299,8 +311,8 @@ fun QuestionInput(
                                 coroutineScope.launch {
                                     if (audioPermissionController?.requestPermission() == true) {
                                         sttController?.startListening { result ->
-                                            onTextStateChange(TextFieldValue(result, TextRange(result.length)))
-                                            submitQuestion()
+                                            onTextStateChange(TextFieldValue(""))
+                                            ask(result.trim())
                                         }
                                     }
                                 }
@@ -316,12 +328,20 @@ fun QuestionInput(
             },
             leadingIcon = if (filePickerLauncher != null) {
                 {
-                    CircleIconButton(
-                        icon = vectorResource(Res.drawable.ic_attach),
-                        onClick = { filePickerLauncher.launch() },
-                        modifier = Modifier.padding(start = 7.dp),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                    )
+                    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        CircleIconButton(
+                            icon = vectorResource(Res.drawable.ic_attach),
+                            onClick = { filePickerLauncher.launch() },
+                            modifier = Modifier.padding(start = 7.dp),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                        )
+                        CircleIconButton(
+                            icon = androidx.compose.material.icons.Icons.Default.CameraAlt,
+                            onClick = { cameraLauncher.launch() },
+                            modifier = Modifier.padding(start = 2.dp),
+                            tint = MaterialTheme.colorScheme.onBackground,
+                        )
+                    }
                 }
             } else {
                 null

@@ -20,7 +20,7 @@ body:
     id: description
     attributes:
       label: Description
-      description: What does this service offer and why should Kai support it?
+      description: What does this service offer and why should Katya support it?
     validations:
       required: true
   - type: textarea

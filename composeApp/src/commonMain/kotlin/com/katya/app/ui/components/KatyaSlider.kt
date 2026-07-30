@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.katya.app.ui.handCursor
 
 @Composable
-fun KaiSlider(
+fun KatyaSlider(
     value: Float,
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: (() -> Unit)? = null,
@@ -34,7 +34,7 @@ fun KaiSlider(
         valueRange = valueRange,
         steps = steps,
         colors = kaiSliderColors(),
-        thumb = { KaiSliderThumb() },
+        thumb = { KatyaSliderThumb() },
         track = { sliderState ->
             SliderDefaults.Track(
                 sliderState = sliderState,
@@ -62,8 +62,8 @@ fun KaiRangeSlider(
         modifier = modifier.handCursor(),
         valueRange = valueRange,
         steps = steps,
-        startThumb = { KaiSliderThumb() },
-        endThumb = { KaiSliderThumb() },
+        startThumb = { KatyaSliderThumb() },
+        endThumb = { KatyaSliderThumb() },
         track = { rangeSliderState ->
             SliderDefaults.Track(
                 rangeSliderState = rangeSliderState,
@@ -76,7 +76,7 @@ fun KaiRangeSlider(
 }
 
 @Composable
-private fun KaiSliderThumb() {
+private fun KatyaSliderThumb() {
     Box(
         modifier = Modifier
             .size(20.dp)

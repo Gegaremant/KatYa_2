@@ -1,6 +1,6 @@
 package com.katya.app.ui.markdown
 
-import com.katya.app.ui.dynamicui.KaiUiParser
+import com.katya.app.ui.dynamicui.KatyaUiParser
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -10,8 +10,8 @@ import kotlinx.collections.immutable.toImmutableList
  *
  * Scope (LLM-output subset — not full CommonMark):
  *  - ATX and setext headings
- *  - Fenced code blocks with info-string (```/~~~), including `kai-ui` and the split-block
- *    pattern (`kai-ui` on its own line followed by a `json` fence) from legacy LLM outputs.
+ *  - Fenced code blocks with info-string (```/~~~), including `katya-ui` and the split-block
+ *    pattern (`katya-ui` on its own line followed by a `json` fence) from legacy LLM outputs.
  *  - Horizontal rules (`---`, `***`, `___`)
  *  - Blockquotes (`> `)
  *  - Bullet lists (`-`, `*`, `+`) and ordered lists (`1.`, `1)`), with nesting by indent
@@ -95,8 +95,8 @@ internal object BlockScanner {
                 continue
             }
 
-            if (line.trim() == "kai-ui") {
-                val splitResult = tryParseKaiUiSplit(lines, i, end)
+            if (line.trim() == "katya-ui") {
+                val splitResult = tryParseKatyaUiSplit(lines, i, end)
                 if (splitResult != null) {
                     blocks += splitResult.first
                     i = splitResult.second
@@ -170,7 +170,7 @@ internal object BlockScanner {
     }
 
     // =========================================================================================
-    // Fenced code (including kai-ui)
+    // Fenced code (including katya-ui)
     // =========================================================================================
 
     private fun parseFence(
@@ -186,8 +186,8 @@ internal object BlockScanner {
         val info = openerMatch.groupValues[3].trim()
         val (body, closed, next) = readFenceBody(lines, start + 1, end, fenceChar, fenceLen, indent)
 
-        if (info.equals("kai-ui", ignoreCase = true)) {
-            return decodeKaiUi(body) to next
+        if (info.equals("katya-ui", ignoreCase = true)) {
+            return decodeKatyaUi(body) to next
         }
 
         if (info.equals("latex", ignoreCase = true) ||
@@ -235,10 +235,10 @@ internal object BlockScanner {
         return line.substring(strip)
     }
 
-    private fun decodeKaiUi(body: String): BlockNode = when (val result = KaiUiParser.parseUiBlockBody(body)) {
-        is KaiUiParser.UiBlockResult.Ui -> KaiUiBlock(result.node, result.rawJson)
-        is KaiUiParser.UiBlockResult.Error -> KaiUiError(result.rawJson)
-        null -> KaiUiError(body)
+    private fun decodeKatyaUi(body: String): BlockNode = when (val result = KatyaUiParser.parseUiBlockBody(body)) {
+        is KatyaUiParser.UiBlockResult.Ui -> KatyaUiBlock(result.node, result.rawJson)
+        is KatyaUiParser.UiBlockResult.Error -> KatyaUiError(result.rawJson)
+        null -> KatyaUiError(body)
     }
 
     private fun parseDisplayMath(
@@ -264,7 +264,7 @@ internal object BlockScanner {
         return DisplayMath(bodyLines.joinToString("\n").trim()) to i
     }
 
-    private fun tryParseKaiUiSplit(
+    private fun tryParseKatyaUiSplit(
         lines: List<String>,
         start: Int,
         end: Int,
@@ -279,7 +279,7 @@ internal object BlockScanner {
         val fenceLen = fence.groupValues[2].length
         val indent = fence.groupValues[1].length
         val (body, _, next) = readFenceBody(lines, j + 1, end, fenceChar, fenceLen, indent)
-        return decodeKaiUi(body) to next
+        return decodeKatyaUi(body) to next
     }
 
     // =========================================================================================
@@ -495,7 +495,7 @@ internal object BlockScanner {
                 if (HR_REGEX.matchEntire(line) != null) break
                 if (BLOCKQUOTE_REGEX.matchEntire(line) != null) break
                 if (isListOpener(line)) break
-                if (line.trim() == "kai-ui") break
+                if (line.trim() == "katya-ui") break
                 if (MATH_DISPLAY_DOLLAR_FENCE_REGEX.matchEntire(line) != null) break
                 if (MATH_DISPLAY_BRACKET_OPEN_REGEX.matchEntire(line) != null) break
                 if (MATH_DISPLAY_INLINE_REGEX.matchEntire(line) != null) break

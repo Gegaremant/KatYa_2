@@ -793,7 +793,7 @@ class SettingsViewModel(
     private fun onToggleNotifications(enabled: Boolean) {
         // Listener access is granted via system Settings, not a runtime permission
         // dialog. Set the toggle, then if access is missing, deep-link the user out
-        // so they can enable Kai there. The toggle reflects the user's *intent*; the
+        // so they can enable Katya there. The toggle reflects the user's *intent*; the
         // listener still drops everything until access is granted.
         dataRepository.setNotificationsEnabled(enabled)
         _state.update {

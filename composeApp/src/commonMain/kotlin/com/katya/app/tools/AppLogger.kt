@@ -40,8 +40,9 @@ object AppLogger {
     }
 
     private fun addLog(entry: String) {
+        val truncatedEntry = if (entry.length > 2000) entry.take(2000) + "... [TRUNCATED]" else entry
         _logs.update { current ->
-            (current + entry).takeLast(1000) // Keep last 1000 lines
+            (current + truncatedEntry).takeLast(1000) // Keep last 1000 lines
         }
     }
 }

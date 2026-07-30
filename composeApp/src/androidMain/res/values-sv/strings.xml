@@ -1,6 +1,6 @@
 <resources>
     <string name="daemon_channel_name">Kai 9000 bakgrundstjänst</string>
-    <string name="daemon_channel_description">Håller Kai 9000 igång för att utföra schemalagda uppgifter</string>
+    <string name="daemon_channel_description">Håller Katya 9000 igång för att utföra schemalagda uppgifter</string>
     <string name="daemon_notification_text">Bakgrundstjänsten körs</string>
     <string name="download_channel_name">Modellnedladdningar</string>
     <string name="download_channel_description">Visar förlopp vid nedladdning av AI-modeller</string>

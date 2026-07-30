@@ -44,7 +44,7 @@ import com.katya.app.data.ServiceEntry
 import com.katya.app.data.SmsSyncState
 import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.KaiRangeSlider
-import com.katya.app.ui.components.KaiSlider
+import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.components.RefreshIconButton
 import com.katya.app.ui.components.SettingsListItem
 import com.katya.app.ui.handCursor
@@ -859,7 +859,7 @@ private fun PresetSlider(
             color = MaterialTheme.colorScheme.onBackground,
         )
     }
-    KaiSlider(
+    KatyaSlider(
         value = sliderValue,
         onValueChange = { sliderValue = it },
         onValueChangeFinished = {

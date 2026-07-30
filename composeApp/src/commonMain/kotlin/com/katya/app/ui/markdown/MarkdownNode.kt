@@ -1,7 +1,7 @@
 package com.katya.app.ui.markdown
 
 import androidx.compose.runtime.Immutable
-import com.katya.app.ui.dynamicui.KaiUiNode
+import com.katya.app.ui.dynamicui.KatyaUiNode
 import kotlinx.collections.immutable.ImmutableList
 
 @Immutable
@@ -55,10 +55,10 @@ data object HorizontalRule : BlockNode
 data class DisplayMath(val latex: String) : BlockNode
 
 @Immutable
-data class KaiUiBlock(val node: KaiUiNode, val rawJson: String) : BlockNode
+data class KatyaUiBlock(val node: KatyaUiNode, val rawJson: String) : BlockNode
 
 @Immutable
-data class KaiUiError(val rawJson: String) : BlockNode
+data class KatyaUiError(val rawJson: String) : BlockNode
 
 @Immutable
 sealed interface InlineNode

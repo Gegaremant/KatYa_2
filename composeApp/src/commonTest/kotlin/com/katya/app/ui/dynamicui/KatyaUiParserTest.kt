@@ -1,7 +1,7 @@
 package com.katya.app.ui.dynamicui
 
-import com.katya.app.ui.markdown.KaiUiBlock
-import com.katya.app.ui.markdown.KaiUiError
+import com.katya.app.ui.markdown.KatyaUiBlock
+import com.katya.app.ui.markdown.KatyaUiError
 import com.katya.app.ui.markdown.Paragraph
 import com.katya.app.ui.markdown.parseMarkdown
 import kotlin.test.Test
@@ -11,19 +11,19 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-class KaiUiParserTest {
+class KatyaUiParserTest {
 
-    private fun hasUiBlocks(message: String): Boolean = parseMarkdown(message).blocks.any { it is KaiUiBlock || it is KaiUiError }
+    private fun hasUiBlocks(message: String): Boolean = parseMarkdown(message).blocks.any { it is KatyaUiBlock || it is KatyaUiError }
 
-    private fun parseUi(json: String): KaiUiNode {
-        val result = KaiUiParser.parseUiBlockBody(json)
-        val ui = assertIs<KaiUiParser.UiBlockResult.Ui>(result)
+    private fun parseUi(json: String): KatyaUiNode {
+        val result = KatyaUiParser.parseUiBlockBody(json)
+        val ui = assertIs<KatyaUiParser.UiBlockResult.Ui>(result)
         return ui.node
     }
 
     @Test
-    fun `detects kai-ui blocks`() {
-        val message = "Hello\n```kai-ui\n{\"type\":\"text\",\"value\":\"Hi\"}\n```\nBye"
+    fun `detects katya-ui blocks`() {
+        val message = "Hello\n```katya-ui\n{\"type\":\"text\",\"value\":\"Hi\"}\n```\nBye"
         assertTrue(hasUiBlocks(message))
     }
 
@@ -35,14 +35,14 @@ class KaiUiParserTest {
 
     @Test
     fun `parses text node`() {
-        val message = "Before\n```kai-ui\n{\"type\":\"text\",\"value\":\"Hello\"}\n```\nAfter"
+        val message = "Before\n```katya-ui\n{\"type\":\"text\",\"value\":\"Hello\"}\n```\nAfter"
         val blocks = parseMarkdown(message).blocks
         assertEquals(3, blocks.size)
         assertIs<Paragraph>(blocks[0])
-        assertIs<KaiUiBlock>(blocks[1])
+        assertIs<KatyaUiBlock>(blocks[1])
         assertIs<Paragraph>(blocks[2])
 
-        val uiBlock = blocks[1] as KaiUiBlock
+        val uiBlock = blocks[1] as KatyaUiBlock
         val textNode = assertIs<TextNode>(uiBlock.node)
         assertEquals("Hello", textNode.value)
     }
@@ -75,21 +75,21 @@ class KaiUiParserTest {
 
     @Test
     fun `invalid json produces error segment`() {
-        val message = "```kai-ui\n{invalid json}\n```"
+        val message = "```katya-ui\n{invalid json}\n```"
         val blocks = parseMarkdown(message).blocks
         assertEquals(1, blocks.size)
-        assertIs<KaiUiError>(blocks[0])
+        assertIs<KatyaUiError>(blocks[0])
     }
 
     @Test
     fun `multiple ui blocks in one message`() {
-        val message = "First block:\n```kai-ui\n{\"type\":\"text\",\"value\":\"A\"}\n```\nMiddle text\n```kai-ui\n{\"type\":\"text\",\"value\":\"B\"}\n```\nEnd"
+        val message = "First block:\n```katya-ui\n{\"type\":\"text\",\"value\":\"A\"}\n```\nMiddle text\n```katya-ui\n{\"type\":\"text\",\"value\":\"B\"}\n```\nEnd"
         val blocks = parseMarkdown(message).blocks
         assertEquals(5, blocks.size)
         assertIs<Paragraph>(blocks[0])
-        assertIs<KaiUiBlock>(blocks[1])
+        assertIs<KatyaUiBlock>(blocks[1])
         assertIs<Paragraph>(blocks[2])
-        assertIs<KaiUiBlock>(blocks[3])
+        assertIs<KatyaUiBlock>(blocks[3])
         assertIs<Paragraph>(blocks[4])
     }
 
@@ -139,14 +139,14 @@ class KaiUiParserTest {
     }
 
     @Test
-    fun `parses kai-ui block when body and closing fence share line with newline before body`() {
+    fun `parses katya-ui block when body and closing fence share line with newline before body`() {
         // The markdown parser requires the opening fence to end the line; the body must start on
         // the next line. This is a well-formed CommonMark fenced block.
-        val message = "```kai-ui\n{\"type\":\"text\",\"value\":\"Hi\"}\n```"
+        val message = "```katya-ui\n{\"type\":\"text\",\"value\":\"Hi\"}\n```"
         assertTrue(hasUiBlocks(message))
         val blocks = parseMarkdown(message).blocks
         assertEquals(1, blocks.size)
-        val uiBlock = assertIs<KaiUiBlock>(blocks[0])
+        val uiBlock = assertIs<KatyaUiBlock>(blocks[0])
         assertIs<TextNode>(uiBlock.node)
     }
 
@@ -158,14 +158,14 @@ class KaiUiParserTest {
             {"type":"text","value":"2, 6, 12, 20, 30, ?","style":"title"}
             {"type":"column","children":[{"type":"button","label":"42","action":{"type":"callback","event":"answer","data":{"answer":"42"}},"variant":"filled"}]}
         """.trimIndent()
-        val message = "Here's a quiz:\n```kai-ui\n$block\n```\nGood luck!"
+        val message = "Here's a quiz:\n```katya-ui\n$block\n```\nGood luck!"
         val blocks = parseMarkdown(message).blocks
         assertEquals(3, blocks.size)
         assertIs<Paragraph>(blocks[0])
-        assertIs<KaiUiBlock>(blocks[1])
+        assertIs<KatyaUiBlock>(blocks[1])
         assertIs<Paragraph>(blocks[2])
 
-        val column = (blocks[1] as KaiUiBlock).node
+        val column = (blocks[1] as KatyaUiBlock).node
         assertIs<ColumnNode>(column)
         assertEquals(4, column.children.size)
         assertIs<TextNode>(column.children[0])
@@ -197,9 +197,9 @@ class KaiUiParserTest {
             {"type":"text","value":"2, 6, 12, 20, 30, ?","style":"title"}
             {"type":"column","children":[{"type":"button","label":"38","action":{"type":"callback","event":"answer_q1","data":{"answer":"38"}},"variant":"filled"},{"type":"button","label":"40","action":{"type":"callback","event":"answer_q1","data":{"answer":"40"}},"variant":"filled"},{"type":"button","label":"42","action":{"type":"callback","event":"answer_q1","data":{"answer":"42"}},"variant":"filled"},{"type":"button","label":"44","action":{"type":"callback","event":"answer_q1","data":{"answer":"44"}},"variant":"filled"}}]}
         """.trimIndent()
-        val message = "Sure! Let's see how sharp you are today.\n\n```kai-ui\n$block\n```\n\nTake your shot!"
+        val message = "Sure! Let's see how sharp you are today.\n\n```katya-ui\n$block\n```\n\nTake your shot!"
         val blocks = parseMarkdown(message).blocks
-        val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
+        val uiBlocks = blocks.filterIsInstance<KatyaUiBlock>()
         assertEquals(1, uiBlocks.size)
 
         val column = uiBlocks[0].node
@@ -242,9 +242,9 @@ class KaiUiParserTest {
     fun `single-line column with extra closing brace in children`() {
         // Real-world kimi-k2.5 output: single column with buttons, extra } before ]}
         val json = """{"type":"column","children":[{"type":"button","label":"All roses fade quickly","action":{"type":"callback","event":"answer_q2","data":{"answer":"all"}},"variant":"filled"},{"type":"button","label":"Some roses fade quickly","action":{"type":"callback","event":"answer_q2","data":{"answer":"some"}},"variant":"filled"},{"type":"button","label":"No roses fade quickly","action":{"type":"callback","event":"answer_q2","data":{"answer":"none"}},"variant":"filled"},{"type":"button","label":"None of these follow","action":{"type":"callback","event":"answer_q2","data":{"answer":"none_follow"}},"variant":"filled"}}]}"""
-        val message = "Which statement is necessarily true?\n\n```kai-ui\n$json\n```"
+        val message = "Which statement is necessarily true?\n\n```katya-ui\n$json\n```"
         val blocks = parseMarkdown(message).blocks
-        val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
+        val uiBlocks = blocks.filterIsInstance<KatyaUiBlock>()
         assertEquals(1, uiBlocks.size)
 
         val column = uiBlocks[0].node
@@ -300,12 +300,12 @@ class KaiUiParserTest {
     }
 
     @Test
-    fun `parses complex nested kai-ui from kimi model`() {
+    fun `parses complex nested katya-ui from kimi model`() {
         val json = """{"type":"column","children":[{"type":"text","value":"Wilderness Survival","style":"headline","bold":true},{"type":"text","value":"You wake up in a cold pine forest.","style":"body"},{"type":"divider"},{"type":"text","value":"Status","style":"title"},{"type":"row","children":[{"type":"card","children":[{"type":"text","value":"Health: 80/100","style":"body"}]},{"type":"card","children":[{"type":"text","value":"Hunger: 30/100","style":"body"}]},{"type":"card","children":[{"type":"text","value":"Energy: 70/100","style":"body"}]}]},{"type":"text","value":"What do you want to do?","style":"title"},{"type":"column","children":[{"type":"button","label":"Follow river","action":{"type":"callback","event":"survival_choice","data":{"choice":"river"}},"variant":"filled"},{"type":"button","label":"Head to mountains","action":{"type":"callback","event":"survival_choice","data":{"choice":"mountains"}},"variant":"filled"},{"type":"button","label":"Stay & build camp here","action":{"type":"callback","event":"survival_choice","data":{"choice":"camp"}},"variant":"filled"}]}]}"""
-        val message = "```kai-ui\n$json\n```\n\nType \"stop game\" anytime to quit."
+        val message = "```katya-ui\n$json\n```\n\nType \"stop game\" anytime to quit."
         assertTrue(hasUiBlocks(message))
         val blocks = parseMarkdown(message).blocks
-        val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
+        val uiBlocks = blocks.filterIsInstance<KatyaUiBlock>()
         assertEquals(1, uiBlocks.size)
         val column = uiBlocks[0].node
         assertIs<ColumnNode>(column)
@@ -378,7 +378,7 @@ class KaiUiParserTest {
 
     @Test
     fun `migrates legacy multiSelect to selection`() {
-        // Legacy kai-ui blocks in historical chat messages used multiSelect:Boolean.
+        // Legacy katya-ui blocks in historical chat messages used multiSelect:Boolean.
         val multiJson = """{"type":"chip_group","id":"tags","chips":[{"label":"A"}],"multiSelect":true}"""
         val multiNode = assertIs<ChipGroupNode>(parseUi(multiJson))
         assertEquals("multi", multiNode.selection)
@@ -426,14 +426,14 @@ class KaiUiParserTest {
 
     @Test
     fun `unknown top-level node type produces error block`() {
-        // Well-formed JSON but the type isn't one we render — shows up as a KaiUiError so the
+        // Well-formed JSON but the type isn't one we render — shows up as a KatyaUiError so the
         // renderer can at least fall back to displaying the raw JSON instead of silently
         // swallowing the assistant's response.
         val json = """{"type":"bottom_bar","buttons":[{"label":"Home","icon":"home"}]}"""
-        val message = "```kai-ui\n$json\n```"
+        val message = "```katya-ui\n$json\n```"
         val blocks = parseMarkdown(message).blocks
         assertEquals(1, blocks.size)
-        assertIs<KaiUiError>(blocks[0])
+        assertIs<KatyaUiError>(blocks[0])
     }
 
     @Test
@@ -633,11 +633,11 @@ class KaiUiParserTest {
     }
 
     @Test
-    fun `detects kai-ui as plain text followed by json code block`() {
-        val message = "kai-ui\n```json\n{\"type\":\"text\",\"value\":\"Hello\"}\n```"
+    fun `detects katya-ui as plain text followed by json code block`() {
+        val message = "katya-ui\n```json\n{\"type\":\"text\",\"value\":\"Hello\"}\n```"
         assertTrue(hasUiBlocks(message))
         val blocks = parseMarkdown(message).blocks
-        val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
+        val uiBlocks = blocks.filterIsInstance<KatyaUiBlock>()
         assertEquals(1, uiBlocks.size)
         val node = uiBlocks[0].node
         assertIs<TextNode>(node)
@@ -645,11 +645,11 @@ class KaiUiParserTest {
     }
 
     @Test
-    fun `detects kai-ui as plain text followed by untagged code block`() {
-        val message = "kai-ui\n```\n{\"type\":\"text\",\"value\":\"Hello\"}\n```"
+    fun `detects katya-ui as plain text followed by untagged code block`() {
+        val message = "katya-ui\n```\n{\"type\":\"text\",\"value\":\"Hello\"}\n```"
         assertTrue(hasUiBlocks(message))
         val blocks = parseMarkdown(message).blocks
-        val uiBlocks = blocks.filterIsInstance<KaiUiBlock>()
+        val uiBlocks = blocks.filterIsInstance<KatyaUiBlock>()
         assertEquals(1, uiBlocks.size)
     }
 

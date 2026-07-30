@@ -26,7 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.katya.app.ui.dynamicui.FrozenSubmission
-import com.katya.app.ui.dynamicui.KaiUiRenderer
+import com.katya.app.ui.dynamicui.KatyaUiRenderer
 import com.katya.app.ui.markdown.math.MathFormula
 import kotlinx.collections.immutable.persistentListOf
 
@@ -34,7 +34,7 @@ import kotlinx.collections.immutable.persistentListOf
  * Render a parsed [MarkdownDocument] as a Compose layout. Each block becomes one child of the
  * outer [Column]; inline content is rendered as [androidx.compose.ui.text.AnnotatedString].
  *
- * Kai-UI blocks dispatch to [KaiUiRenderer]; pass `isInteractive = false` to render them as
+ * Kai-UI blocks dispatch to [KatyaUiRenderer]; pass `isInteractive = false` to render them as
  * read-only (completed historical messages keep their layout but disable buttons/inputs).
  */
 @Composable
@@ -104,7 +104,7 @@ private fun BlockRenderer(
 
         is DisplayMath -> DisplayMathBlock(block)
 
-        is KaiUiBlock -> KaiUiRenderer(
+        is KatyaUiBlock -> KatyaUiRenderer(
             node = block.node,
             isInteractive = isInteractive,
             onCallback = onUiCallback,
@@ -112,7 +112,7 @@ private fun BlockRenderer(
             modifier = Modifier.padding(vertical = 8.dp),
         )
 
-        is KaiUiError -> CodeFenceBlock(
+        is KatyaUiError -> CodeFenceBlock(
             language = "json",
             code = block.rawJson,
             modifier = Modifier.padding(vertical = 4.dp),

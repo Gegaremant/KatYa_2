@@ -150,7 +150,7 @@ object EmailTools {
     fun checkEmailTool(emailStore: EmailStore) = object : Tool {
         override val schema = ToolSchema(
             name = "check_email",
-            description = "List emails that have arrived since the last time Kai surfaced new mail to the user. Kai tracks delivery internally and ignores the provider's read flag, so an email shows up here at most once whether it was first seen via heartbeat or a previous check_email. To find an email that's already been surfaced (or any older message), use search_email with `from` / `subject` / `since`. If multiple accounts are connected, checks all of them.",
+            description = "List emails that have arrived since the last time Katya surfaced new mail to the user. Katya tracks delivery internally and ignores the provider's read flag, so an email shows up here at most once whether it was first seen via heartbeat or a previous check_email. To find an email that's already been surfaced (or any older message), use search_email with `from` / `subject` / `since`. If multiple accounts are connected, checks all of them.",
             parameters = mapOf(
                 "account_id" to ParameterSchema(type = "string", description = "Specific account ID to check (checks all if omitted)", required = false),
             ),
@@ -228,7 +228,7 @@ object EmailTools {
                 if (allEmails.isEmpty()) {
                     put(
                         "hint",
-                        "No new emails since the last delivery. To find a message Kai has already surfaced (or any older email), call search_email with the account_id from `accounts` and a `from` / `subject` / `since` filter.",
+                        "No new emails since the last delivery. To find a message Katya has already surfaced (or any older email), call search_email with the account_id from `accounts` and a `from` / `subject` / `since` filter.",
                     )
                 }
             }

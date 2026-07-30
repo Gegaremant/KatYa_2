@@ -37,7 +37,7 @@ import kotlin.time.ExperimentalTime
  * heartbeat snapshot) and the rolling store (for tool lookups).
  */
 @OptIn(ExperimentalTime::class)
-class KaiNotificationListenerService : NotificationListenerService() {
+class KatyaNotificationListenerService : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val store: NotificationStore by inject(NotificationStore::class.java)

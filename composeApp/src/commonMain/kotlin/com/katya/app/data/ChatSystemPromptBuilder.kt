@@ -23,7 +23,7 @@ enum class SystemPromptVariant {
     /**
      * Trimmed prompt for on-device LiteRT plain chat — only sections a 2-4B Gemma can
      * coherently attend to. Soul + basic memory guidance + runtime `## Context`. Drops
-     * memory category dumps, scheduled tasks, Structured Learning guidance, and kai-ui
+     * memory category dumps, scheduled tasks, Structured Learning guidance, and katya-ui
      * modes (the latter is also hidden from the UI for on-device services — see
      * `ChatScreen.kt`).
      */
@@ -43,7 +43,7 @@ internal data class ChatPromptRuntimeContext(
     val providerName: String,
 )
 
-/** Which kai-ui section, if any, to render. */
+/** Which katya-ui section, if any, to render. */
 internal enum class ChatPromptUiMode { NONE, DYNAMIC_UI, INTERACTIVE_UI }
 
 /**
@@ -73,7 +73,7 @@ private const val LOCAL_MEMORY_BUDGET_CHARS = 2_000
 /**
  * One-line honesty guard composed into every chat variant. Targets the two observed
  * failure modes: (1) the model inventing tool outputs / file contents instead of
- * admitting a tool returned nothing readable, and (2) kai-ui buttons whose labels
+ * admitting a tool returned nothing readable, and (2) katya-ui buttons whose labels
  * imply operations the callback can't actually perform (downloads, exports, etc.).
  * No header — a single sentence doesn't earn a `##` section.
  */
@@ -409,26 +409,26 @@ private fun StringBuilder.appendContextSection(runtime: ChatPromptRuntimeContext
 
 private fun StringBuilder.appendDynamicUiSection() {
     append("\n## Dynamic UI\n")
-    append("You can enhance your chat responses with interactive UI elements using kai-ui blocks. ")
+    append("You can enhance your chat responses with interactive UI elements using katya-ui blocks. ")
     append("Proactively use them whenever you need input from the user — don't just ask in plain text if a form, selector, or buttons would be more natural. ")
     append("For example, if the user asks you to help plan a trip, present destination options as buttons; if you need preferences, show a form; if presenting choices, use interactive cards. ")
-    append("Use kai-ui whenever collecting data, offering choices, presenting structured information, or guiding multi-step workflows. ")
-    append("You can mix kai-ui blocks with regular markdown text naturally — use markdown for explanations and kai-ui for interactive elements.\n\n")
-    append(KAI_UI_COMPONENT_CATALOG)
+    append("Use katya-ui whenever collecting data, offering choices, presenting structured information, or guiding multi-step workflows. ")
+    append("You can mix katya-ui blocks with regular markdown text naturally — use markdown for explanations and katya-ui for interactive elements.\n\n")
+    append(KATYA_UI_COMPONENT_CATALOG)
     append("Layout tips:\n")
     append("- Put buttons INSIDE cards, directly below related content — never group all buttons separately at the bottom\n")
     append("- Use rows for groups of buttons or chips — rows wrap automatically, so any number of items is fine\n")
     append("- Keep button labels short (1-3 words)\n\n")
-    append("Example:\n```kai-ui\n{\"type\":\"column\",\"children\":[{\"type\":\"text\",\"value\":\"Your name?\",\"style\":\"title\"},{\"type\":\"text_input\",\"id\":\"name\",\"placeholder\":\"Enter name\"},{\"type\":\"button\",\"label\":\"Submit\",\"action\":{\"type\":\"callback\",\"event\":\"submit\",\"collectFrom\":[\"name\"]}}]}\n```\n")
+    append("Example:\n```katya-ui\n{\"type\":\"column\",\"children\":[{\"type\":\"text\",\"value\":\"Your name?\",\"style\":\"title\"},{\"type\":\"text_input\",\"id\":\"name\",\"placeholder\":\"Enter name\"},{\"type\":\"button\",\"label\":\"Submit\",\"action\":{\"type\":\"callback\",\"event\":\"submit\",\"collectFrom\":[\"name\"]}}]}\n```\n")
 }
 
 private fun StringBuilder.appendInteractiveUiSection() {
     append("\n## Interactive UI Mode (ACTIVE)\n")
-    append("You are in full-screen interactive UI mode. The user ONLY sees rendered kai-ui components — they cannot see markdown, plain text, or anything outside a kai-ui fence.\n")
-    append("Your ENTIRE response must be a single ```kai-ui code fence. No text before it, no text after it, no markdown. If you write anything outside the fence, the user will NOT see it.\n\n")
-    append(KAI_UI_COMPONENT_CATALOG)
+    append("You are in full-screen interactive UI mode. The user ONLY sees rendered katya-ui components — they cannot see markdown, plain text, or anything outside a katya-ui fence.\n")
+    append("Your ENTIRE response must be a single ```katya-ui code fence. No text before it, no text after it, no markdown. If you write anything outside the fence, the user will NOT see it.\n\n")
+    append(KATYA_UI_COMPONENT_CATALOG)
     append("Rules:\n")
-    append("- Each response is a COMPLETE screen layout. Include all content and actions in one kai-ui block.\n")
+    append("- Each response is a COMPLETE screen layout. Include all content and actions in one katya-ui block.\n")
     append("- Always include clear primary action buttons so the user can proceed.\n")
     append("- Every screen MUST have at least one interactive element with a callback action (button, countdown with expiry action, etc.). A screen without any callback is a dead end the user cannot proceed from.\n")
     append("- Use headline text for screen titles. Structure screens with cards for grouping related content.\n")
@@ -447,17 +447,17 @@ private fun StringBuilder.appendInteractiveUiSection() {
     append("- Only use the exact components and properties defined above. Do not invent attributes, component types, or behaviors that are not listed. If a component doesn't support a feature, do not pretend it does.\n")
     append("- Start with simple, clean layouts. A well-structured screen with a few cards and clear actions is better than a complex layout that pushes the component set beyond its capabilities.\n")
     append("- When unsure whether something will work, use a simpler approach. A working simple screen is always better than a broken ambitious one.\n\n")
-    append("Example:\n```kai-ui\n{\"type\":\"column\",\"children\":[{\"type\":\"text\",\"value\":\"Welcome\",\"style\":\"headline\"},{\"type\":\"card\",\"children\":[{\"type\":\"text\",\"value\":\"What would you like to do?\",\"style\":\"title\"},{\"type\":\"button\",\"label\":\"Get Started\",\"action\":{\"type\":\"callback\",\"event\":\"get_started\"}}]}]}\n```\n")
+    append("Example:\n```katya-ui\n{\"type\":\"column\",\"children\":[{\"type\":\"text\",\"value\":\"Welcome\",\"style\":\"headline\"},{\"type\":\"card\",\"children\":[{\"type\":\"text\",\"value\":\"What would you like to do?\",\"style\":\"title\"},{\"type\":\"button\",\"label\":\"Get Started\",\"action\":{\"type\":\"callback\",\"event\":\"get_started\"}}]}]}\n```\n")
 }
 
 /**
- * Pre-computed kai-ui component catalog text — shared between [appendDynamicUiSection]
+ * Pre-computed katya-ui component catalog text — shared between [appendDynamicUiSection]
  * and [appendInteractiveUiSection]. Pre-building the ~3KB of static text once (instead
  * of re-running ~30 `append` calls per message) is the main reason this is a top-level
  * val rather than a helper function.
  */
-private val KAI_UI_COMPONENT_CATALOG: String = buildString {
-    append("Format: wrap a JSON object in ```kai-ui fences.\n\n")
+private val KATYA_UI_COMPONENT_CATALOG: String = buildString {
+    append("Format: wrap a JSON object in ```katya-ui fences.\n\n")
     append("Components: column, row, card, box, text, button, text_input, checkbox, switch, select, radio_group, slider, chip_group, table, list, divider, image, icon, code, progress, countdown, alert, tabs, accordion, quote, badge, stat, avatar.\n")
     append("- text: {\"type\":\"text\",\"value\":\"...\",\"style\":\"headline|title|body|caption\",\"bold\":true,\"color\":\"primary|secondary|error\"} — do NOT use markdown formatting (**, *, #, etc.) in text values; use the bold/italic/style properties instead\n")
     append("- button: {\"type\":\"button\",\"label\":\"...\",\"action\":{...},\"variant\":\"filled|outlined|text|tonal\"}\n")

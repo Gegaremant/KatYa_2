@@ -99,11 +99,6 @@ fun WakeWordToggle(
                         onChangeWakeWordModelLang("en")
                         expanded = false
                     })
-                    DropdownMenuItem(text = { Text("Изменить на портале") }, onClick = {
-                        onChangeWakeWordModelLang("portal")
-                        expanded = false
-                        uriHandler.openUri("https://alphacephei.com/vosk/models")
-                    })
                 }
             }
 

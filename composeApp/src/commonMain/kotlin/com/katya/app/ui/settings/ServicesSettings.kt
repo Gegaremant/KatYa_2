@@ -74,7 +74,7 @@ import com.katya.app.inference.calculateDevicePerformance
 import com.katya.app.inference.estimateGpuMemoryMb
 import com.katya.app.network.dtos.SponsorsResponseDto
 import com.katya.app.ui.KaiClearableTextField
-import com.katya.app.ui.components.KaiSlider
+import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.components.VerticalScrollbarForScroll
 import com.katya.app.ui.handCursor
 import com.katya.app.ui.icons.DragIndicator
@@ -795,7 +795,7 @@ private fun LiteRTSettings(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                KaiSlider(
+                KatyaSlider(
                     value = contextSliderValue,
                     onValueChange = { contextSliderValue = it },
                     onValueChangeFinished = {

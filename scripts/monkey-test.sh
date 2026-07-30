@@ -6,7 +6,7 @@ ACTIVITY="com.katya.app.MainActivity"
 EVENT_COUNT="${1:-10000}"
 THROTTLE="${2:-50}"
 
-echo "=== Kai Monkey Test ==="
+echo "=== Katya Monkey Test ==="
 echo "Events: $EVENT_COUNT | Throttle: ${THROTTLE}ms"
 echo ""
 

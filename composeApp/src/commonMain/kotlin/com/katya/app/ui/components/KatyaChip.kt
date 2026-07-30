@@ -23,7 +23,7 @@ import com.katya.app.ui.handCursor
  * minimum-interactive-size padding from Material's FilterChip.
  */
 @Composable
-fun KaiChip(
+fun KatyaChip(
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     onClick: (() -> Unit)? = null,

@@ -55,7 +55,7 @@ data class Conversation(
 }
 
 /**
- * Snapshot of a kai-ui form the user submitted. Attached to the resulting User message so
+ * Snapshot of a katya-ui form the user submitted. Attached to the resulting User message so
  * the bubble renders as a frozen form (with the values the user picked) instead of the
  * cryptic "Responded with: ..." text. `sourceContent` holds the assistant message body that
  * originated the form — it's re-parsed at render time.

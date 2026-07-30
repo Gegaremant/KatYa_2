@@ -37,7 +37,7 @@ fun AppLogsScreen() {
             }
         }
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(logs) { log ->
+            items(logs.reversed()) { log ->
                 Text(
                     text = log,
                     style = MaterialTheme.typography.bodySmall,

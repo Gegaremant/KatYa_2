@@ -131,7 +131,7 @@ import com.katya.app.network.tools.ToolInfo
 import com.katya.app.saveFileToDevice
 import com.katya.app.ui.KaiClearableTextField
 import com.katya.app.ui.KaiOutlinedTextField
-import com.katya.app.ui.components.KaiSlider
+import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.components.SettingsListItem
 import com.katya.app.ui.components.VerticalScrollbarForScroll
 import com.katya.app.ui.handCursor

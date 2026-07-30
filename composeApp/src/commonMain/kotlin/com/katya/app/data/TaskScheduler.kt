@@ -173,9 +173,9 @@ class TaskScheduler(
                 // Push-notify only when the user won't see the in-app banner.
                 // Tapping the notification deep-links into the heartbeat
                 // conversation via `EXTRA_OPEN_HEARTBEAT` (Android actual).
-                // Strip markdown + kai-ui fences before sending to the tray —
+                // Strip markdown + katya-ui fences before sending to the tray —
                 // the notification surface can't render them and raw fence
-                // text (```kai-ui {...}```) is unreadable.
+                // text (```katya-ui {...}```) is unreadable.
                 if (!appInForeground) {
                     val preview = truncateForNotification(
                         parseMarkdown(response).toSpeakableText(),

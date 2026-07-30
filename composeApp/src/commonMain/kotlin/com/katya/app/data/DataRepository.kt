@@ -43,7 +43,7 @@ interface DataRepository {
 
     suspend fun ask(
         question: String?,
-        files: List<PlatformFile>,
+        files: List<com.katya.app.data.KatyaFile>,
         uiSubmission: UiSubmission? = null,
         activeSkillId: String? = null,
     )

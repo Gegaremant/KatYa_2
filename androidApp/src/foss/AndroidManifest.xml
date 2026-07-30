@@ -20,7 +20,7 @@
     -->
     <application>
         <service
-            android:name="com.katya.app.notifications.KaiNotificationListenerService"
+            android:name="com.katya.app.notifications.KatyaNotificationListenerService"
             android:exported="true"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">

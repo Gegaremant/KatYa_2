@@ -80,7 +80,7 @@ data class ChatUiState(
     val supportedFileExtensions: ImmutableList<String> = persistentListOf(),
     val isSpeaking: Boolean = false,
     val isSpeakingContentId: String = "",
-    val files: ImmutableList<PlatformFile> = persistentListOf(),
+    val files: ImmutableList<com.katya.app.data.KatyaFile> = persistentListOf(),
     val availableServices: ImmutableList<ServiceEntry> = persistentListOf(),
     val savedConversations: ImmutableList<ConversationSummary> = persistentListOf(),
     val currentConversationId: String? = null,
@@ -144,7 +144,7 @@ fun History.toGroqMessageDto(
         val split = attachments.splitForMessage()
         // Images become image_url parts; PDFs are dropped (OpenAI-compatible has no native PDF
         // support, matching the prior behavior). Text files get merged into the text prefix.
-        // When the target service can't accept content-parts (e.g. the kai9000 proxy whose
+        // When the target service can't accept content-parts (e.g. the katya9000 proxy whose
         // Groq fallback uses text-only models), drop images and emit a plain string.
         val imageAttachments = if (supportsImages) {
             split.binaries.filter { it.mimeType.startsWith("image/") }

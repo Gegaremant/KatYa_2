@@ -26,7 +26,7 @@ data class SkillMarketplace(
     val skills: List<String>? = null,
     /**
      * Skill folder names to hide from this repo's listing — used to drop skills
-     * that don't work well on Kai while still surfacing the rest of the repo.
+     * that don't work well on Katya while still surfacing the rest of the repo.
      * Applied after the allowlist/manifest/folder-scan selection.
      */
     val exclude: Set<String> = emptySet(),
