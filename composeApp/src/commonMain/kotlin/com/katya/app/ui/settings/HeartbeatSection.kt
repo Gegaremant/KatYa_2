@@ -161,8 +161,8 @@ internal fun HeartbeatSection(
 
             PresetSlider(
                 currentValue = heartbeatIntervalMinutes,
-                presets = persistentListOf(5, 10, 15, 30, 45, 60, 120, 240),
-                fallbackIndex = 2,
+                presets = persistentListOf(1, 2, 3, 5, 10, 15, 30, 45, 60, 120, 240),
+                fallbackIndex = 3,
                 label = { stringResource(Res.string.settings_heartbeat_interval) },
                 formatValue = { minutes ->
                     if (minutes < 60) "${minutes}m" else "${minutes / 60}h"
@@ -397,11 +397,6 @@ internal fun HeartbeatSection(
                     text = stringResource(Res.string.settings_heartbeat_recent),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                )
-                RefreshIconButton(
-                    onClick = onRefresh,
-                    isRefreshing = isRefreshing,
-                    contentDescription = stringResource(Res.string.settings_heartbeat_refresh),
                 )
             }
             if (heartbeatLog.isNotEmpty()) {
