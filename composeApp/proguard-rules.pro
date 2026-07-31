@@ -206,3 +206,6 @@
 -dontwarn com.google.gson.**
 -dontwarn sun.misc.Unsafe
 -keep class com.jcraft.jsch.** { *; } 
+-dontwarn org.apache.logging.log4j.**  
+-dontwarn org.ietf.jgss.**  
+-dontwarn org.newsclub.net.unix.** 

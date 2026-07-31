@@ -47,6 +47,8 @@ import com.katya.app.tools.NotificationTools
 import com.katya.app.tools.OpenFileTool
 import com.katya.app.tools.ProcessManagerTool
 import com.katya.app.tools.RootCommandTool
+import com.katya.app.tools.NotesTool
+import com.katya.app.data.NotesStore
 import com.katya.app.tools.SchedulingTools
 import com.katya.app.tools.ShellCommandTool
 import com.katya.app.tools.SmsTools
@@ -455,6 +457,10 @@ actual fun getAvailableTools(): List<Tool> {
                 add(SshConfigureHostTool)
             }
         }
+        
+        val notesStore: com.katya.app.data.NotesStore by org.koin.java.KoinJavaComponent.inject(com.katya.app.data.NotesStore::class.java)
+        add(com.katya.app.tools.NotesTool(notesStore))
+        add(com.katya.app.tools.LocalNoteTool)
 
         // Host Shell Tool (bypassing sandbox)
         add(AndroidHostShellTool)
@@ -642,4 +648,33 @@ actual suspend fun extractBackupZip(zipBytes: ByteArray): String? {
     }
     zis.close()
     return jsonConfig
+}
+
+actual fun createLocalNote(title: String, content: String): String {
+    try {
+        val context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+        val intent = android.content.Intent("com.google.android.gms.actions.CREATE_NOTE").apply {
+            putExtra(android.content.Intent.EXTRA_TITLE, title)
+            putExtra(android.content.Intent.EXTRA_TEXT, content)
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+            return "Note creation intent sent to default notes app."
+        }
+        // Fallback to SEND
+        val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_SUBJECT, title)
+            putExtra(android.content.Intent.EXTRA_TEXT, content)
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val chooser = android.content.Intent.createChooser(fallbackIntent, "Create Note").apply { 
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) 
+        }
+        context.startActivity(chooser)
+        return "Share intent sent as fallback (please select notes app)."
+    } catch (e: Exception) {
+        return "Error: ${e.message}"
+    }
 }

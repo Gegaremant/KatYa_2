@@ -9,6 +9,7 @@ import com.katya.app.data.MemoryStore
 import com.katya.app.data.createConversationSqlDriver
 import com.katya.app.db.KatyaDatabase
 import com.katya.app.data.NotificationStore
+import com.katya.app.data.NotesStore
 import com.katya.app.data.RemoteDataRepository
 import com.katya.app.data.SmsDraftStore
 import com.katya.app.data.SmsStore
@@ -100,9 +101,8 @@ val appModule = module {
     single<SmsDraftStore> {
         SmsDraftStore(get())
     }
-    single<NotificationStore> {
-        NotificationStore(get())
-    }
+    single<NotificationStore> { NotificationStore(get()) }
+    single<NotesStore> { NotesStore(get()) }
     single<SplinterlandsStore> {
         SplinterlandsStore(get())
     }
