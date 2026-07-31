@@ -161,6 +161,18 @@ fun ServersContent(
                 enabled = !tunnelState.isRunning,
             )
         }
+        
+        var autoBackupDir by remember { mutableStateOf(appSettings.getAutoBackupDirectory()) }
+        OutlinedTextField(
+            value = autoBackupDir,
+            onValueChange = { 
+                autoBackupDir = it
+                appSettings.setAutoBackupDirectory(it) 
+            },
+            label = { Text("Папка авто-бэкапа (оставьте пустым для отключения)") },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !tunnelState.isRunning,
+        )
         Spacer(Modifier.height(16.dp))
 
         Button(onClick = {

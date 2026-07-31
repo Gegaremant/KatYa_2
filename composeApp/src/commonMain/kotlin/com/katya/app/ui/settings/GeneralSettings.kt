@@ -1,4 +1,4 @@
-package com.katya.app.ui.settings
+﻿package com.katya.app.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,6 +18,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import org.jetbrains.compose.resources.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -238,8 +244,8 @@ private fun AgentVisibilityToggle(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
-            title = "Видимость работы",
-            description = "Показывать все внутренние операции и использование инструментов",
+            title = "Р вЂ™Р С‘Р Т‘Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂ№",
+            description = "Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°РЎвЂљРЎРЉ Р Р†РЎРѓР Вµ Р Р†Р Р…РЎС“РЎвЂљРЎР‚Р ВµР Р…Р Р…Р С‘Р Вµ Р С•Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘Р С‘ Р С‘ Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°Р Р…Р С‘Р Вµ Р С‘Р Р…РЎРѓРЎвЂљРЎР‚РЎС“Р СР ВµР Р…РЎвЂљР С•Р Р†",
             checked = isAgentVisibilityEnabled,
             onCheckedChange = onToggleAgentVisibility,
         )
@@ -256,6 +262,7 @@ private fun VoiceResponseToggle(
     var expanded by remember { mutableStateOf(false) }
     var selectedVoice by remember { mutableStateOf(textToSpeech?.currentVoice?.name) }
     val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    val coroutineScope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
@@ -266,34 +273,21 @@ private fun VoiceResponseToggle(
         )
         // Removed system TTS and RHVoice buttons to declutter UI as requested by user
 
-        if (textToSpeech != null && textToSpeech.voices.toList().isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                KaiOutlinedTextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = selectedVoice ?: "По умолчанию",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Голос") },
-                    trailingIcon = {
-                        Icon(
-                            modifier = Modifier.handCursor(),
-                            imageVector = vectorResource(Res.drawable.ic_arrow_drop_down),
-                            contentDescription = null,
-        AnimatedVisibility(
+        androidx.compose.animation.AnimatedVisibility(
             visible = isVoiceResponseEnabled,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut(),
+            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
         ) {
             Column {
                 if (textToSpeech != null && textToSpeech.voices.toList().isNotEmpty()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Голос (нажмите для прослушивания)",
+                        text = "Р вЂњР С•Р В»Р С•РЎРѓ (Р Р…Р В°Р В¶Р СР С‘РЎвЂљР Вµ Р Т‘Р В»РЎРЏ Р С—РЎР‚Р С•РЎРѓР В»РЎС“РЎв‚¬Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ)",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                     )
-                    OutlinedCard(
+                    androidx.compose.material3.OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -305,15 +299,15 @@ private fun VoiceResponseToggle(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = selectedVoice?.replace("ru-ru-x-", "Русский ")
-                                    ?.replace("en-us-x-", "Английский ") ?: "По умолчанию",
+                                text = selectedVoice?.replace("ru-ru-x-", "Р В РЎС“РЎРѓРЎРѓР С”Р С‘Р в„– ")
+                                    ?.replace("en-us-x-", "Р С’Р Р…Р С–Р В»Р С‘Р в„–РЎРѓР С”Р С‘Р в„– ") ?: "Р СџР С• РЎС“Р СР С•Р В»РЎвЂЎР В°Р Р…Р С‘РЎР‹",
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Icon(
                                 painter = painterResource(Res.drawable.ic_arrow_drop_down),
-                                contentDescription = "Выбрать голос",
+                                contentDescription = "Р вЂ™РЎвЂ№Р В±РЎР‚Р В°РЎвЂљРЎРЉ Р С–Р С•Р В»Р С•РЎРѓ",
                                 tint = MaterialTheme.colorScheme.onSurface,
                             )
                         }
@@ -329,8 +323,8 @@ private fun VoiceResponseToggle(
                             DropdownMenuItem(
                                 text = {
                                     Text(
-                                        voice.name.replace("ru-ru-x-", "Русский ")
-                                            .replace("en-us-x-", "Английский "),
+                                        voice.name.replace("ru-ru-x-", "Р В РЎС“РЎРѓРЎРѓР С”Р С‘Р в„– ")
+                                            .replace("en-us-x-", "Р С’Р Р…Р С–Р В»Р С‘Р в„–РЎРѓР С”Р С‘Р в„– "),
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                 },
@@ -340,7 +334,7 @@ private fun VoiceResponseToggle(
                                     selectedVoice = voice.name
                                     coroutineScope.launch {
                                         textToSpeech.stop()
-                                        textToSpeech.say(text = "Привет, меня зовут Катя. Приятно познакомиться, я буду твоим личным ассистентом и подругой, и говорить таким голосом.")
+                                        textToSpeech.say(text = "Р СџРЎР‚Р С‘Р Р†Р ВµРЎвЂљ, Р СР ВµР Р…РЎРЏ Р В·Р С•Р Р†РЎС“РЎвЂљ Р С™Р В°РЎвЂљРЎРЏ. Р СџРЎР‚Р С‘РЎРЏРЎвЂљР Р…Р С• Р С—Р С•Р В·Р Р…Р В°Р С”Р С•Р СР С‘РЎвЂљРЎРЉРЎРѓРЎРЏ, РЎРЏ Р В±РЎС“Р Т‘РЎС“ РЎвЂљР Р†Р С•Р С‘Р С Р В»Р С‘РЎвЂЎР Р…РЎвЂ№Р С Р В°РЎРѓРЎРѓР С‘РЎРѓРЎвЂљР ВµР Р…РЎвЂљР С•Р С Р С‘ Р С—Р С•Р Т‘РЎР‚РЎС“Р С–Р С•Р в„–, Р С‘ Р С–Р С•Р Р†Р С•РЎР‚Р С‘РЎвЂљРЎРЉ РЎвЂљР В°Р С”Р С‘Р С Р С–Р С•Р В»Р С•РЎРѓР С•Р С.")
                                     }
                                 },
                                 modifier = Modifier
@@ -494,9 +488,9 @@ private fun UiScaleSection(
 }
 
 /**
- * Раздел для управления быстрыми действиями.
- * Позволяет добавлять, редактировать и удалять кнопки с промптами, которые
- * будут отображаться над полем ввода чата.
+ * Р В Р В°Р В·Р Т‘Р ВµР В» Р Т‘Р В»РЎРЏ РЎС“Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘РЎРЏ Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚РЎвЂ№Р СР С‘ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏР СР С‘.
+ * Р СџР С•Р В·Р Р†Р С•Р В»РЎРЏР ВµРЎвЂљ Р Т‘Р С•Р В±Р В°Р Р†Р В»РЎРЏРЎвЂљРЎРЉ, РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ Р С‘ РЎС“Р Т‘Р В°Р В»РЎРЏРЎвЂљРЎРЉ Р С”Р Р…Р С•Р С—Р С”Р С‘ РЎРѓ Р С—РЎР‚Р С•Р СР С—РЎвЂљР В°Р СР С‘, Р С”Р С•РЎвЂљР С•РЎР‚РЎвЂ№Р Вµ
+ * Р В±РЎС“Р Т‘РЎС“РЎвЂљ Р С•РЎвЂљР С•Р В±РЎР‚Р В°Р В¶Р В°РЎвЂљРЎРЉРЎРѓРЎРЏ Р Р…Р В°Р Т‘ Р С—Р С•Р В»Р ВµР С Р Р†Р Р†Р С•Р Т‘Р В° РЎвЂЎР В°РЎвЂљР В°.
  */
 @Composable
 private fun QuickActionsSection(
@@ -515,12 +509,12 @@ private fun QuickActionsSection(
         ) {
             Column(modifier = Modifier.weight(1f).padding(16.dp)) {
                 Text(
-                    text = "Быстрые действия",
+                    text = "Р вЂРЎвЂ№РЎРѓРЎвЂљРЎР‚РЎвЂ№Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏ",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Управление кнопками быстрых действий, отображаемыми над полем ввода чата.\n\nПримеры:\n1. Кнопка: 'Переведи', Промпт: 'Переведи этот текст на английский'.\n2. Кнопка: 'Сократи', Промпт: 'Сделай краткую выжимку из этого текста'.",
+                    text = "Р Р€Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘Р Вµ Р С”Р Р…Р С•Р С—Р С”Р В°Р СР С‘ Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚РЎвЂ№РЎвЂ¦ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„–, Р С•РЎвЂљР С•Р В±РЎР‚Р В°Р В¶Р В°Р ВµР СРЎвЂ№Р СР С‘ Р Р…Р В°Р Т‘ Р С—Р С•Р В»Р ВµР С Р Р†Р Р†Р С•Р Т‘Р В° РЎвЂЎР В°РЎвЂљР В°.\n\nР СџРЎР‚Р С‘Р СР ВµРЎР‚РЎвЂ№:\n1. Р С™Р Р…Р С•Р С—Р С”Р В°: 'Р СџР ВµРЎР‚Р ВµР Р†Р ВµР Т‘Р С‘', Р СџРЎР‚Р С•Р СР С—РЎвЂљ: 'Р СџР ВµРЎР‚Р ВµР Р†Р ВµР Т‘Р С‘ РЎРЊРЎвЂљР С•РЎвЂљ РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р Р…Р В° Р В°Р Р…Р С–Р В»Р С‘Р в„–РЎРѓР С”Р С‘Р в„–'.\n2. Р С™Р Р…Р С•Р С—Р С”Р В°: 'Р РЋР С•Р С”РЎР‚Р В°РЎвЂљР С‘', Р СџРЎР‚Р С•Р СР С—РЎвЂљ: 'Р РЋР Т‘Р ВµР В»Р В°Р в„– Р С”РЎР‚Р В°РЎвЂљР С”РЎС“РЎР‹ Р Р†РЎвЂ№Р В¶Р С‘Р СР С”РЎС“ Р С‘Р В· РЎРЊРЎвЂљР С•Р С–Р С• РЎвЂљР ВµР С”РЎРѓРЎвЂљР В°'.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -529,7 +523,7 @@ private fun QuickActionsSection(
                 onClick = { showAddDialog = true },
                 modifier = Modifier.padding(end = 8.dp),
             ) {
-                Text("Добавить")
+                Text("Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ")
             }
         }
 
@@ -559,10 +553,10 @@ private fun QuickActionsSection(
                             }
                             Row {
                                 androidx.compose.material3.IconButton(onClick = { isEditing = true }) {
-                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Редактировать")
+                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ")
                                 }
                                 androidx.compose.material3.IconButton(onClick = { onDeleteQuickAction(action.id) }) {
-                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Удалить")
+                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ")
                                 }
                             }
                         }
@@ -606,24 +600,26 @@ private fun QuickActionEditor(
         KaiOutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("Название кнопки") },
+            label = { Text("Р СњР В°Р В·Р Р†Р В°Р Р…Р С‘Р Вµ Р С”Р Р…Р С•Р С—Р С”Р С‘") },
             modifier = Modifier.fillMaxWidth(),
         )
         KaiOutlinedTextField(
             value = prompt,
             onValueChange = { prompt = it },
-            label = { Text("Промпт / Инструкция") },
+            label = { Text("Р СџРЎР‚Р С•Р СР С—РЎвЂљ / Р ВР Р…РЎРѓРЎвЂљРЎР‚РЎС“Р С”РЎвЂ Р С‘РЎРЏ") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             androidx.compose.material3.TextButton(onClick = onCancel) {
-                Text("Отмена")
+                Text("Р С›РЎвЂљР СР ВµР Р…Р В°")
             }
             androidx.compose.material3.TextButton(onClick = {
                 onSave(initialAction.copy(text = text, prompt = prompt))
             }, enabled = text.isNotBlank() && prompt.isNotBlank()) {
-                Text("Сохранить")
+                Text("Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљРЎРЉ")
             }
         }
     }
 }
+
+

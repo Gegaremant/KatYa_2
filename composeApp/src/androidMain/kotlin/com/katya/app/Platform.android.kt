@@ -1,4 +1,4 @@
-package com.katya.app
+﻿package com.katya.app
 
 import android.content.Context
 import android.content.Intent
@@ -147,7 +147,7 @@ actual fun getAppFilesDirectory(): String {
     return context.filesDir.absolutePath
 }
 
-// Uses dev.spght:encryptedprefs-ktx — a maintained community fork of the deprecated
+// Uses dev.spght:encryptedprefs-ktx вЂ” a maintained community fork of the deprecated
 // androidx.security:security-crypto. We keep application-level encryption because
 // secure settings store API keys, email passwords, and conversation encryption keys.
 actual fun createSecureSettings(): Settings {
@@ -225,7 +225,7 @@ actual fun getPlatformToolDefinitions(): List<ToolInfo> = buildList {
     // SMS tools are intentionally absent here: availability is driven by the Agent-tab
     // master toggles (isSmsEnabled / isSmsSendEnabled) plus the FOSS-only `isSmsSupported`
     // check in `getAvailableTools()`. Listing per-tool toggles in the Tools tab was dead
-    // UI — `getAvailableTools()` never consulted them.
+    // UI вЂ” `getAvailableTools()` never consulted them.
 }
 
 actual fun getAvailableTools(): List<Tool> {
@@ -482,7 +482,7 @@ actual fun getAvailableTools(): List<Tool> {
         }
 
         // SMS send tools: independently gated on the Send toggle + SEND_SMS permission.
-        // These only *stage* drafts — actual sending is user-triggered via the review banner.
+        // These only *stage* drafts вЂ” actual sending is user-triggered via the review banner.
         if (smsReaderForTools != null && appSettings.isSmsSendEnabled()) {
             val smsSender: SmsSender by inject(SmsSender::class.java)
             if (smsSender.hasPermission()) {
@@ -553,6 +553,77 @@ actual suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extensio
 actual fun openTtsSettings() {
     val intent = android.content.Intent("com.android.settings.TTS_SETTINGS")
     intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get(android.content.Context::class)
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
     context.startActivity(intent)
+}
+
+actual suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolean, includeModels: Boolean): ByteArray {
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+    val baos = java.io.ByteArrayOutputStream()
+    val zos = java.util.zip.ZipOutputStream(baos)
+
+    zos.putNextEntry(java.util.zip.ZipEntry("config.json"))
+    zos.write(jsonConfig.toByteArray(Charsets.UTF_8))
+    zos.closeEntry()
+
+    if (includeDatabase) {
+        val dbFile = context.getDatabasePath("conversations.db")
+        if (dbFile.exists()) {
+            zos.putNextEntry(java.util.zip.ZipEntry("conversations.db"))
+            dbFile.inputStream().use { it.copyTo(zos) }
+            zos.closeEntry()
+        }
+    }
+
+    if (includeModels) {
+        val voskDir = java.io.File(context.filesDir, "vosk")
+        if (voskDir.exists() && voskDir.isDirectory) {
+            voskDir.walkTopDown().forEach { file ->
+                if (file.isFile) {
+                    val relativePath = file.relativeTo(context.filesDir).path.replace('\\', '/')
+                    zos.putNextEntry(java.util.zip.ZipEntry(relativePath))
+                    file.inputStream().use { it.copyTo(zos) }
+                    zos.closeEntry()
+                }
+            }
+        }
+    }
+
+    zos.finish()
+    zos.close()
+    return baos.toByteArray()
+}
+
+actual suspend fun extractBackupZip(zipBytes: ByteArray): String? {
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+    val zis = java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(zipBytes))
+    var jsonConfig: String? = null
+    var entry = zis.nextEntry
+    while (entry != null) {
+        if (!entry.isDirectory) {
+            when (entry.name) {
+                "config.json" -> {
+                    jsonConfig = zis.readBytes().toString(Charsets.UTF_8)
+                }
+                "conversations.db" -> {
+                    val dbFile = context.getDatabasePath("conversations.db")
+                    dbFile.parentFile?.mkdirs()
+                    dbFile.outputStream().use { zis.copyTo(it) }
+                    java.io.File(dbFile.path + "-wal").delete()
+                    java.io.File(dbFile.path + "-shm").delete()
+                }
+                else -> {
+                    if (entry.name.startsWith("vosk/")) {
+                        val file = java.io.File(context.filesDir, entry.name)
+                        file.parentFile?.mkdirs()
+                        file.outputStream().use { zis.copyTo(it) }
+                    }
+                }
+            }
+        }
+        zis.closeEntry()
+        entry = zis.nextEntry
+    }
+    zis.close()
+    return jsonConfig
 }

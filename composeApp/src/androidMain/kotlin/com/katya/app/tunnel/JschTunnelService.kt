@@ -65,6 +65,47 @@ class JschTunnelService : SshTunnelService {
                         AppLogger.i("SshTunnel", "Tunnel established successfully")
                         _tunnelState.value = TunnelState(isRunning = true, message = "Tunnel established: localhost:$localPort -> $sshIp:$remotePort")
 
+                        // AUTO BACKUP
+                        try {
+                            val appSettings = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.data.AppSettings>()
+                            val dataRepository = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.data.DataRepository>()
+                            val backupDir = appSettings.getAutoBackupDirectory()
+                            if (backupDir.isNotEmpty()) {
+                                AppLogger.i("SshTunnel", "Starting auto backup to $backupDir")
+                                val sections = com.katya.app.data.ImportSection.entries.toSet()
+                                val jsonConfig = dataRepository.exportSettingsToJson(sections)
+                                val zipBytes = com.katya.app.generateBackupZip(jsonConfig, includeDatabase = true, includeModels = true)
+                                val dateFormat = java.text.SimpleDateFormat("yy-MM-dd", java.util.Locale.getDefault())
+                                val dateString = dateFormat.format(java.util.Date())
+                                val fileName = "${dateString}_Katya_backup.zip"
+                                val file = java.io.File(backupDir, fileName)
+                                file.parentFile?.mkdirs()
+                                file.writeBytes(zipBytes)
+                                AppLogger.i("SshTunnel", "Auto backup saved to ${file.absolutePath}")
+                                
+                                val taskStore = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.data.TaskStore>()
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                                    val now = System.currentTimeMillis()
+                                    val task = com.katya.app.data.ScheduledTask(
+                                        id = "backup_${now}",
+                                        description = "Автоматический бэкап",
+                                        prompt = "Автоматический бэкап сохранен в ${file.absolutePath}",
+                                        scheduledAtEpochMs = now,
+                                        createdAtEpochMs = now,
+                                        trigger = com.katya.app.data.TaskTrigger.TIME,
+                                        status = com.katya.app.data.TaskStatus.COMPLETED
+                                    )
+                                    taskStore.addTask(task.description, task.prompt, now, null)
+                                    val all = taskStore.getAllTasks()
+                                    val added = all.find { it.description == task.description && it.scheduledAtEpochMs == now }
+                                    if (added != null) {
+                                        taskStore.updateTask(added.copy(status = com.katya.app.data.TaskStatus.COMPLETED))
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            AppLogger.e("SshTunnel", "Auto backup failed: ${e.message}")
+                        }
                         // Keep connection alive
                         while (isActive && session?.isConnected == true) {
                             delay(5000)

@@ -28,6 +28,7 @@ enum class ImportSection {
     TOOLS,
     MCP,
     CONVERSATIONS,
+    MODELS,
 }
 
 enum class ThemeMode {
@@ -263,6 +264,11 @@ class AppSettings(internal val settings: Settings) {
     fun getServerPort(): Int = settings.getInt(KEY_SERVER_PORT, 22)
     fun setServerPort(port: Int) {
         settings.putInt(KEY_SERVER_PORT, port)
+    }
+
+    fun getAutoBackupDirectory(): String = settings.getString("auto_backup_directory", "")
+    fun setAutoBackupDirectory(path: String) {
+        settings.putString("auto_backup_directory", path)
     }
 
     fun getServerUser(): String = settings.getString(KEY_SERVER_USER, "")

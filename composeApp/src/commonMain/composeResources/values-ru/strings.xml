@@ -190,7 +190,8 @@
     <string name="settings_import_section_email">Электронная почта</string>
     <string name="settings_import_section_tools">Инструменты</string>
     <string name="settings_import_section_mcp">Серверы MCP</string>
-    <string name="settings_import_section_conversations">Разговоры</string>
+    <string name="settings_import_section_conversations">Разговоры (БД)</string>
+    <string name="settings_import_section_models">Оффлайн модели (Vosk)</string>
     <string name="settings_heartbeat_reset_confirm">Это сбросит запрос пульса до значения по умолчанию. Вы уверены?</string>
     <string name="settings_heartbeat_model">Модель</string>
     <string name="settings_heartbeat_model_default">По умолчанию</string>

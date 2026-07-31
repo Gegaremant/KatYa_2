@@ -92,3 +92,14 @@ expect suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extensio
  * without deep-linking back to the conversation. No-op on web.
  */
 expect fun sendHeartbeatNotification(title: String, body: String)
+
+/**
+ * Zips the requested configuration components into a single ByteArray.
+ */
+expect suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolean, includeModels: Boolean): ByteArray
+
+/**
+ * Extracts a backup zip and returns the settings JSON string if successful, restoring files.
+ */
+expect suspend fun extractBackupZip(zipBytes: ByteArray): String?
+

@@ -935,9 +935,19 @@ class SettingsViewModel(
         _state.update { it.copy(uiScale = scale) }
     }
 
-    private fun onExportSettings(sections: Set<ImportSection>): String = dataRepository.exportSettingsToJson(sections)
+    private suspend fun onExportSettings(sections: Set<ImportSection>): ByteArray {
+        val jsonConfig = dataRepository.exportSettingsToJson(sections)
+        val includeDatabase = sections.contains(ImportSection.CONVERSATIONS)
+        val includeModels = sections.contains(ImportSection.MODELS)
+        return com.katya.app.generateBackupZip(jsonConfig, includeDatabase, includeModels)
+    }
 
-    private fun onPrepareExport(): Map<ImportSection, String?> = dataRepository.getExportPreview()
+    private fun onPrepareExport(): Map<ImportSection, String?> {
+        val preview = dataRepository.getExportPreview().toMutableMap()
+        preview[ImportSection.CONVERSATIONS] = null
+        preview[ImportSection.MODELS] = null
+        return preview
+    }
 
     private fun onImportSettings(bytes: ByteArray, sections: Set<ImportSection>, replace: Boolean): ImportResult = try {
         val currentTab = _state.value.currentTab

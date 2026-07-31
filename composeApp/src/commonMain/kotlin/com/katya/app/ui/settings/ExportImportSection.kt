@@ -61,6 +61,7 @@ import katya.composeapp.generated.resources.settings_import_section_scheduling
 import katya.composeapp.generated.resources.settings_import_section_services
 import katya.composeapp.generated.resources.settings_import_section_soul
 import katya.composeapp.generated.resources.settings_import_section_tools
+import katya.composeapp.generated.resources.settings_import_section_models
 import katya.composeapp.generated.resources.settings_import_success
 import katya.composeapp.generated.resources.settings_mcp_cancel
 import katya.composeapp.generated.resources.settings_sms
@@ -74,7 +75,7 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Clock
 @Composable
 internal fun ExportImportSection(
-    onExportSettings: (Set<ImportSection>) -> String,
+    onExportSettings: suspend (Set<ImportSection>) -> ByteArray,
     onPrepareExport: () -> Map<ImportSection, String?>,
     onImportSettings: (ByteArray, Set<ImportSection>, Boolean) -> ImportResult,
 ) {
@@ -86,16 +87,25 @@ internal fun ExportImportSection(
 
     val filePickerLauncher = if (!isPreview) {
         rememberFilePickerLauncher(
-            type = FileKitType.File(extensions = listOf("json")),
+            type = FileKitType.File(extensions = listOf("zip", "json")),
         ) { file ->
             if (file != null) {
                 scope.launch {
                     val bytes = file.readBytes()
                     try {
-                        val jsonString = bytes.decodeToString()
+                        val isZip = bytes.size > 4 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
+                        val jsonString = if (isZip) {
+                            com.katya.app.extractBackupZip(bytes) ?: throw Exception("Invalid backup zip")
+                        } else {
+                            bytes.decodeToString()
+                        }
                         val jsonObject = SharedJson.parseToJsonElement(jsonString).jsonObject
-                        val detectedSections = detectImportSections(jsonObject).toImmutableMap()
-                        importPreview = jsonString to detectedSections
+                        val detectedSections = detectImportSections(jsonObject).toMutableMap()
+                        if (isZip) {
+                            detectedSections[ImportSection.CONVERSATIONS] = null
+                            detectedSections[ImportSection.MODELS] = null
+                        }
+                        importPreview = jsonString to detectedSections.toImmutableMap()
                     } catch (_: Exception) {
                         importResult = ImportResult.Failure
                     }
@@ -121,17 +131,17 @@ internal fun ExportImportSection(
         ExportPreviewDialog(
             sectionDetails = sectionDetails,
             onConfirm = { selectedSections ->
-                val json = onExportSettings(selectedSections)
                 exportPreview = null
                 scope.launch {
+                    val zipBytes = onExportSettings(selectedSections)
                     val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                     val yy = now.year.toString().takeLast(2)
                     val mm = now.monthNumber.toString().padStart(2, '0')
                     val dd = now.dayOfMonth.toString().padStart(2, '0')
                     saveFileToDevice(
-                        bytes = json.encodeToByteArray(),
-                        baseName = "$yy-$mm-${dd}_Katya_config",
-                        extension = "json",
+                        bytes = zipBytes,
+                        baseName = "$yy-$mm-${dd}_Katya_backup",
+                        extension = "zip",
                     )
                 }
             },
@@ -390,4 +400,5 @@ private fun sectionDisplayName(section: ImportSection): String = when (section) 
     ImportSection.TOOLS -> stringResource(Res.string.settings_import_section_tools)
     ImportSection.MCP -> stringResource(Res.string.settings_import_section_mcp)
     ImportSection.CONVERSATIONS -> stringResource(Res.string.settings_import_section_conversations)
+    ImportSection.MODELS -> stringResource(Res.string.settings_import_section_models)
 }
