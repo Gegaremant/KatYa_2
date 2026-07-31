@@ -16,11 +16,11 @@
 
 An **open-source AI assistant with persistent memory** designed specifically for Android devices.
 
-*Note: The server backend infrastructure for Katya is deployed via the [SmartBotHelper](https://github.com/Gegaremant/SmartBotHelper) repository.*
+*Note: The server backend infrastructure for Katya is deployed via the [SmartBotHelper](https://github.com/SokolovAnV/KatYa) repository.*
 
 </div>
 
-### 🆕 What's New in v2.0
+### 🆕 What's New in v2.2
 - **Autonomous Brain (Auto-Heal):** If your remote Ollama server goes down, Katya wakes up locally via `LiteRT` and autonomously connects via SSH to try and restart the service (`systemctl restart ollama`), or searches for a free API proxy to keep answering you.
 - **Dynamic Local Model Suggestions:** A new first-launch dialog evaluates your device's RAM (e.g., 4GB vs 8GB) and recommends the optimal GGUF model for Local Inference.
 - **Free API Fallback:** Automatically scrapes and applies a free API key from GitHub if your primary OpenAI/Anthropic quota runs out.
@@ -102,7 +102,7 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 **Голосовой ассистент с искусственным интеллектом и постоянной памятью**, разработанный специально для Android-устройств.
 
-*Примечание: Инфраструктура сервера для Кати разворачивается через репозиторий [SmartBotHelper](https://github.com/Gegaremant/SmartBotHelper).*
+*Примечание: Инфраструктура сервера для Кати разворачивается через репозиторий [SmartBotHelper](https://github.com/SokolovAnV/KatYa).*
 
 </div>
 

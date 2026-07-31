@@ -78,6 +78,10 @@ expect fun openUrl(url: String): Boolean
 
 expect fun openTtsSettings()
 
+expect fun openAssistantSettings()
+
+expect fun openAccessibilitySettings()
+
 @androidx.compose.runtime.Composable
 expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)
 

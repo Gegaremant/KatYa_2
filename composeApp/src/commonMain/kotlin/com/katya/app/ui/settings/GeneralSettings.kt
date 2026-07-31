@@ -1,4 +1,4 @@
-﻿package com.katya.app.ui.settings
+package com.katya.app.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -75,6 +75,18 @@ internal fun GeneralContent(
                 ) {
                     if (uiState.showDaemonToggle) {
                         SettingsCard {
+                            Row(modifier = Modifier.fillMaxWidth().clickable { com.katya.app.openAssistantSettings() }.padding(16.dp)) {
+                                Column {
+                                    Text("Выбрать Катю по умолчанию", style = MaterialTheme.typography.titleMedium)
+                                    Text("Установить Катю как системного помощника", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            Row(modifier = Modifier.fillMaxWidth().clickable { com.katya.app.openAccessibilitySettings() }.padding(16.dp)) {
+                                Column {
+                                    Text("Настройка Служб", style = MaterialTheme.typography.titleMedium)
+                                    Text("Включить спец. возможности для Кати", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                             DaemonModeToggle(
                                 isDaemonEnabled = uiState.isDaemonEnabled,
                                 onToggleDaemon = actions.onToggleDaemon,

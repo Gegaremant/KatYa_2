@@ -1,4 +1,4 @@
-﻿package com.katya.app
+package com.katya.app
 
 import android.content.Context
 import android.content.Intent
@@ -46,6 +46,7 @@ import com.katya.app.tools.NotificationResult
 import com.katya.app.tools.NotificationTools
 import com.katya.app.tools.OpenFileTool
 import com.katya.app.tools.ProcessManagerTool
+import com.katya.app.tools.RootCommandTool
 import com.katya.app.tools.SchedulingTools
 import com.katya.app.tools.ShellCommandTool
 import com.katya.app.tools.SmsTools
@@ -450,6 +451,7 @@ actual fun getAvailableTools(): List<Tool> {
             if (sandboxManager.state.value is SandboxState.Ready) {
                 add(ShellCommandTool)
                 add(ProcessManagerTool)
+                add(RootCommandTool)
                 add(SshConfigureHostTool)
             }
         }
@@ -552,6 +554,20 @@ actual suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extensio
 
 actual fun openTtsSettings() {
     val intent = android.content.Intent("com.android.settings.TTS_SETTINGS")
+    intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+    context.startActivity(intent)
+}
+
+actual fun openAssistantSettings() {
+    val intent = android.content.Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS)
+    intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+    context.startActivity(intent)
+}
+
+actual fun openAccessibilitySettings() {
+    val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
     intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
     val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
     context.startActivity(intent)

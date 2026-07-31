@@ -1,5 +1,5 @@
 # Release Notes
-## v2.0
+## v2.2\n### Added\n- **Default Assistant:** Katya can now be set as the default digital assistant in Android.\n- **Root Command Tool:** Native ability to execute root shell commands internally via su -c.\n- **Accessibility Service:** Added support for screen reading and UI interactions without root API.\n- **Auto Backup:** Added automatic ZIP configuration backups triggered on successful SSH tunnel connections.\n- **Import/Export:** Support for importing and exporting backups in ZIP format.\n\n## v2.0
 ### Added
 - **Exact Alarms:** The background Heartbeat is now scheduled using Android's `AlarmManager` (with `setExactAndAllowWhileIdle`), guaranteeing execution exactly on time, even during deep Doze sleep.
 - **Sequential Startup Permission Flow:** The app now gracefully requests critical system permissions (Notifications, Exact Alarms, Battery Optimization exclusions) one by one at startup, providing clear explanations from Katya for each requirement.
