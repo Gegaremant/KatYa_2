@@ -205,3 +205,4 @@
 }
 -dontwarn com.google.gson.**
 -dontwarn sun.misc.Unsafe
+-keep class com.jcraft.jsch.** { *; } 

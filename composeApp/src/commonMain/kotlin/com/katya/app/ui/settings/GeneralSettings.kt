@@ -279,46 +279,86 @@ private fun VoiceResponseToggle(
                             modifier = Modifier.handCursor(),
                             imageVector = vectorResource(Res.drawable.ic_arrow_drop_down),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onBackground,
-                        )
-                    },
-                )
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .handCursor()
-                        .clickable { expanded = true },
-                )
-                DropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    val voices = textToSpeech.voices.toList().distinctBy { it.name }
-                    voices.forEach { voice ->
-                        val isSelected = voice.name == selectedVoice
-                        DropdownMenuItem(
-                            text = { Text(voice.name) },
-                            onClick = {
-                                expanded = false
-                                textToSpeech.currentVoice = voice
-                                selectedVoice = voice.name
-                            },
-                            modifier = Modifier
-                                .handCursor()
-                                .then(
-                                    if (isSelected) {
-                                        Modifier
-                                            .padding(horizontal = 4.dp)
-                                            .background(
-                                                color = MaterialTheme.colorScheme.primaryContainer,
-                                                shape = RoundedCornerShape(12.dp),
-                                            )
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
-                        )
+        AnimatedVisibility(
+            visible = isVoiceResponseEnabled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut(),
+        ) {
+            Column {
+                if (textToSpeech != null && textToSpeech.voices.toList().isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Голос (нажмите для прослушивания)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                    OutlinedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { expanded = true },
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = selectedVoice?.replace("ru-ru-x-", "Русский ")
+                                    ?.replace("en-us-x-", "Английский ") ?: "По умолчанию",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Icon(
+                                painter = painterResource(Res.drawable.ic_arrow_drop_down),
+                                contentDescription = "Выбрать голос",
+                                tint = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        val voices = textToSpeech.voices.toList().distinctBy { it.name }
+                        voices.forEach { voice ->
+                            val isSelected = voice.name == selectedVoice
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        voice.name.replace("ru-ru-x-", "Русский ")
+                                            .replace("en-us-x-", "Английский "),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                },
+                                onClick = {
+                                    expanded = false
+                                    textToSpeech.currentVoice = voice
+                                    selectedVoice = voice.name
+                                    coroutineScope.launch {
+                                        textToSpeech.stop()
+                                        textToSpeech.say(text = "Привет, меня зовут Катя. Приятно познакомиться, я буду твоим личным ассистентом и подругой, и говорить таким голосом.")
+                                    }
+                                },
+                                modifier = Modifier
+                                    .handCursor()
+                                    .then(
+                                        if (isSelected) {
+                                            Modifier
+                                                .padding(horizontal = 4.dp)
+                                                .background(
+                                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                                    shape = RoundedCornerShape(12.dp),
+                                                )
+                                        } else {
+                                            Modifier
+                                        }
+                                    ),
+                            )
+                        }
                     }
                 }
             }

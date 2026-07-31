@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import katya.composeapp.generated.resources.Res
-import katya.composeapp.generated.resources.logo_pomogator
+import katya.composeapp.generated.resources.katya_icon
 import org.jetbrains.compose.resources.painterResource
 
 @Composable
@@ -16,7 +16,7 @@ fun LogoAnimation(
     size: Dp = 52.dp,
 ) {
     Image(
-        painter = painterResource(Res.drawable.logo_pomogator),
+        painter = painterResource(Res.drawable.katya_icon),
         contentDescription = "Logo",
         modifier = modifier.size(size),
     )

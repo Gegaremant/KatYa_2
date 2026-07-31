@@ -124,11 +124,18 @@ fun WakeWordToggle(
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                 } else {
-                    TextButton(
-                        onClick = onDownloadVosk,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    ) {
-                        Text(stringResource(Res.string.settings_wake_word_download_vosk))
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        Text(
+                            text = "Локальная модель (Vosk) необходима для распознавания речи без интернета. Скачайте её, чтобы пользоваться голосовым вводом офлайн.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Button(
+                            onClick = onDownloadVosk,
+                        ) {
+                            Text(stringResource(Res.string.settings_wake_word_download_vosk))
+                        }
                     }
                 }
             }

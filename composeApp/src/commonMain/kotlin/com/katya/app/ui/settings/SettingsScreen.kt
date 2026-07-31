@@ -605,7 +605,7 @@ private fun BottomInfo() {
                 .clip(CircleShape)
                 .size(24.dp)
                 .clickable(onClick = {
-                    uriHandler.openUri("https://github.com/Gegaremant/Katya")
+                    uriHandler.openUri("https://github.com/Gegaremant/KatYa_2")
                 })
                 .handCursor(),
             painter = painterResource(Res.drawable.github_mark),

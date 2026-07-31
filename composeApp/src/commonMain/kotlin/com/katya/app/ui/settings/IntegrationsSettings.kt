@@ -68,7 +68,7 @@ internal fun IntegrationsContent(
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { uriHandler.openUri("https://github.com/SimonSchubert/Kai/issues/new?template=integration_request.yml") },
+                    onClick = { uriHandler.openUri("https://github.com/Gegaremant/KatYa_2/issues/new") },
                     modifier = Modifier.handCursor(),
                 ) {
                     Text(stringResource(Res.string.settings_open_github_issue))
