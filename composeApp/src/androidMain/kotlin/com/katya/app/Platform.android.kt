@@ -461,6 +461,7 @@ actual fun getAvailableTools(): List<Tool> {
         val notesStore: com.katya.app.data.NotesStore by org.koin.java.KoinJavaComponent.inject(com.katya.app.data.NotesStore::class.java)
         add(com.katya.app.tools.NotesTool(notesStore))
         add(com.katya.app.tools.LocalNoteTool)
+        add(com.katya.app.tools.KeepAutomationTool)
 
         // Host Shell Tool (bypassing sandbox)
         add(AndroidHostShellTool)
