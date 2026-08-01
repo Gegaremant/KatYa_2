@@ -32,6 +32,7 @@ fun AppSettings.exportToJson(
         }
         map["current_service_id"] = JsonPrimitive(settings.getString(KEY_CURRENT_SERVICE_ID, Service.Free.id))
         map["free_fallback_enabled"] = JsonPrimitive(isFreeFallbackEnabled())
+        map["monitor_overlay_mode"] = JsonPrimitive(settings.getString(AppSettings.KEY_MONITOR_OVERLAY_MODE, MonitorOverlayMode.SHORT.name))
 
         val instances = getConfiguredServiceInstances()
         if (instances.isNotEmpty()) {
@@ -156,6 +157,17 @@ fun AppSettings.exportToJson(
         }
     }
 
+    if (ImportSection.SERVERS in sections) {
+        val serverIp = getServerIp()
+        if (serverIp.isNotBlank()) map["server_ip"] = JsonPrimitive(serverIp)
+        map["server_port"] = JsonPrimitive(getServerPort())
+        val serverUser = getServerUser()
+        if (serverUser.isNotBlank()) map["server_user"] = JsonPrimitive(serverUser)
+        val serverPassword = getServerPassword()
+        if (serverPassword.isNotBlank()) map["server_password"] = JsonPrimitive(serverPassword)
+        map["tunnel_persistent_reconnect"] = JsonPrimitive(isTunnelPersistentReconnectEnabled())
+    }
+
     return JsonObject(map)
 }
 
@@ -178,6 +190,13 @@ fun AppSettings.importFromJson(
             settings.putString(KEY_CONFIGURED_SERVICES, json["configured_services"]?.toString() ?: "")
             settings.putString(KEY_CURRENT_SERVICE_ID, json["current_service_id"]?.jsonPrimitive?.content ?: Service.Free.id)
             settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
+            
+            json["monitor_overlay_mode"]?.jsonPrimitive?.content?.let {
+                try {
+                    val mode = MonitorOverlayMode.valueOf(it)
+                    setMonitorOverlayMode(mode)
+                } catch (_: Exception) {}
+            }
         } catch (_: Exception) {
             errors++
         }
@@ -352,6 +371,24 @@ fun AppSettings.importFromJson(
         }
     } else if (replace) {
         setConversationsJson("")
+    }
+
+    if (ImportSection.SERVERS in sections) {
+        try {
+            setServerIp(json["server_ip"]?.jsonPrimitive?.content ?: "")
+            setServerPort(json["server_port"]?.jsonPrimitive?.content?.toIntOrNull() ?: 22)
+            setServerUser(json["server_user"]?.jsonPrimitive?.content ?: "")
+            setServerPassword(json["server_password"]?.jsonPrimitive?.content ?: "")
+            setTunnelPersistentReconnectEnabled(json["tunnel_persistent_reconnect"]?.jsonPrimitive?.content?.toBoolean() ?: false)
+        } catch (_: Exception) {
+            errors++
+        }
+    } else if (replace) {
+        setServerIp("")
+        setServerPort(22)
+        setServerUser("")
+        setServerPassword("")
+        setTunnelPersistentReconnectEnabled(false)
     }
 
     return errors

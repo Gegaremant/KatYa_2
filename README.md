@@ -29,6 +29,8 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 ### ✨ Key Features
 
+[📖 Read the full list of Katya's capabilities here](docs/capabilities_en.md)
+
 - **Offline Wake Word**: Detects "Привет Катя" locally using Vosk speech recognition without an internet connection.
 - **Direct Ollama Connection**: Tunnels traffic through SSH directly to your private server, completely bypassing cloud API limits.
 - **Server Monitoring**: Real-time SSH monitoring overlay that displays CPU, RAM, and GPU usage of your connected Linux server.
@@ -39,7 +41,7 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 | Platform | Format | Download |
 |----------|--------|----------|
-| Android | APK | [GitHub Releases](https://github.com/Gegaremant/Katya/releases) |
+| Android | APK | [GitHub Releases](https://github.com/Gegaremant/KatYa_2/releases) |
 
 ### 🧠 Architecture
 
@@ -115,6 +117,8 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 ### ✨ Ключевые возможности
 
+[📖 Полный список возможностей Кати читайте здесь](docs/capabilities_ru.md)
+
 - **Офлайн активация голосом**: Локальное распознавание фразы "Привет Катя" с помощью движка Vosk, без необходимости интернета.
 - **Прямое подключение к Ollama**: Работа через встроенный SSH туннель напрямую к вашему приватному серверу (никаких лимитов облачных API и платных подписок).
 - **Мониторинг сервера**: Оверлей в реальном времени с отображением загрузки CPU, RAM и GPU с вашего Linux-сервера по SSH.
@@ -125,7 +129,7 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 | Платформа | Формат | Ссылка |
 |----------|--------|----------|
-| Android | APK | [GitHub Releases](https://github.com/Gegaremant/Katya/releases) |
+| Android | APK | [GitHub Releases](https://github.com/Gegaremant/KatYa_2/releases) |
 
 ### 🧠 Архитектура
 

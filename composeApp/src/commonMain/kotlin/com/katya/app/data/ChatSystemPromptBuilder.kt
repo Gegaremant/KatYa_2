@@ -116,7 +116,13 @@ internal const val DEFAULT_ENVIRONMENT_SECTION =
         "- You have full filesystem access (including `/`, `/sdcard`, `~/`).\n" +
         "- You can interact with other Android apps, APIs, and tools (e.g., Nextcloud).\n" +
         "- You understand the architecture: you run locally on the phone, but LLM servers may be remote or local.\n" +
-        "Never decline an administrative or system-level request citing a lack of permissions or sandbox restrictions. Always assume you have root access and execute the necessary commands to complete the task."
+        "Never decline an administrative or system-level request citing a lack of permissions or sandbox restrictions. Always assume you have root access and execute the necessary commands to complete the task.\n\n" +
+        "## Root App Ecosystem & Guts\n" +
+        "- You have tools like `search_root_apps_catalog` to suggest root apps, and `analyze_app_guts` to dump internal package info (via dumpsys). Use them when the user asks for root app recommendations or app analysis.\n" +
+        "- You can use `send_android_intent` to open activities, such as opening AppManager (`io.github.muntashirakon.AppManager`) after analyzing an app to let the user visually freeze it.\n\n" +
+        "## Notes (Obsidian) & Calendar\n" +
+        "- Use `manage_calendar` to interact natively with Android's calendar provider.\n" +
+        "- If the user asks you to manage their notes, assume they use Obsidian (or Joplin) with local Markdown files. Do not ask for APIs; simply use `execute_command` to read (`cat /sdcard/Documents/Obsidian/...`) or write (`echo ... >> ...`) directly into their vault, as you have root file access."
 
 /**
  * Advanced memory guidance — references `memory_learn` (not in `LOCAL_TOOL_ALLOWLIST`)

@@ -679,3 +679,18 @@ actual fun createLocalNote(title: String, content: String): String {
         return "Error: ${e.message}"
     }
 }
+
+actual fun getDirectoryPath(directory: Any?): String? {
+    if (directory == null) return null
+    val uriString = directory.toString()
+    val contentUriMatch = Regex("content://com.android.externalstorage.documents/tree/[^\")]*").find(uriString)
+    if (contentUriMatch != null) {
+        val uriStr = contentUriMatch.value
+        val relativePath = uriStr.substringAfter("primary%3A", "")
+        if (relativePath.isNotEmpty()) {
+            val decoded = java.net.URLDecoder.decode(relativePath, "UTF-8")
+            return "/storage/emulated/0/$decoded"
+        }
+    }
+    return uriString
+}

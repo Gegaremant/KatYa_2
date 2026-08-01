@@ -22,6 +22,8 @@ import com.katya.app.tools.AppLogger
 import com.katya.app.tunnel.SshTunnelService
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import io.github.vinceglb.filekit.dialogs.compose.rememberDirectoryPickerLauncher
+import com.katya.app.getDirectoryPath
 
 @Composable
 fun ServersContent(
@@ -163,16 +165,37 @@ fun ServersContent(
         }
         
         var autoBackupDir by remember { mutableStateOf(appSettings.getAutoBackupDirectory()) }
-        OutlinedTextField(
-            value = autoBackupDir,
-            onValueChange = { 
-                autoBackupDir = it
-                appSettings.setAutoBackupDirectory(it) 
-            },
-            label = { Text("Папка авто-бэкапа (оставьте пустым для отключения)") },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !tunnelState.isRunning,
-        )
+        
+        val directoryPicker = rememberDirectoryPickerLauncher { directory ->
+            if (directory != null) {
+                val path = getDirectoryPath(directory)
+                if (path != null) {
+                    autoBackupDir = path
+                    appSettings.setAutoBackupDirectory(path)
+                }
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = autoBackupDir,
+                onValueChange = { 
+                    autoBackupDir = it
+                    appSettings.setAutoBackupDirectory(it) 
+                },
+                label = { Text("Папка авто-бэкапа (введите полный путь)") },
+                modifier = Modifier.weight(1f),
+                enabled = !tunnelState.isRunning,
+            )
+            Spacer(Modifier.width(8.dp))
+            Button(
+                onClick = { directoryPicker.launch() },
+                enabled = !tunnelState.isRunning,
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text("Обзор")
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         Button(onClick = {

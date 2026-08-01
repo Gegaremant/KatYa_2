@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import com.katya.app.data.HeartbeatLogEntry
 import com.katya.app.data.MemoryEntry
 import com.katya.app.data.ScheduledTask
+import com.katya.app.data.TaskStatus
 import com.katya.app.data.TaskTrigger
 import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.SettingsListItem
@@ -592,28 +593,38 @@ private fun ScheduledTaskList(
 
         val onEveryHeartbeat = stringResource(Res.string.settings_task_details_on_every_heartbeat)
         if (isSchedulingEnabled && tasks.isNotEmpty()) {
-            tasks.forEach { task ->
-                val subtitle = when (task.trigger) {
-                    TaskTrigger.HEARTBEAT -> "${task.status} - $onEveryHeartbeat"
-
-                    TaskTrigger.CRON -> "${task.status} - ${task.cron?.let { describeCron(it) } ?: "cron"}"
-
-                    TaskTrigger.TIME -> {
-                        val instant = Instant.fromEpochMilliseconds(task.scheduledAtEpochMs)
-                        val zone = TimeZone.currentSystemDefault()
-                        val scheduledTime = instant.toLocalDateTime(zone)
-                        val offset = zone.offsetAt(instant)
-                        "${task.status} - $scheduledTime $offset"
-                    }
-                }
-                SettingsListItem(
-                    title = task.description,
-                    subtitle = subtitle,
-                    onClick = { selectedTaskId = task.id },
-                    onDelete = { onCancelTask(task.id) },
-                    deleteContentDescription = stringResource(Res.string.settings_scheduled_tasks_cancel),
+            val visibleTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
+            if (visibleTasks.isEmpty()) {
+                Text(
+                    text = "Нет активных задач",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
                 )
-                Spacer(Modifier.height(8.dp))
+            } else {
+                visibleTasks.forEach { task ->
+                    val subtitle = when (task.trigger) {
+                        TaskTrigger.HEARTBEAT -> "${task.status} - $onEveryHeartbeat"
+    
+                        TaskTrigger.CRON -> "${task.status} - ${task.cron?.let { describeCron(it) } ?: "cron"}"
+    
+                        TaskTrigger.TIME -> {
+                            val instant = Instant.fromEpochMilliseconds(task.scheduledAtEpochMs)
+                            val zone = TimeZone.currentSystemDefault()
+                            val scheduledTime = instant.toLocalDateTime(zone)
+                            val offset = zone.offsetAt(instant)
+                            "${task.status} - $scheduledTime $offset"
+                        }
+                    }
+                    SettingsListItem(
+                        title = task.description,
+                        subtitle = subtitle,
+                        onClick = { selectedTaskId = task.id },
+                        onDelete = { onCancelTask(task.id) },
+                        deleteContentDescription = stringResource(Res.string.settings_scheduled_tasks_cancel),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }

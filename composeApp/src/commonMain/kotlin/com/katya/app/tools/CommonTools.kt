@@ -232,6 +232,79 @@ object CommonTools {
         descriptionRes = Res.string.tool_open_url_description,
     )
 
+    private val executeCommandTool = ExecuteCommandTool()
+    private val downloadFileTool = DownloadFileTool()
+    private val sshTool = SshTool()
+    private val sftpTool = SftpTool()
+    private val rootAppsCatalogTool = RootAppsCatalogTool(locationClient)
+    private val calendarTool = CalendarTool()
+    private val appGutsTool = AppGutsTool()
+    private val intentTool = IntentTool()
+
+    val executeCommandToolInfo = ToolInfo(
+        id = executeCommandTool.schema.name,
+        name = "Local Terminal",
+        description = executeCommandTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val downloadFileToolInfo = ToolInfo(
+        id = downloadFileTool.schema.name,
+        name = "File Downloader",
+        description = downloadFileTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val sshToolInfo = ToolInfo(
+        id = sshTool.schema.name,
+        name = "SSH Client",
+        description = sshTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val sftpToolInfo = ToolInfo(
+        id = sftpTool.schema.name,
+        name = "SFTP Client",
+        description = sftpTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val rootAppsCatalogToolInfo = ToolInfo(
+        id = rootAppsCatalogTool.schema.name,
+        name = "Root Apps Catalog",
+        description = rootAppsCatalogTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val calendarToolInfo = ToolInfo(
+        id = calendarTool.schema.name,
+        name = "Calendar Manager",
+        description = calendarTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val appGutsToolInfo = ToolInfo(
+        id = appGutsTool.schema.name,
+        name = "App Guts Analyzer",
+        description = appGutsTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
+    val intentToolInfo = ToolInfo(
+        id = intentTool.schema.name,
+        name = "Android Intent Sender",
+        description = intentTool.schema.description,
+        nameRes = Res.string.tool_memory_store_name,
+        descriptionRes = Res.string.tool_memory_store_description,
+    )
+
     val commonToolDefinitions = listOf(
         WebSearchTool.toolInfo,
         localTimeToolInfo,
@@ -245,6 +318,14 @@ object CommonTools {
             nameRes = Res.string.tool_memory_store_name, // fallback string resource
             descriptionRes = Res.string.tool_memory_store_description, // fallback
         ),
+        executeCommandToolInfo,
+        downloadFileToolInfo,
+        sshToolInfo,
+        sftpToolInfo,
+        rootAppsCatalogToolInfo,
+        calendarToolInfo,
+        appGutsToolInfo,
+        intentToolInfo,
     ) +
         listOf(memoryStoreToolInfo, memoryForgetToolInfo, memoryLearnToolInfo, memoryReinforceToolInfo) +
         SchedulingTools.schedulingToolDefinitions +
@@ -285,6 +366,30 @@ object CommonTools {
         }
         if (appSettings.isToolEnabled("server_monitor")) {
             add(ServerMonitoringTool(appSettings))
+        }
+        if (appSettings.isToolEnabled(executeCommandTool.schema.name)) {
+            add(executeCommandTool)
+        }
+        if (appSettings.isToolEnabled(downloadFileTool.schema.name)) {
+            add(downloadFileTool)
+        }
+        if (appSettings.isToolEnabled(sshTool.schema.name)) {
+            add(sshTool)
+        }
+        if (appSettings.isToolEnabled(sftpTool.schema.name)) {
+            add(sftpTool)
+        }
+        if (appSettings.isToolEnabled(rootAppsCatalogTool.schema.name)) {
+            add(rootAppsCatalogTool)
+        }
+        if (appSettings.isToolEnabled(calendarTool.schema.name)) {
+            add(calendarTool)
+        }
+        if (appSettings.isToolEnabled(appGutsTool.schema.name)) {
+            add(appGutsTool)
+        }
+        if (appSettings.isToolEnabled(intentTool.schema.name)) {
+            add(intentTool)
         }
     }
 

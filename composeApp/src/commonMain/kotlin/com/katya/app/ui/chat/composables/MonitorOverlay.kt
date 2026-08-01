@@ -11,13 +11,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
 import com.katya.app.data.MonitorOverlayMode
 import com.katya.app.monitor.MonitorStats
+import com.katya.app.data.ServiceEntry
 
 @Composable
 fun MonitorOverlay(
     mode: MonitorOverlayMode,
     stats: MonitorStats,
+    selectedService: ServiceEntry?,
+    isProcessing: Boolean,
     modifier: Modifier = Modifier,
 ) {
     if (mode == MonitorOverlayMode.OFF) return
@@ -44,21 +49,38 @@ fun MonitorOverlay(
             )
         } else {
             if (mode == MonitorOverlayMode.SHORT) {
-                Column {
-                    Text(
-                        text = stats.srvShort ?: "Srv: N/A",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                    )
-                    Text(
-                        text = stats.locShort ?: "Loc: N/A",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp,
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        val srvText = if (selectedService?.serviceId == "srv-llm") {
+                            stats.srvShort ?: "Srv: N/A"
+                        } else {
+                            val serviceName = selectedService?.serviceName ?: "Auto"
+                            "API: Connected to $serviceName"
+                        }
+                        Text(
+                            text = srvText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                        )
+                        Text(
+                            text = stats.locShort ?: "Loc: N/A",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                        )
+                    }
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(16.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            strokeWidth = 2.dp
+                        )
+                    }
                 }
             } else if (mode == MonitorOverlayMode.FULL) {
                 // Full mode: Scrollable box

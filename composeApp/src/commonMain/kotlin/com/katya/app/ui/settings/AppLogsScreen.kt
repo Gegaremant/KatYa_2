@@ -1,18 +1,8 @@
 package com.katya.app.ui.settings
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -23,9 +13,30 @@ import com.katya.app.tools.AppLogger
 fun AppLogsScreen() {
     val logs by AppLogger.logs.collectAsState()
     val clipboardManager = LocalClipboardManager.current
+    var filterText by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        OutlinedTextField(
+            value = filterText,
+            onValueChange = { filterText = it },
+            label = { Text("Фильтр логов") },
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+        )
+        
+        androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth().height(500.dp)) {
+            val filteredLogs = logs.filter { it.contains(filterText, ignoreCase = true) }
+            items(filteredLogs.takeLast(500).size) { index ->
+                val log = filteredLogs.takeLast(500).reversed()[index]
+                Text(
+                    text = log,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 2.dp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+        
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
             Button(
                 onClick = { clipboardManager.setText(AnnotatedString(logs.joinToString("\n"))) },
                 modifier = Modifier.padding(end = 8.dp)
@@ -36,15 +47,6 @@ fun AppLogsScreen() {
                 Text("Очистить")
             }
         }
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(logs.takeLast(200).reversed()) { log ->
-                Text(
-                    text = log,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(vertical = 2.dp),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
     }
 }
+

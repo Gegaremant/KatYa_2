@@ -397,7 +397,7 @@ class Requests {
 
             if (isNetworkOrServerError && retryCount < maxRetries) {
                 retryCount++
-                com.katya.app.tools.AppLogger.w("Network", "Request failed (${e?.message}). Retrying ($retryCount/$maxRetries)...")
+                com.katya.app.tools.AppLogger.w("Network", "Request failed (${e?.let { it::class.simpleName + ": " + it.message + "\n" + it.stackTraceToString() }}). Retrying ($retryCount/$maxRetries)...")
                 kotlinx.coroutines.delay(2000L * retryCount)
             } else {
                 return result

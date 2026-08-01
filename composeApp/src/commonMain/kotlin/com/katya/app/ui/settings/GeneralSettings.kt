@@ -256,8 +256,8 @@ private fun AgentVisibilityToggle(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
-            title = "Р вЂ™Р С‘Р Т‘Р С‘Р СР С•РЎРѓРЎвЂљРЎРЉ РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂ№",
-            description = "Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°РЎвЂљРЎРЉ Р Р†РЎРѓР Вµ Р Р†Р Р…РЎС“РЎвЂљРЎР‚Р ВµР Р…Р Р…Р С‘Р Вµ Р С•Р С—Р ВµРЎР‚Р В°РЎвЂ Р С‘Р С‘ Р С‘ Р С‘РЎРѓР С—Р С•Р В»РЎРЉР В·Р С•Р Р†Р В°Р Р…Р С‘Р Вµ Р С‘Р Р…РЎРѓРЎвЂљРЎР‚РЎС“Р СР ВµР Р…РЎвЂљР С•Р Р†",
+            title = "Видимость работы",
+            description = "Показывать все внутренние операции и использование инструментов",
             checked = isAgentVisibilityEnabled,
             onCheckedChange = onToggleAgentVisibility,
         )
@@ -271,103 +271,50 @@ private fun VoiceResponseToggle(
     onToggleVoiceResponse: (Boolean) -> Unit,
     textToSpeech: nl.marc_apps.tts.TextToSpeechInstance? = null,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var selectedVoice by remember { mutableStateOf(textToSpeech?.currentVoice?.name) }
-    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
-    val coroutineScope = rememberCoroutineScope()
+    var showVoiceDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
             title = stringResource(Res.string.settings_voice_response),
             description = stringResource(Res.string.settings_voice_response_description),
             checked = isVoiceResponseEnabled,
-            onCheckedChange = onToggleVoiceResponse,
+            onCheckedChange = { checked ->
+                if (checked) {
+                    showVoiceDialog = true
+                }
+                onToggleVoiceResponse(checked)
+            },
         )
-        // Removed system TTS and RHVoice buttons to declutter UI as requested by user
 
-        androidx.compose.animation.AnimatedVisibility(
-            visible = isVoiceResponseEnabled,
-            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
-        ) {
-            Column {
-                if (textToSpeech != null && textToSpeech.voices.toList().isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Р вЂњР С•Р В»Р С•РЎРѓ (Р Р…Р В°Р В¶Р СР С‘РЎвЂљР Вµ Р Т‘Р В»РЎРЏ Р С—РЎР‚Р С•РЎРѓР В»РЎС“РЎв‚¬Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ)",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                    androidx.compose.material3.OutlinedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable { expanded = true },
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = selectedVoice?.replace("ru-ru-x-", "Р В РЎС“РЎРѓРЎРѓР С”Р С‘Р в„– ")
-                                    ?.replace("en-us-x-", "Р С’Р Р…Р С–Р В»Р С‘Р в„–РЎРѓР С”Р С‘Р в„– ") ?: "Р СџР С• РЎС“Р СР С•Р В»РЎвЂЎР В°Р Р…Р С‘РЎР‹",
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            Icon(
-                                painter = painterResource(Res.drawable.ic_arrow_drop_down),
-                                contentDescription = "Р вЂ™РЎвЂ№Р В±РЎР‚Р В°РЎвЂљРЎРЉ Р С–Р С•Р В»Р С•РЎРѓ",
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
+        if (showVoiceDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showVoiceDialog = false },
+                title = { Text("Использование голоса") },
+                text = {
+                    Column {
+                        Text(
+                            "Сейчас я буду говорить системными голосами по умолчанию.\n\n" +
+                            "Для лучшего опыта (без акцента) рекомендуем установить и выбрать движок RHVoice в настройках системы.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false },
-                        shape = RoundedCornerShape(16.dp),
-                    ) {
-                        val voices = textToSpeech.voices.toList().distinctBy { it.name }
-                        voices.forEach { voice ->
-                            val isSelected = voice.name == selectedVoice
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        voice.name.replace("ru-ru-x-", "Р В РЎС“РЎРѓРЎРѓР С”Р С‘Р в„– ")
-                                            .replace("en-us-x-", "Р С’Р Р…Р С–Р В»Р С‘Р в„–РЎРѓР С”Р С‘Р в„– "),
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                onClick = {
-                                    expanded = false
-                                    textToSpeech.currentVoice = voice
-                                    selectedVoice = voice.name
-                                    coroutineScope.launch {
-                                        textToSpeech.stop()
-                                        textToSpeech.say(text = "Р СџРЎР‚Р С‘Р Р†Р ВµРЎвЂљ, Р СР ВµР Р…РЎРЏ Р В·Р С•Р Р†РЎС“РЎвЂљ Р С™Р В°РЎвЂљРЎРЏ. Р СџРЎР‚Р С‘РЎРЏРЎвЂљР Р…Р С• Р С—Р С•Р В·Р Р…Р В°Р С”Р С•Р СР С‘РЎвЂљРЎРЉРЎРѓРЎРЏ, РЎРЏ Р В±РЎС“Р Т‘РЎС“ РЎвЂљР Р†Р С•Р С‘Р С Р В»Р С‘РЎвЂЎР Р…РЎвЂ№Р С Р В°РЎРѓРЎРѓР С‘РЎРѓРЎвЂљР ВµР Р…РЎвЂљР С•Р С Р С‘ Р С—Р С•Р Т‘РЎР‚РЎС“Р С–Р С•Р в„–, Р С‘ Р С–Р С•Р Р†Р С•РЎР‚Р С‘РЎвЂљРЎРЉ РЎвЂљР В°Р С”Р С‘Р С Р С–Р С•Р В»Р С•РЎРѓР С•Р С.")
-                                    }
-                                },
-                                modifier = Modifier
-                                    .handCursor()
-                                    .then(
-                                        if (isSelected) {
-                                            Modifier
-                                                .padding(horizontal = 4.dp)
-                                                .background(
-                                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                                    shape = RoundedCornerShape(12.dp),
-                                                )
-                                        } else {
-                                            Modifier
-                                        }
-                                    ),
-                            )
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showVoiceDialog = false
+                            com.katya.app.openTtsSettings()
                         }
+                    ) {
+                        Text("Настройки системы")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(onClick = { showVoiceDialog = false }) {
+                        Text("Отмена")
                     }
                 }
-            }
+            )
         }
     }
 }
@@ -521,12 +468,12 @@ private fun QuickActionsSection(
         ) {
             Column(modifier = Modifier.weight(1f).padding(16.dp)) {
                 Text(
-                    text = "Р вЂРЎвЂ№РЎРѓРЎвЂљРЎР‚РЎвЂ№Р Вµ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘РЎРЏ",
+                    text = "Быстрые действия",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "Р Р€Р С—РЎР‚Р В°Р Р†Р В»Р ВµР Р…Р С‘Р Вµ Р С”Р Р…Р С•Р С—Р С”Р В°Р СР С‘ Р В±РЎвЂ№РЎРѓРЎвЂљРЎР‚РЎвЂ№РЎвЂ¦ Р Т‘Р ВµР в„–РЎРѓРЎвЂљР Р†Р С‘Р в„–, Р С•РЎвЂљР С•Р В±РЎР‚Р В°Р В¶Р В°Р ВµР СРЎвЂ№Р СР С‘ Р Р…Р В°Р Т‘ Р С—Р С•Р В»Р ВµР С Р Р†Р Р†Р С•Р Т‘Р В° РЎвЂЎР В°РЎвЂљР В°.\n\nР СџРЎР‚Р С‘Р СР ВµРЎР‚РЎвЂ№:\n1. Р С™Р Р…Р С•Р С—Р С”Р В°: 'Р СџР ВµРЎР‚Р ВµР Р†Р ВµР Т‘Р С‘', Р СџРЎР‚Р С•Р СР С—РЎвЂљ: 'Р СџР ВµРЎР‚Р ВµР Р†Р ВµР Т‘Р С‘ РЎРЊРЎвЂљР С•РЎвЂљ РЎвЂљР ВµР С”РЎРѓРЎвЂљ Р Р…Р В° Р В°Р Р…Р С–Р В»Р С‘Р в„–РЎРѓР С”Р С‘Р в„–'.\n2. Р С™Р Р…Р С•Р С—Р С”Р В°: 'Р РЋР С•Р С”РЎР‚Р В°РЎвЂљР С‘', Р СџРЎР‚Р С•Р СР С—РЎвЂљ: 'Р РЋР Т‘Р ВµР В»Р В°Р в„– Р С”РЎР‚Р В°РЎвЂљР С”РЎС“РЎР‹ Р Р†РЎвЂ№Р В¶Р С‘Р СР С”РЎС“ Р С‘Р В· РЎРЊРЎвЂљР С•Р С–Р С• РЎвЂљР ВµР С”РЎРѓРЎвЂљР В°'.",
+                    text = "Управление кнопками быстрых действий, отображаемыми над полем ввода чата.\n\nПримеры:\n1. Кнопка: 'Переведи', Промпт: 'Переведи этот текст на английский'.\n2. Кнопка: 'Сократи', Промпт: 'Сделай краткую выжимку из этого текста'.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -535,7 +482,7 @@ private fun QuickActionsSection(
                 onClick = { showAddDialog = true },
                 modifier = Modifier.padding(end = 8.dp),
             ) {
-                Text("Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ")
+                Text("Добавить")
             }
         }
 
@@ -565,10 +512,10 @@ private fun QuickActionsSection(
                             }
                             Row {
                                 androidx.compose.material3.IconButton(onClick = { isEditing = true }) {
-                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ")
+                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Редактировать")
                                 }
                                 androidx.compose.material3.IconButton(onClick = { onDeleteQuickAction(action.id) }) {
-                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Р Р€Р Т‘Р В°Р В»Р С‘РЎвЂљРЎРЉ")
+                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Удалить")
                                 }
                             }
                         }
@@ -612,26 +559,24 @@ private fun QuickActionEditor(
         KaiOutlinedTextField(
             value = text,
             onValueChange = { text = it },
-            label = { Text("Р СњР В°Р В·Р Р†Р В°Р Р…Р С‘Р Вµ Р С”Р Р…Р С•Р С—Р С”Р С‘") },
+            label = { Text("Название кнопки") },
             modifier = Modifier.fillMaxWidth(),
         )
         KaiOutlinedTextField(
             value = prompt,
             onValueChange = { prompt = it },
-            label = { Text("Р СџРЎР‚Р С•Р СР С—РЎвЂљ / Р ВР Р…РЎРѓРЎвЂљРЎР‚РЎС“Р С”РЎвЂ Р С‘РЎРЏ") },
+            label = { Text("Промпт / Инструкция") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
             androidx.compose.material3.TextButton(onClick = onCancel) {
-                Text("Р С›РЎвЂљР СР ВµР Р…Р В°")
+                Text("Отмена")
             }
             androidx.compose.material3.TextButton(onClick = {
                 onSave(initialAction.copy(text = text, prompt = prompt))
             }, enabled = text.isNotBlank() && prompt.isNotBlank()) {
-                Text("Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…Р С‘РЎвЂљРЎРЉ")
+                Text("Сохранить")
             }
         }
     }
 }
-
-

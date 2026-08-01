@@ -8,9 +8,7 @@ import kotlin.time.Clock
 object AppLogger {
     private val _logs = MutableStateFlow<List<String>>(emptyList())
     val logs: StateFlow<List<String>> = _logs
-
-    var isEnabled = false
-
+    var isEnabled = true
     fun d(tag: String, message: String) {
         if (!isEnabled) return
         val logEntry = "[${Clock.System.now().toEpochMilliseconds()}] D/$tag: $message"

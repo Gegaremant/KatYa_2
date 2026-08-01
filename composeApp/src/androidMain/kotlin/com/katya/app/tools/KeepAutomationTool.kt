@@ -29,11 +29,17 @@ object KeepAutomationTool : Tool {
         val title = args["title"] as? String ?: return "Error: No title provided"
         val content = args["content"] as? String ?: return "Error: No content provided"
         
+        val context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+        
         val service = KatyaAccessibilityService.instance 
-            ?: return "Error: Accessibility Service is not running or not granted permissions."
+        if (service == null) {
+            val settingsIntent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(settingsIntent)
+            return "Error: У меня нет прав специальных возможностей для управления экраном. Я открыла настройки, пожалуйста, найди KatYa и включи тумблер."
+        }
 
         try {
-            val context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
             
             // 1. Launch Google Keep
             val intent = context.packageManager.getLaunchIntentForPackage("com.google.android.keep")

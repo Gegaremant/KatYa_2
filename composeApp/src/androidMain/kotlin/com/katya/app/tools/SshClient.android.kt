@@ -55,4 +55,66 @@ actual class SshClient actual constructor() {
             session?.disconnect()
         }
     }
+
+    actual fun uploadFile(
+        host: String,
+        port: Int,
+        user: String,
+        pass: String,
+        localPath: String,
+        remotePath: String
+    ): String {
+        var session: Session? = null
+        var channel: com.jcraft.jsch.ChannelSftp? = null
+        try {
+            val jsch = JSch()
+            session = jsch.getSession(user, host, port)
+            session.setPassword(pass)
+            session.setConfig("StrictHostKeyChecking", "no")
+            session.connect(10000)
+
+            channel = session.openChannel("sftp") as com.jcraft.jsch.ChannelSftp
+            channel.connect()
+            channel.put(localPath, remotePath)
+
+            return "File successfully uploaded to $remotePath"
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return "SFTP Upload Error: ${e.message}"
+        } finally {
+            channel?.disconnect()
+            session?.disconnect()
+        }
+    }
+
+    actual fun downloadFile(
+        host: String,
+        port: Int,
+        user: String,
+        pass: String,
+        remotePath: String,
+        localPath: String
+    ): String {
+        var session: Session? = null
+        var channel: com.jcraft.jsch.ChannelSftp? = null
+        try {
+            val jsch = JSch()
+            session = jsch.getSession(user, host, port)
+            session.setPassword(pass)
+            session.setConfig("StrictHostKeyChecking", "no")
+            session.connect(10000)
+
+            channel = session.openChannel("sftp") as com.jcraft.jsch.ChannelSftp
+            channel.connect()
+            channel.get(remotePath, localPath)
+
+            return "File successfully downloaded to $localPath"
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return "SFTP Download Error: ${e.message}"
+        } finally {
+            channel?.disconnect()
+            session?.disconnect()
+        }
+    }
 }

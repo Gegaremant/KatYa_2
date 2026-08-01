@@ -108,3 +108,5 @@ expect suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolea
 expect suspend fun extractBackupZip(zipBytes: ByteArray): String?
 
 expect fun createLocalNote(title: String, content: String): String
+
+expect fun getDirectoryPath(directory: Any?): String?

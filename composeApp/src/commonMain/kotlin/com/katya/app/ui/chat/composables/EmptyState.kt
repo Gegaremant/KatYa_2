@@ -29,8 +29,6 @@ import com.katya.app.ui.components.LogoAnimation
 import com.katya.app.ui.components.animatedGradientBorder
 import com.katya.app.ui.handCursor
 import katya.composeapp.generated.resources.Res
-import katya.composeapp.generated.resources.privacy_agree_prefix
-import katya.composeapp.generated.resources.privacy_policy
 import katya.composeapp.generated.resources.start_interactive_ui
 import katya.composeapp.generated.resources.welcome_message
 import org.jetbrains.compose.resources.stringResource
@@ -60,28 +58,6 @@ internal fun EmptyState(
                 onClick = onStartInteractiveMode,
             )
             Spacer(Modifier.height(8.dp))
-        }
-        if (isUsingSharedKey) {
-            val linkColor = MaterialTheme.colorScheme.primary
-            val prefixText = stringResource(Res.string.privacy_agree_prefix)
-            val policyText = stringResource(Res.string.privacy_policy)
-            val annotatedString = remember(prefixText, policyText, linkColor) {
-                buildAnnotatedString {
-                    append(prefixText)
-                    withLink(LinkAnnotation.Url(url = "https://schubert-simon.de/privacy/kai.txt")) {
-                        withStyle(style = SpanStyle(color = linkColor)) {
-                            append(policyText)
-                        }
-                    }
-                }
-            }
-            Text(
-                annotatedString,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
         }
     }
 }

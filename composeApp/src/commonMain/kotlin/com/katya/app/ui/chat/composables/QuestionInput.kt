@@ -214,8 +214,11 @@ fun QuestionInput(
         val filePickerLauncher = if (allowFileAttachment) {
             rememberFilePickerLauncher(
                 type = FileKitType.File(extensions = supportedFileExtensions),
-            ) { file ->
-                if (file != null) addFile(PlatformKatyaFile(file))
+                mode = io.github.vinceglb.filekit.dialogs.FileKitMode.Multiple(),
+            ) { files ->
+                files?.forEach { file ->
+                    addFile(PlatformKatyaFile(file))
+                }
             }
         } else {
             null

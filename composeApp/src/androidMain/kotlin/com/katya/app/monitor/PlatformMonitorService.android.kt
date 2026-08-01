@@ -94,7 +94,7 @@ class AndroidMonitorService :
             ramStr = "${availMb}M/${totalMb}M"
         } catch (e: Exception) {}
 
-        return "Loc: CPU $cpuStr RAM $ramStr"
+        return "Loc: RAM $ramStr"
     }
 
     private fun parseShortStats(cpuRam: String, gpu: String): String {

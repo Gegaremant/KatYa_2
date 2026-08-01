@@ -29,6 +29,7 @@ enum class ImportSection {
     MCP,
     CONVERSATIONS,
     MODELS,
+    SERVERS,
 }
 
 enum class ThemeMode {
@@ -55,20 +56,22 @@ fun detectExportableSections(json: JsonObject): Map<ImportSection, String?> {
     val configured = json["configured_services"]?.jsonArray
     if (configured != null && configured.isNotEmpty()) {
         sections[ImportSection.SERVICES] = "${configured.size}"
+    } else if (json["current_service_id"] != null) {
+        sections[ImportSection.SERVICES] = null
     }
 
     if (json["soul_text"] != null) {
         sections[ImportSection.SOUL] = null
     }
 
-    val memories = json["agent_memories"]?.jsonArray
-    if (memories != null && memories.isNotEmpty()) {
-        sections[ImportSection.MEMORY] = "${memories.size}"
+    if (json["memory_enabled"] != null || json["agent_memories"] != null) {
+        val memories = json["agent_memories"]?.jsonArray
+        sections[ImportSection.MEMORY] = memories?.size?.toString() ?: "0"
     }
 
-    val tasks = json["scheduled_tasks"]?.jsonArray
-    if (tasks != null && tasks.isNotEmpty()) {
-        sections[ImportSection.SCHEDULING] = "${tasks.size}"
+    if (json["scheduling_enabled"] != null || json["scheduled_tasks"] != null) {
+        val tasks = json["scheduled_tasks"]?.jsonArray
+        sections[ImportSection.SCHEDULING] = tasks?.size?.toString() ?: "0"
     }
 
     val heartbeatHasPrompt = json["heartbeat_prompt"] != null
@@ -81,6 +84,8 @@ fun detectExportableSections(json: JsonObject): Map<ImportSection, String?> {
     val emails = json["email_accounts"]?.jsonArray
     if (emails != null && emails.isNotEmpty()) {
         sections[ImportSection.EMAIL] = "${emails.size}"
+    } else if (json["email_enabled"] != null) {
+        sections[ImportSection.EMAIL] = null
     }
 
     val smsEnabled = json["sms_enabled"]?.jsonPrimitive?.content?.toBoolean() == true
@@ -108,11 +113,17 @@ fun detectExportableSections(json: JsonObject): Map<ImportSection, String?> {
     val mcp = json["mcp_servers"]?.jsonArray
     if (mcp != null && mcp.isNotEmpty()) {
         sections[ImportSection.MCP] = "${mcp.size}"
+    } else if (json["mcp_servers"] != null) {
+        sections[ImportSection.MCP] = "0"
     }
 
     val conversations = json["conversations"]?.jsonArray
     if (conversations != null && conversations.isNotEmpty()) {
         sections[ImportSection.CONVERSATIONS] = "${conversations.size}"
+    }
+
+    if (json["server_ip"] != null) {
+        sections[ImportSection.SERVERS] = null
     }
 
     return sections
@@ -169,6 +180,9 @@ fun detectImportSections(json: JsonObject): Map<ImportSection, String?> {
             null
         }
         sections[ImportSection.CONVERSATIONS] = count?.let { "$it" }
+    }
+    if (json["server_ip"] != null) {
+        sections[ImportSection.SERVERS] = null
     }
     return sections
 }

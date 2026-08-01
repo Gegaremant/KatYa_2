@@ -67,6 +67,64 @@ class CalendarRepository(
         return null
     }
 
+    suspend fun getEvents(startTimeIso: String, endTimeIso: String): List<Map<String, Any>> {
+        if (!hasCalendarPermission()) {
+            permissionController.requestPermission()
+            return emptyList()
+        }
+
+        val startMs = parseIsoDateTimeToEpochMs(startTimeIso)
+        val endMs = parseIsoDateTimeToEpochMs(endTimeIso)
+
+        val projection = arrayOf(
+            CalendarContract.Events._ID,
+            CalendarContract.Events.TITLE,
+            CalendarContract.Events.DESCRIPTION,
+            CalendarContract.Events.DTSTART,
+            CalendarContract.Events.DTEND,
+            CalendarContract.Events.ALL_DAY
+        )
+
+        val selection = "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ?"
+        val selectionArgs = arrayOf(startMs.toString(), endMs.toString())
+
+        val events = mutableListOf<Map<String, Any>>()
+        context.contentResolver.query(
+            CalendarContract.Events.CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            "${CalendarContract.Events.DTSTART} ASC"
+        )?.use { cursor ->
+            val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
+            val titleIndex = cursor.getColumnIndex(CalendarContract.Events.TITLE)
+            val descIndex = cursor.getColumnIndex(CalendarContract.Events.DESCRIPTION)
+            val startIndex = cursor.getColumnIndex(CalendarContract.Events.DTSTART)
+            val endIndex = cursor.getColumnIndex(CalendarContract.Events.DTEND)
+            val allDayIndex = cursor.getColumnIndex(CalendarContract.Events.ALL_DAY)
+
+            while (cursor.moveToNext()) {
+                val event = mutableMapOf<String, Any>()
+                if (idIndex >= 0) event["id"] = cursor.getLong(idIndex)
+                if (titleIndex >= 0) event["title"] = cursor.getString(titleIndex) ?: ""
+                if (descIndex >= 0) event["description"] = cursor.getString(descIndex) ?: ""
+                
+                if (startIndex >= 0) {
+                    val start = cursor.getLong(startIndex)
+                    event["start_time_iso"] = formatForDisplay(start)
+                }
+                if (endIndex >= 0) {
+                    val end = cursor.getLong(endIndex)
+                    if (end > 0) event["end_time_iso"] = formatForDisplay(end)
+                }
+                if (allDayIndex >= 0) event["all_day"] = cursor.getInt(allDayIndex) == 1
+                
+                events.add(event)
+            }
+        }
+        return events
+    }
+
     suspend fun createEvent(
         title: String,
         startTimeIso: String,
