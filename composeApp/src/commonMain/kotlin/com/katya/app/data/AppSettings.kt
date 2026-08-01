@@ -397,7 +397,7 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Monitor Overlay Mode
-    private val _monitorOverlayModeFlow = MutableStateFlow(getMonitorOverlayMode())
+    private val _monitorOverlayModeFlow = MutableStateFlow(loadInitialMonitorOverlayMode())
     val monitorOverlayModeFlow: StateFlow<MonitorOverlayMode> = _monitorOverlayModeFlow
 
     private val _voiceUiModeFlow = MutableStateFlow(getVoiceUiMode())
