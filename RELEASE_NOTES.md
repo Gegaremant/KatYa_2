@@ -1,5 +1,13 @@
 # Release Notes
-## v2.2\n### Added\n- **Default Assistant:** Katya can now be set as the default digital assistant in Android.\n- **Root Command Tool:** Native ability to execute root shell commands internally via su -c.\n- **Accessibility Service:** Added support for screen reading and UI interactions without root API.\n- **Auto Backup:** Added automatic ZIP configuration backups triggered on successful SSH tunnel connections.\n- **Import/Export:** Support for importing and exporting backups in ZIP format.
+## v2.2\n### Added
+- **System Control (Root/Sandbox):** Katya can now execute local shell commands natively via the new `ExecuteCommandTool`. It automatically detects Root (`su`) and uses it if available, or falls back to the app sandbox.
+- **Native File Downloader:** Katya can download files directly from the web and place them into system directories (if rooted) using the new `DownloadFileTool`.
+- **Advanced SSH & SFTP:** Added generic `SshTool` and `SftpTool` allowing Katya to connect to any server to execute arbitrary commands or transfer files seamlessly.
+- **Default Assistant:** Katya can now be set as the default digital assistant in Android.
+- **Root Command Tool:** Native ability to execute root shell commands internally via su -c.
+- **Accessibility Service:** Added support for screen reading and UI interactions without root API.
+- **Auto Backup:** Added automatic ZIP configuration backups triggered on successful SSH tunnel connections.
+- **Import/Export:** Support for importing and exporting backups in ZIP format.
 ### Fixed
 - **UI:** Fixed crash and scrolling issues on the App Logs screen when network output is large.
 - **Tasks:** Fixed an issue where automated backups would spam the Scheduled Tasks list with completed tasks.
