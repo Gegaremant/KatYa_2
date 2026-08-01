@@ -774,11 +774,31 @@ class RemoteDataRepository(
                     )
                 }
 
-                FileCategory.TEXT -> Attachment(
-                    data = Base64.encode(rawBytes),
-                    mimeType = fileMimeType ?: "text/plain",
-                    fileName = fileName,
-                )
+                FileCategory.TEXT -> {
+                    val processedBytes = if (rawBytes.size > 1_048_576) {
+                        val text = rawBytes.decodeToString()
+                        val headLines = 100
+                        val tailLines = 1000
+                        val lines = text.lines()
+                        if (lines.size > headLines + tailLines) {
+                            val head = lines.take(headLines).joinToString("\n")
+                            val tail = lines.takeLast(tailLines).joinToString("\n")
+                            val skippedBytes = rawBytes.size - (head.encodeToByteArray().size + tail.encodeToByteArray().size)
+                            val skippedMb = maxOf(1, skippedBytes / (1024 * 1024))
+                            "$head\n\n[... ПРОПУЩЕНО $skippedMb МБ ЛОГОВ ...]\n\n$tail".encodeToByteArray()
+                        } else {
+                            rawBytes
+                        }
+                    } else {
+                        rawBytes
+                    }
+                    
+                    Attachment(
+                        data = Base64.encode(processedBytes),
+                        mimeType = fileMimeType ?: "text/plain",
+                        fileName = fileName,
+                    )
+                }
 
                 FileCategory.PDF -> Attachment(
                     data = Base64.encode(rawBytes),

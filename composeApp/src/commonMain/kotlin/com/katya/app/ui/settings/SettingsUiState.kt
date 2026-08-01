@@ -70,6 +70,7 @@ data class SettingsUiState(
     val isDynamicUiEnabled: Boolean = true,
     val isAgentVisibilityEnabled: Boolean = true,
     val isVoiceResponseEnabled: Boolean = true,
+    val voiceUiMode: com.katya.app.data.VoiceUiMode = com.katya.app.data.VoiceUiMode.FULL_SCREEN,
     val isWakeWordEnabled: Boolean = false,
     val wakeWordModelLang: String = "ru",
     val wakeWordTrigger: String = "привет катя",

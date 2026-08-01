@@ -1,4 +1,7 @@
 # Release Notes
+
+## v2.3
+### Added
 - **System Control (Root/Sandbox):** Katya can now execute local shell commands natively via the new `ExecuteCommandTool`. It automatically detects Root (`su`) and uses it if available, or falls back to the app sandbox.
 - **Native File Downloader:** Katya can download files directly from the web and place them into system directories (if rooted) using the new `DownloadFileTool`.
 - **Advanced SSH & SFTP:** Added generic `SshTool` and `SftpTool` allowing Katya to connect to any server to execute arbitrary commands or transfer files seamlessly.
@@ -6,6 +9,8 @@
 - **App Guts Analyzer:** Added `AppGutsTool` giving Katya root-level dumpsys package insight (like AppManager backend).
 - **System Intents:** Added `IntentTool` to allow Katya to navigate the Android UI, open activities, and trigger services dynamically.
 - **Root Apps Catalog:** Added `RootAppsCatalogTool` to allow Katya to parse and suggest apps from the awesome-android-root repository.
+- **Voice UI Modes:** Added support for switching between Full Screen and Bottom Sheet voice interfaces in the settings.
+- **Smart Truncation:** Large text file uploads (> 1MB) are now intelligently truncated (keeping the top 100 and bottom 1000 lines) to avoid API token limits while preserving crucial log information.
 - **Default Assistant:** Katya can now be set as the default digital assistant in Android.
 - **Auto Backup:** Added automatic ZIP configuration backups triggered on successful SSH tunnel connections.
 - **Import/Export:** Support for importing and exporting backups in ZIP format.

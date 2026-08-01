@@ -168,6 +168,10 @@ internal fun GeneralContent(
                         onToggleVoiceResponse = actions.onToggleVoiceResponse,
                         textToSpeech = textToSpeech,
                     )
+                    VoiceUiModePicker(
+                        voiceUiMode = uiState.voiceUiMode,
+                        onChangeVoiceUiMode = actions.onChangeVoiceUiMode,
+                    )
                     WakeWordToggle(
                         isWakeWordEnabled = uiState.isWakeWordEnabled,
                         onToggleWakeWord = actions.onToggleWakeWord,
@@ -576,6 +580,34 @@ private fun QuickActionEditor(
                 onSave(initialAction.copy(text = text, prompt = prompt))
             }, enabled = text.isNotBlank() && prompt.isNotBlank()) {
                 Text("Сохранить")
+            }
+        }
+    }
+}
+
+@Composable
+private fun VoiceUiModePicker(
+    voiceUiMode: com.katya.app.data.VoiceUiMode,
+    onChangeVoiceUiMode: (com.katya.app.data.VoiceUiMode) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+        androidx.compose.material3.Text(
+            text = "Стиль голосового ввода",
+            style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+        )
+        androidx.compose.material3.Text(
+            text = "Выберите как будет выглядеть интерфейс во время записи голоса",
+            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.katya.app.data.VoiceUiMode.entries.forEach { mode ->
+                androidx.compose.material3.FilterChip(
+                    selected = voiceUiMode == mode,
+                    onClick = { onChangeVoiceUiMode(mode) },
+                    label = { androidx.compose.material3.Text(if (mode == com.katya.app.data.VoiceUiMode.FULL_SCREEN) "Полноэкранный" else "Всплывающая панель") }
+                )
             }
         }
     }

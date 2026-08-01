@@ -45,6 +45,11 @@ enum class MonitorOverlayMode {
     FULL,
 }
 
+enum class VoiceUiMode {
+    FULL_SCREEN,
+    BOTTOM_SHEET,
+}
+
 /**
  * Stricter than [detectImportSections]: only includes sections that contain actual user data,
  * skipping ones that exist purely because of default feature-toggle flags (e.g. `sms_enabled = false`,
@@ -392,8 +397,25 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Monitor Overlay Mode
-    private val _monitorOverlayModeFlow = MutableStateFlow(loadInitialMonitorOverlayMode())
+    private val _monitorOverlayModeFlow = MutableStateFlow(getMonitorOverlayMode())
     val monitorOverlayModeFlow: StateFlow<MonitorOverlayMode> = _monitorOverlayModeFlow
+
+    private val _voiceUiModeFlow = MutableStateFlow(getVoiceUiMode())
+    val voiceUiModeFlow: StateFlow<VoiceUiMode> = _voiceUiModeFlow
+
+    fun getVoiceUiMode(): VoiceUiMode {
+        val modeStr = settings.getString("voice_ui_mode", VoiceUiMode.FULL_SCREEN.name)
+        return try {
+            VoiceUiMode.valueOf(modeStr)
+        } catch (e: Exception) {
+            VoiceUiMode.FULL_SCREEN
+        }
+    }
+
+    fun setVoiceUiMode(mode: VoiceUiMode) {
+        settings.putString("voice_ui_mode", mode.name)
+        _voiceUiModeFlow.value = mode
+    }
 
     fun getMonitorOverlayMode(): MonitorOverlayMode = _monitorOverlayModeFlow.value
 

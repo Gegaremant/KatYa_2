@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.Text
@@ -95,6 +96,8 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
+import com.katya.app.data.AppSettings
+import com.katya.app.data.VoiceUiMode
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -132,6 +135,21 @@ fun QuestionInput(
         if (isListening && partialResults.isNotBlank()) {
             onTextStateChange(TextFieldValue(partialResults, TextRange(partialResults.length)))
         }
+    }
+
+    val appSettings: AppSettings? = if (isPreview) null else koinInject()
+    val voiceUiMode by (appSettings?.voiceUiModeFlow ?: kotlinx.coroutines.flow.MutableStateFlow(VoiceUiMode.FULL_SCREEN)).collectAsStateWithLifecycle()
+
+    if (isListening) {
+        VoiceOverlay(
+            isListening = isListening,
+            partialResults = partialResults,
+            mode = voiceUiMode,
+            onCancel = {
+                sttController?.stopListening()
+                onTextStateChange(TextFieldValue(""))
+            }
+        )
     }
 
     Column(modifier = modifier) {
@@ -308,19 +326,23 @@ fun QuestionInput(
                     } else if (isListening) {
                         TrailingIcon(icon = Res.drawable.ic_stop, onClick = { sttController?.stopListening() }, isPulsing = true)
                     } else {
-                        CircleIconButton(
-                            icon = Icons.Default.Mic,
-                            onClick = {
-                                coroutineScope.launch {
-                                    if (audioPermissionController?.requestPermission() == true) {
-                                        sttController?.startListening { result ->
-                                            onTextStateChange(TextFieldValue(""))
-                                            ask(result.trim())
-                                        }
+                        IconButton(onClick = {
+                            coroutineScope.launch {
+                                if (audioPermissionController?.requestPermission() == true) {
+                                    sttController?.startListening { result ->
+                                        onTextStateChange(TextFieldValue(""))
+                                        ask(result.trim())
                                     }
                                 }
-                            },
-                        )
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Speak",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
                     }
                 }
             },
