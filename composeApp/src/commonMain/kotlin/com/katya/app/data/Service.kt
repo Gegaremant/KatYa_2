@@ -110,6 +110,23 @@ sealed class Service(
         supportsImages = false,
     )
 
+    data object FreeDeepSeekProxy : Service(
+        id = "freedeepseekproxy",
+        displayName = "Free DeepSeek Proxy",
+        icon = Res.drawable.ic_service_deepseek, // assuming it exists
+        requiresApiKey = true, // We store the session token here
+        defaultModel = "deepseek-chat",
+        settingsKeyPrefix = "freedeepseekproxy",
+        chatUrl = "http://127.0.0.1:8000/v1/chat/completions",
+        modelsUrl = "http://127.0.0.1:8000/v1/models",
+        defaultModels = listOf(
+            ModelDefinition("deepseek-chat", "DeepSeek Chat (V3)"),
+            ModelDefinition("deepseek-reasoner", "DeepSeek Reasoner (R1)"),
+        ),
+        supportsImages = false,
+        reasoningRequestMode = ReasoningRequestMode.NONE, // Or mapped differently if needed
+    )
+
     data object AtlasCloud : Service(
         id = "atlascloud",
         displayName = "Atlas Cloud",
@@ -494,7 +511,7 @@ sealed class Service(
     )
 
     companion object {
-        val all: List<Service> get() = listOf(Free, AtlasCloud, Gemini, Anthropic, OpenAI, DeepSeek, Mistral, XAI, OpenRouter, Groq, Nvidia, Cerebras, OllamaCloud, LongCat, Together, HuggingFace, Venice, Moonshot, Zai, ZaiCodingPlan, Minimax, AiHubMix, DeepInfra, FireworksAI, OpenCode, PublicAI, OpenAICompatible, LiteRT)
+        val all: List<Service> get() = listOf(Free, FreeDeepSeekProxy, AtlasCloud, Gemini, Anthropic, OpenAI, DeepSeek, Mistral, XAI, OpenRouter, Groq, Nvidia, Cerebras, OllamaCloud, LongCat, Together, HuggingFace, Venice, Moonshot, Zai, ZaiCodingPlan, Minimax, AiHubMix, DeepInfra, FireworksAI, OpenCode, PublicAI, OpenAICompatible, LiteRT)
 
         const val DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://localhost:11434/v1"
 

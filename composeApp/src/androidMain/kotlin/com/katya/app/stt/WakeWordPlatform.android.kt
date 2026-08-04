@@ -38,6 +38,15 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
     private val _wakeWordTriggered = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     override val wakeWordTriggered: kotlinx.coroutines.flow.SharedFlow<Unit> = _wakeWordTriggered
 
+    private val _isListeningToSpeech = MutableStateFlow(false)
+    override val isListeningToSpeech: StateFlow<Boolean> = _isListeningToSpeech.asStateFlow()
+
+    private val _partialSttResults = MutableStateFlow("")
+    override val partialSttResults: StateFlow<String> = _partialSttResults.asStateFlow()
+
+    private val _finalSttResults = kotlinx.coroutines.flow.MutableSharedFlow<String>(extraBufferCapacity = 1, onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
+    override val finalSttResults: kotlinx.coroutines.flow.SharedFlow<String> = _finalSttResults
+
     private var speechService: SpeechService? = null
     private var activeModel: Model? = null
 
@@ -140,11 +149,19 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
     }
 
     override fun startListening(modelUrl: String, triggerWord: String) {
+        startVoskService(modelUrl, triggerWord)
+    }
+
+    override fun startSpeechRecognition(modelUrl: String) {
+        startVoskService(modelUrl, "")
+    }
+
+    private fun startVoskService(modelUrl: String, triggerWord: String) {
         if (modelUrl.isEmpty() || !isModelReady(modelUrl)) return
         currentModelUrl = modelUrl
 
         try {
-            stopListening() // Always stop any previous listening service before starting a new one
+            stopListening()
 
             if (activeModel == null) {
                 activeModel = Model(getModelDirectory(modelUrl).absolutePath)
@@ -154,28 +171,63 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
             speechService = SpeechService(recognizer, 16000.0f)
             speechService?.startListening(object : org.vosk.android.RecognitionListener {
                 override fun onPartialResult(hypothesis: String?) {
-                    checkWakeWord(hypothesis, triggerWord)
+                    handleVoskResult(hypothesis, triggerWord, isPartial = true)
                 }
                 override fun onResult(hypothesis: String?) {
-                    checkWakeWord(hypothesis, triggerWord)
+                    handleVoskResult(hypothesis, triggerWord, isPartial = false)
                 }
-                override fun onFinalResult(hypothesis: String?) {}
-                override fun onError(e: Exception?) {}
-                override fun onTimeout() {}
+                override fun onFinalResult(hypothesis: String?) {
+                    handleVoskResult(hypothesis, triggerWord, isPartial = false, isFinal = true)
+                }
+                override fun onError(e: Exception?) {
+                    _isListeningToSpeech.value = false
+                }
+                override fun onTimeout() {
+                    _isListeningToSpeech.value = false
+                }
             })
+            if (triggerWord.isEmpty()) {
+                _isListeningToSpeech.value = true
+                _partialSttResults.value = ""
+            }
         } catch (e: Exception) {
             e.printStackTrace()
+            _isListeningToSpeech.value = false
         }
     }
 
-    private fun checkWakeWord(hypothesis: String?, triggerWord: String) {
-        val lowerHypothesis = hypothesis?.lowercase() ?: return
-        val lowerTrigger = triggerWord.lowercase()
-        if (lowerHypothesis.contains(lowerTrigger)) {
-            // Prevent multiple triggers in a row
-            stopListening()
-            _wakeWordTriggered.tryEmit(Unit)
-            // It will be restarted after response
+    private fun handleVoskResult(hypothesis: String?, triggerWord: String, isPartial: Boolean, isFinal: Boolean = false) {
+        val text = hypothesis?.let {
+            // Vosk returns JSON like: { "text": "hello" } or { "partial": "hello" }
+            try {
+                val json = org.json.JSONObject(it)
+                if (isPartial) json.optString("partial", "") else json.optString("text", "")
+            } catch (e: Exception) {
+                ""
+            }
+        }?.trim() ?: return
+
+        if (text.isEmpty()) return
+
+        if (triggerWord.isNotEmpty()) {
+            // Wake word mode
+            val lowerHypothesis = text.lowercase()
+            val lowerTrigger = triggerWord.lowercase()
+            if (lowerHypothesis.contains(lowerTrigger)) {
+                stopListening()
+                _wakeWordTriggered.tryEmit(Unit)
+            }
+        } else {
+            // STT mode
+            if (isPartial) {
+                _partialSttResults.value = text
+            } else {
+                _partialSttResults.value = ""
+                _finalSttResults.tryEmit(text)
+                if (isFinal) {
+                    _isListeningToSpeech.value = false
+                }
+            }
         }
     }
 
@@ -184,6 +236,8 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
             speechService?.cancel()
             speechService?.shutdown()
             speechService = null
+            _isListeningToSpeech.value = false
+            _partialSttResults.value = ""
         } catch (e: Exception) {
             e.printStackTrace()
         }

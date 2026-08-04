@@ -537,6 +537,7 @@ private fun ChatModeScreen(
                 actions = uiState.actions,
                 isChatHistoryEmpty = uiState.history.isEmpty(),
                 hasSavedConversations = filteredConversations.any { it.id != uiState.currentConversationId },
+                isVlessEnabled = uiState.isVlessEnabled,
                 onNavigateToSettings = onNavigateToSettings,
                 onShowHistory = {
                     keyboardController?.hide()

@@ -92,6 +92,7 @@ class SettingsViewModel(
         isDynamicUiEnabled = dataRepository.isDynamicUiEnabled(),
         isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
         isVoiceResponseEnabled = dataRepository.isVoiceResponseEnabled(),
+        isWatchIntegrationEnabled = dataRepository.isWatchIntegrationEnabled(),
         voiceUiMode = appSettings.getVoiceUiMode(),
         isWakeWordEnabled = dataRepository.isWakeWordEnabled(),
         wakeWordModelLang = dataRepository.getWakeWordModelLang(),
@@ -168,12 +169,13 @@ class SettingsViewModel(
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleAgentVisibility = ::onToggleAgentVisibility,
         onToggleVoiceResponse = ::onToggleVoiceResponse,
-        onChangeVoiceUiMode = ::onChangeVoiceUiMode,
+        onSelectVoiceUiMode = ::onChangeVoiceUiMode,
         onToggleWakeWord = ::onToggleWakeWord,
         onChangeWakeWordTrigger = ::onChangeWakeWordTrigger,
-        setWakeWordModelLang = ::onChangeWakeWordModelLang,
-        setIsWakeWordVibrationEnabled = ::onToggleWakeWordVibration,
-        setIsWakeWordSoundEnabled = ::onToggleWakeWordSound,
+        onSelectWakeWordModelLang = ::onChangeWakeWordModelLang,
+        onToggleWakeWordVibration = ::onToggleWakeWordVibration,
+        onToggleWakeWordSound = ::onToggleWakeWordSound,
+        onToggleWatchIntegration = ::onToggleWatchIntegration,
         onAddQuickAction = ::onAddQuickAction,
         onUpdateQuickAction = ::onUpdateQuickAction,
         onDeleteQuickAction = ::onDeleteQuickAction,
@@ -186,6 +188,7 @@ class SettingsViewModel(
         onToggleDaemon = ::onToggleDaemon,
         onToggleVless = ::onToggleVless,
         onChangeVlessUri = ::onChangeVlessUri,
+        onShowDeepSeekAuthDialog = ::onShowDeepSeekAuthDialog,
         onToggleHeartbeat = ::onToggleHeartbeat,
         onDownloadVosk = ::onDownloadVosk,
         onChangeHeartbeatInterval = ::onChangeHeartbeatInterval,
@@ -501,6 +504,11 @@ class SettingsViewModel(
         _state.update { it.copy(isVoiceResponseEnabled = enabled) }
     }
 
+    private fun onToggleWatchIntegration(enabled: Boolean) {
+        dataRepository.setWatchIntegrationEnabled(enabled)
+        _state.update { it.copy(isWatchIntegrationEnabled = enabled) }
+    }
+
     private fun onChangeVoiceUiMode(mode: com.katya.app.data.VoiceUiMode) {
         appSettings.setVoiceUiMode(mode)
         _state.update { it.copy(voiceUiMode = mode) }
@@ -610,6 +618,10 @@ class SettingsViewModel(
         if (_state.value.isDaemonEnabled) {
             daemonController.start() // Restart daemon to apply new proxy config
         }
+    }
+
+    private fun onShowDeepSeekAuthDialog(show: Boolean) {
+        _state.update { it.copy(showDeepSeekAuthDialog = show) }
     }
 
     private fun onToggleHeartbeat(enabled: Boolean) {

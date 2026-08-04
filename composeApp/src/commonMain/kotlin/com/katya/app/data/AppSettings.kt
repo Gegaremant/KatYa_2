@@ -341,9 +341,10 @@ class AppSettings(internal val settings: Settings) {
     }
 
     fun isWakeWordSoundEnabled(): Boolean = settings.getBoolean(KEY_WAKE_WORD_SOUND, true)
-    fun setVoiceResponseEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_VOICE_RESPONSE_ENABLED, enabled)
-    }
+    fun setVoiceResponseEnabled(enabled: Boolean) = settings.putBoolean(KEY_VOICE_RESPONSE_ENABLED, enabled)
+
+    fun isWatchIntegrationEnabled(): Boolean = settings.getBoolean(KEY_WATCH_INTEGRATION_ENABLED, false)
+    fun setWatchIntegrationEnabled(enabled: Boolean) = settings.putBoolean(KEY_WATCH_INTEGRATION_ENABLED, enabled)
 
     fun setFreeServicePrimary(primary: Boolean) {
         settings.putBoolean(KEY_FREE_SERVICE_PRIMARY, primary)
@@ -779,13 +780,12 @@ class AppSettings(internal val settings: Settings) {
 
         const val KEY_WAKE_WORD = "wake_word"
         const val KEY_WAKE_WORD_ENABLED = "wake_word_enabled"
-        const val KEY_WAKE_WORD_SOUND_ENABLED = "wake_word_sound_enabled"
-        const val KEY_WAKE_WORD_VIBRATION_ENABLED = "wake_word_vibration_enabled"
-        private const val KEY_VOICE_RESPONSE_ENABLED = "voice_response_enabled"
+        const val KEY_WAKE_WORD_SOUND = "wake_word_sound_enabled"
+        const val KEY_VOICE_RESPONSE_ENABLED = "voice_response_enabled"
+        const val KEY_WATCH_INTEGRATION_ENABLED = "watch_integration_enabled"
         private const val KEY_WAKE_WORD_MODEL_LANG = "wake_word_model_lang"
         private const val KEY_WAKE_WORD_TRIGGER = "wake_word_trigger"
         private const val KEY_WAKE_WORD_VIBRATION = "wake_word_vibration"
-        private const val KEY_WAKE_WORD_SOUND = "wake_word_sound"
 
         const val KEY_MONITOR_OVERLAY_MODE = "monitor_overlay_mode"
 

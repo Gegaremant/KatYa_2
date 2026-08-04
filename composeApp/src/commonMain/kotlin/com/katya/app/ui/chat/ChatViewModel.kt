@@ -88,6 +88,7 @@ class ChatViewModel(
             isSpeechOutputEnabled = dataRepository.isVoiceResponseEnabled(),
             monitorOverlayMode = appSettings.getMonitorOverlayMode(),
             isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
+            isVlessEnabled = appSettings.isVlessEnabled(),
         ),
     )
     val monitorStats = monitorService.stats

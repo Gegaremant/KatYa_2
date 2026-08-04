@@ -1868,6 +1868,9 @@ Your task is to restore the connection to the main server.
     override fun setWakeWordSound(enabled: Boolean) = appSettings.setWakeWordSound(enabled)
     override fun isWakeWordSoundEnabled(): Boolean = appSettings.isWakeWordSoundEnabled()
     override fun setVoiceResponseEnabled(enabled: Boolean) = appSettings.setVoiceResponseEnabled(enabled)
+    
+    override fun isWatchIntegrationEnabled(): Boolean = appSettings.isWatchIntegrationEnabled()
+    override fun setWatchIntegrationEnabled(enabled: Boolean) = appSettings.setWatchIntegrationEnabled(enabled)
 
     override fun getThemeMode(): ThemeMode = appSettings.getThemeMode()
 

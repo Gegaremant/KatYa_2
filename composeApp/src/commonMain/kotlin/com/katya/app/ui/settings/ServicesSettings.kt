@@ -283,6 +283,7 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                     isFetchingHfModels = uiState.isFetchingHfModels,
                     hfError = uiState.hfError,
                     hfModels = uiState.hfModels,
+                    onShowDeepSeekAuthDialog = actions.onShowDeepSeekAuthDialog,
                 )
             }
         }
@@ -378,6 +379,19 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
             }
         }
     }
+
+    if (uiState.showDeepSeekAuthDialog) {
+        PlatformDeepSeekAuthDialog(
+            onTokenExtracted = { token ->
+                val instance = uiState.configuredServices.find { it.service is Service.FreeDeepSeekProxy }
+                if (instance != null) {
+                    actions.onChangeApiKey(instance.instanceId, token)
+                }
+                actions.onShowDeepSeekAuthDialog(false)
+            },
+            onDismiss = { actions.onShowDeepSeekAuthDialog(false) }
+        )
+    }
 }
 
 @Composable
@@ -410,6 +424,7 @@ private fun ConfiguredServiceCardContent(
     isFetchingHfModels: Boolean = false,
     hfError: String? = null,
     hfModels: ImmutableList<LocalModel> = persistentListOf(),
+    onShowDeepSeekAuthDialog: (Boolean) -> Unit = {},
 ) {
     // Clear a stale denied status when the user returns from granting the permission in
     // system settings; the recheck never re-prompts, so this is a no-op while still denied.
@@ -536,6 +551,16 @@ private fun ConfiguredServiceCardContent(
                         connectionStatus = entry.connectionStatus,
                         onOpenAppPermissionSettings = onOpenAppPermissionSettings,
                     )
+                    
+                    if (entry.service is Service.FreeDeepSeekProxy) {
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { onShowDeepSeekAuthDialog(true) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Авторизация в DeepSeek")
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(12.dp))

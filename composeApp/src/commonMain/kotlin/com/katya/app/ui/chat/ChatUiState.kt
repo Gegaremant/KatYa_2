@@ -95,6 +95,7 @@ data class ChatUiState(
     val installedSkills: ImmutableList<com.katya.app.skills.SkillManifest> = persistentListOf(),
     val monitorOverlayMode: com.katya.app.data.MonitorOverlayMode = com.katya.app.data.MonitorOverlayMode.OFF,
     val isAgentVisibilityEnabled: Boolean = true,
+    val isVlessEnabled: Boolean = false,
 ) {
     val heartbeatConversationId: String?
         get() = savedConversations.firstOrNull { it.isHeartbeat }?.id

@@ -11,6 +11,7 @@ import com.katya.app.data.HeartbeatManager
 import com.katya.app.data.TaskScheduler
 import com.katya.app.sandbox.VlessProxyManager
 import com.katya.app.shared.R
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 class DaemonService : Service() {
@@ -23,6 +24,11 @@ class DaemonService : Service() {
     private val taskScheduler: TaskScheduler by inject()
     private val heartbeatManager: HeartbeatManager by inject()
     private val vlessProxyManager: VlessProxyManager by inject()
+    private val freeDeepSeekManager: com.katya.app.sandbox.FreeDeepSeekManager by inject()
+    private val sttController: com.katya.app.stt.SttController by inject()
+
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var mediaSession: android.media.session.MediaSession? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -34,6 +40,46 @@ class DaemonService : Service() {
             stopSelf()
             return
         }
+        
+        val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Katya::DaemonWakeLock")
+        wakeLock?.acquire()
+        
+        // Setup MediaSession for watch integration
+        mediaSession = android.media.session.MediaSession(this, "KatyaWatchSession").apply {
+            setFlags(android.media.session.MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or android.media.session.MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
+            setCallback(object : android.media.session.MediaSession.Callback() {
+                override fun onPlay() {
+                    // Start STT when play is pressed
+                    if (!sttController.isListening.value) {
+                        sttController.startListening { result ->
+                            if (result.isNotBlank()) {
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+                                    val dataRepository: com.katya.app.data.DataRepository = org.koin.java.KoinJavaComponent.getKoin().get()
+                                    dataRepository.ask(result, emptyList())
+                                }
+                            }
+                        }
+                    }
+                }
+                override fun onSkipToNext() {
+                    // Fast submit (Next)
+                    if (sttController.isListening.value) {
+                        sttController.stopListening()
+                    }
+                }
+                override fun onSkipToPrevious() {
+                    // Cancel/Stop
+                    sttController.stopListening()
+                }
+                override fun onPause() {
+                    onSkipToPrevious()
+                }
+            })
+            // Activate the session
+            isActive = true
+        }
+
         // The scheduler owns its own long-lived scope; this foreground service's job is
         // to keep the app process alive so that scope keeps running. START_STICKY (below)
         // asks the OS to re-create us if we're killed, which will re-trigger onCreate and
@@ -41,6 +87,7 @@ class DaemonService : Service() {
         taskScheduler.start()
         HeartbeatAlarmReceiver.scheduleNext(this, heartbeatManager)
         vlessProxyManager.start()
+        freeDeepSeekManager.start()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
@@ -53,9 +100,16 @@ class DaemonService : Service() {
     }
 
     override fun onDestroy() {
+        mediaSession?.isActive = false
+        mediaSession?.release()
+        
+        wakeLock?.let {
+            if (it.isHeld) it.release()
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         HeartbeatAlarmReceiver.cancel(this)
         vlessProxyManager.stop()
+        freeDeepSeekManager.stop()
         super.onDestroy()
     }
 

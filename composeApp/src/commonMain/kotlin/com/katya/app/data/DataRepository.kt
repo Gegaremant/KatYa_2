@@ -123,6 +123,8 @@ interface DataRepository {
     fun setWakeWordSound(enabled: Boolean)
     fun isWakeWordSoundEnabled(): Boolean
     fun setVoiceResponseEnabled(enabled: Boolean)
+    fun isWatchIntegrationEnabled(): Boolean
+    fun setWatchIntegrationEnabled(enabled: Boolean)
 
     // Theme mode
     fun getThemeMode(): ThemeMode

@@ -13,6 +13,11 @@ class FakeWakeWordPlatform : WakeWordPlatform {
     override fun startDownload(modelUrl: String) {}
     override val wakeWordTriggered: SharedFlow<Unit> = MutableSharedFlow()
     override fun startListening(modelUrl: String, triggerWord: String) {}
+    override fun startSpeechRecognition(modelUrl: String) {}
     override fun stopListening() {}
     override fun triggerWakeWordResponse(vibrate: Boolean, sound: Boolean) {}
+
+    override val isListeningToSpeech: StateFlow<Boolean> = MutableStateFlow(false)
+    override val partialSttResults: StateFlow<String> = MutableStateFlow("")
+    override val finalSttResults: SharedFlow<String> = MutableSharedFlow()
 }

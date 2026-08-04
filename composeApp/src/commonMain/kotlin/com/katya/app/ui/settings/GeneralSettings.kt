@@ -107,6 +107,10 @@ internal fun GeneralContent(
                             onToggleVoiceResponse = actions.onToggleVoiceResponse,
                             textToSpeech = textToSpeech,
                         )
+                        WatchIntegrationToggle(
+                            isWatchIntegrationEnabled = uiState.isWatchIntegrationEnabled,
+                            onToggleWatchIntegration = actions.onToggleWatchIntegration,
+                        )
                     }
                     SettingsCard {
                         ThemeModePicker(
@@ -170,7 +174,11 @@ internal fun GeneralContent(
                     )
                     VoiceUiModePicker(
                         voiceUiMode = uiState.voiceUiMode,
-                        onChangeVoiceUiMode = actions.onChangeVoiceUiMode,
+                        onChangeVoiceUiMode = actions.onSelectVoiceUiMode,
+                    )
+                    WatchIntegrationToggle(
+                        isWatchIntegrationEnabled = uiState.isWatchIntegrationEnabled,
+                        onToggleWatchIntegration = actions.onToggleWatchIntegration,
                     )
                     WakeWordToggle(
                         isWakeWordEnabled = uiState.isWakeWordEnabled,
@@ -178,11 +186,11 @@ internal fun GeneralContent(
                         wakeWordTrigger = uiState.wakeWordTrigger,
                         onChangeWakeWordTrigger = actions.onChangeWakeWordTrigger,
                         wakeWordModelLang = uiState.wakeWordModelLang,
-                        onChangeWakeWordModelLang = actions.setWakeWordModelLang,
+                        onChangeWakeWordModelLang = actions.onSelectWakeWordModelLang,
                         isWakeWordVibrationEnabled = uiState.isWakeWordVibrationEnabled,
-                        onToggleWakeWordVibration = actions.setIsWakeWordVibrationEnabled,
+                        onToggleWakeWordVibration = actions.onToggleWakeWordVibration,
                         isWakeWordSoundEnabled = uiState.isWakeWordSoundEnabled,
-                        onToggleWakeWordSound = actions.setIsWakeWordSoundEnabled,
+                        onToggleWakeWordSound = actions.onToggleWakeWordSound,
                         isVoskDownloading = uiState.isVoskDownloading,
                         voskDownloadProgress = uiState.voskDownloadProgress,
                         isVoskReady = uiState.isVoskReady,
@@ -610,5 +618,20 @@ private fun VoiceUiModePicker(
                 )
             }
         }
+    }
+}
+
+@Composable
+fun WatchIntegrationToggle(
+    isWatchIntegrationEnabled: Boolean,
+    onToggleWatchIntegration: (Boolean) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        ToggleableHeadline(
+            title = "Управление с часов / гарнитуры",
+            description = "Использовать кнопки плеера на часах и микрофон наушника для голосовых команд",
+            checked = isWatchIntegrationEnabled,
+            onCheckedChange = onToggleWatchIntegration,
+        )
     }
 }

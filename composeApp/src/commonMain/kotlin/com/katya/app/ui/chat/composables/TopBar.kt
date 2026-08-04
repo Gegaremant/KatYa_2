@@ -45,6 +45,7 @@ internal fun TopBar(
     actions: ChatActions,
     isChatHistoryEmpty: Boolean,
     hasSavedConversations: Boolean,
+    isVlessEnabled: Boolean,
     onNavigateToSettings: () -> Unit,
     onShowHistory: () -> Unit,
     navigationTabBar: (@Composable () -> Unit)? = null,
@@ -54,7 +55,7 @@ internal fun TopBar(
             modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 64.dp),
         ) {
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
-                LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, isChatHistoryEmpty, hasSavedConversations, onShowHistory)
+                LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, isChatHistoryEmpty, hasSavedConversations, isVlessEnabled, onShowHistory)
             }
             Box(modifier = Modifier.align(Alignment.Center)) {
                 navigationTabBar()
@@ -67,7 +68,7 @@ internal fun TopBar(
         }
     } else {
         Row {
-            LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, isChatHistoryEmpty, hasSavedConversations, onShowHistory)
+            LeadingButtons(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions, isChatHistoryEmpty, hasSavedConversations, isVlessEnabled, onShowHistory)
             Spacer(Modifier.weight(1f))
             if (textToSpeech != null) {
                 SpeechToggleButton(textToSpeech, isSpeechOutputEnabled, isSpeaking, actions)
@@ -94,8 +95,19 @@ private fun LeadingButtons(
     actions: ChatActions,
     isChatHistoryEmpty: Boolean,
     hasSavedConversations: Boolean,
+    isVlessEnabled: Boolean,
     onShowHistory: () -> Unit,
 ) {
+    if (isVlessEnabled) {
+        IconButton(onClick = {}) {
+            Icon(
+                imageVector = androidx.compose.material.icons.Icons.Filled.Dns,
+                contentDescription = "Vless proxy is active",
+                tint = androidx.compose.ui.graphics.Color(0xFF4CAF50),
+            )
+        }
+    }
+
     if (hasSavedConversations) {
         IconButton(
             modifier = Modifier.handCursor(),
