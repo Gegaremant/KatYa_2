@@ -211,6 +211,14 @@ internal fun GeneralContent(
                         onDeleteQuickAction = actions.onDeleteQuickAction,
                     )
                 }
+                SettingsCard {
+                    VlessProxySection(
+                        isVlessEnabled = uiState.isVlessEnabled,
+                        onToggleVless = actions.onToggleVless,
+                        vlessUri = uiState.vlessUri,
+                        onChangeVlessUri = actions.onChangeVlessUri,
+                    )
+                }
                 if (uiState.showUiScale) {
                     SettingsCard {
                         UiScaleSection(
@@ -602,6 +610,7 @@ private fun VoiceUiModePicker(
         androidx.compose.material3.Text(
             text = "Стиль голосового ввода",
             style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+            color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground,
         )
         androidx.compose.material3.Text(
             text = "Выберите как будет выглядеть интерфейс во время записи голоса",
@@ -633,5 +642,31 @@ fun WatchIntegrationToggle(
             checked = isWatchIntegrationEnabled,
             onCheckedChange = onToggleWatchIntegration,
         )
+    }
+}
+
+@Composable
+private fun VlessProxySection(
+    isVlessEnabled: Boolean,
+    onToggleVless: (Boolean) -> Unit,
+    vlessUri: String,
+    onChangeVlessUri: (String) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        ToggleableHeadline(
+            title = "Использовать прокси (VLESS / HTTP)",
+            description = "Включает глобальный прокси для всех запросов API моделей. Вставьте vless://, http:// прокси или ссылку на подписку.",
+            checked = isVlessEnabled,
+            onCheckedChange = onToggleVless,
+        )
+        if (isVlessEnabled) {
+            KaiOutlinedTextField(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                value = vlessUri,
+                onValueChange = onChangeVlessUri,
+                placeholder = { Text("vless://... или http://...") },
+                singleLine = true,
+            )
+        }
     }
 }

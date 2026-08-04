@@ -43,8 +43,28 @@ class VlessProxyManager(
                     }
                 }
 
+                var finalUri = uri
+                if (uri.startsWith("http://") || uri.startsWith("https://")) {
+                    finalUri = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                        try {
+                            val response = java.net.URL(uri).readText()
+                            var decoded = response
+                            try {
+                                if (!response.contains("://")) {
+                                    decoded = String(android.util.Base64.decode(response.trim(), android.util.Base64.DEFAULT))
+                                }
+                            } catch (e: Exception) {}
+                            
+                            decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim() ?: uri
+                        } catch (e: Exception) {
+                            Log.e("VlessProxyManager", "Failed to fetch subscription", e)
+                            uri
+                        }
+                    }
+                }
+                
                 // Generate config.json
-                val configJson = VlessParser.generateXrayConfig(uri)
+                val configJson = VlessParser.generateXrayConfig(finalUri)
                 val configFilePath = File(linuxSandboxManager.homePath, "xray_config.json")
                 configFilePath.writeText(configJson)
 

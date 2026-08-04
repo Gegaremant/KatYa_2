@@ -53,24 +53,27 @@ fun VoiceOverlay(
             }
         }
     } else {
-        AnimatedVisibility(
-            visible = isListening,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 }),
-            modifier = modifier.fillMaxSize()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                    .clickable(enabled = false) {}, // Intercept clicks
-                contentAlignment = Alignment.Center
-            ) {
-                VoiceContent(
-                    partialResults = partialResults,
-                    onCancel = onCancel,
-                    isFullScreen = true
+        if (isListening) {
+            androidx.compose.ui.window.Dialog(
+                onDismissRequest = onCancel,
+                properties = androidx.compose.ui.window.DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    decorFitsSystemWindows = false
                 )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                        .clickable(enabled = false) {}, // Intercept clicks
+                    contentAlignment = Alignment.Center
+                ) {
+                    VoiceContent(
+                        partialResults = partialResults,
+                        onCancel = onCancel,
+                        isFullScreen = true
+                    )
+                }
             }
         }
     }

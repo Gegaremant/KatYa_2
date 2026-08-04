@@ -67,7 +67,9 @@ import katya.composeapp.generated.resources.settings_mcp_cancel
 import katya.composeapp.generated.resources.settings_sms
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.jsonObject
@@ -91,13 +93,16 @@ internal fun ExportImportSection(
         ) { file ->
             if (file != null) {
                 scope.launch {
-                    val bytes = file.readBytes()
                     try {
-                        val isZip = bytes.size > 4 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
-                        val jsonString = if (isZip) {
-                            com.katya.app.extractBackupZip(bytes) ?: throw Exception("Invalid backup zip")
-                        } else {
-                            bytes.decodeToString()
+                        val (jsonString, isZip) = withContext(Dispatchers.IO) {
+                            val bytes = file.readBytes()
+                            val isZipFile = bytes.size > 4 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
+                            val str = if (isZipFile) {
+                                com.katya.app.extractBackupZip(bytes) ?: throw Exception("Invalid backup zip")
+                            } else {
+                                bytes.decodeToString()
+                            }
+                            str to isZipFile
                         }
                         val jsonObject = SharedJson.parseToJsonElement(jsonString).jsonObject
                         val detectedSections = detectImportSections(jsonObject).toMutableMap()
@@ -133,16 +138,18 @@ internal fun ExportImportSection(
             onConfirm = { selectedSections ->
                 exportPreview = null
                 scope.launch {
-                    val zipBytes = onExportSettings(selectedSections)
+                    val zipBytes = withContext(Dispatchers.IO) { onExportSettings(selectedSections) }
                     val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
                     val yy = now.year.toString().takeLast(2)
                     val mm = now.monthNumber.toString().padStart(2, '0')
                     val dd = now.dayOfMonth.toString().padStart(2, '0')
-                    saveFileToDevice(
-                        bytes = zipBytes,
-                        baseName = "$yy-$mm-${dd}_Katya_backup",
-                        extension = "zip",
-                    )
+                    withContext(Dispatchers.IO) {
+                        saveFileToDevice(
+                            bytes = zipBytes,
+                            baseName = "$yy-$mm-${dd}_Katya_backup",
+                            extension = "zip",
+                        )
+                    }
                 }
             },
             onDismiss = { exportPreview = null },

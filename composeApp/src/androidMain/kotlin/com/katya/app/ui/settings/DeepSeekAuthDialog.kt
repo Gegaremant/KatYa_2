@@ -30,9 +30,6 @@ actual fun PlatformDeepSeekAuthDialog(
                                 val cookies = CookieManager.getInstance().getCookie(url)
                                 if (cookies != null) {
                                     val tokenMatch = Regex("user_session=([^;]+)").find(cookies)
-                                        ?: Regex("user_token=([^;]+)").find(cookies)
-                                        ?: Regex("token=([^;]+)").find(cookies)
-                                        ?: Regex("session_id=([^;]+)").find(cookies)
                                     
                                     if (tokenMatch != null) {
                                         onTokenExtracted(tokenMatch.groupValues[1])
