@@ -596,6 +596,18 @@ actual suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolea
             dbFile.inputStream().use { it.copyTo(zos) }
             zos.closeEntry()
         }
+        val walFile = context.getDatabasePath("conversations.db-wal")
+        if (walFile.exists()) {
+            zos.putNextEntry(java.util.zip.ZipEntry("conversations.db-wal"))
+            walFile.inputStream().use { it.copyTo(zos) }
+            zos.closeEntry()
+        }
+        val shmFile = context.getDatabasePath("conversations.db-shm")
+        if (shmFile.exists()) {
+            zos.putNextEntry(java.util.zip.ZipEntry("conversations.db-shm"))
+            shmFile.inputStream().use { it.copyTo(zos) }
+            zos.closeEntry()
+        }
     }
 
     if (includeModels) {
@@ -634,6 +646,16 @@ actual suspend fun extractBackupZip(zipBytes: ByteArray): String? {
                     dbFile.outputStream().use { zis.copyTo(it) }
                     java.io.File(dbFile.path + "-wal").delete()
                     java.io.File(dbFile.path + "-shm").delete()
+                }
+                "conversations.db-wal" -> {
+                    val dbFile = context.getDatabasePath("conversations.db-wal")
+                    dbFile.parentFile?.mkdirs()
+                    dbFile.outputStream().use { zis.copyTo(it) }
+                }
+                "conversations.db-shm" -> {
+                    val dbFile = context.getDatabasePath("conversations.db-shm")
+                    dbFile.parentFile?.mkdirs()
+                    dbFile.outputStream().use { zis.copyTo(it) }
                 }
                 else -> {
                     if (entry.name.startsWith("vosk/")) {
