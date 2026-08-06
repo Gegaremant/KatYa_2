@@ -1095,7 +1095,7 @@ private fun AddEditTaskSheet(
                 modifier = Modifier.fillMaxWidth(),
                 value = prompt,
                 onValueChange = { prompt = it },
-                label = { Text("Промпт для Кати") },
+                label = { Text("Задача") },
                 minLines = 3,
                 maxLines = 8,
             )
@@ -1114,8 +1114,8 @@ private fun AddEditTaskSheet(
             ) {
                 listOf(
                     TaskTrigger.TIME to "Однократно",
-                    TaskTrigger.CRON to "По расписанию",
-                    TaskTrigger.HEARTBEAT to "На селф-чек"
+                    TaskTrigger.CRON to "Расписание",
+                    TaskTrigger.HEARTBEAT to "Пульс"
                 ).forEach { (tType, label) ->
                     val isSelected = trigger == tType
                     FilterChip(
