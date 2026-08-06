@@ -137,6 +137,7 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val monitorStats by viewModel.monitorStats.collectAsStateWithLifecycle()
+    val currentServiceId by viewModel.currentServiceId.collectAsStateWithLifecycle()
     var wakeWordTriggerCount by remember { mutableStateOf(0) }
 
     LaunchedEffect(viewModel.wakeWordTriggered) {
@@ -152,7 +153,7 @@ fun ChatScreen(
         isSandboxAvailable = isSandboxAvailable,
         navigationTabBar = navigationTabBar,
         monitorStats = monitorStats,
-        currentServiceId = viewModel.currentServiceId.value,
+        currentServiceId = currentServiceId,
         wakeWordTriggerCount = wakeWordTriggerCount,
     )
 }
@@ -178,6 +179,7 @@ fun ChatScreenContent(
             isSandboxAvailable = isSandboxAvailable,
             navigationTabBar = navigationTabBar,
             monitorStats = monitorStats,
+            currentServiceId = currentServiceId,
             wakeWordTriggerCount = wakeWordTriggerCount,
         )
     }
