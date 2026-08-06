@@ -98,6 +98,18 @@ import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
 import com.katya.app.data.AppSettings
 import com.katya.app.data.VoiceUiMode
+import com.katya.app.network.Requests
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.plugins.timeout
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.http.isSuccess
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -150,6 +162,54 @@ fun QuestionInput(
                 onTextStateChange(TextFieldValue(""))
             }
         )
+    }
+
+    val requests: Requests = if (isPreview) Requests() else koinInject()
+    var linkValidationStatus by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(textState.text) {
+        val urls = Regex("https?://[a-zA-Z0-9-._~:/?#\\[\\\\\\]@!$&'()*+,;=%]+")
+            .findAll(textState.text)
+            .map { it.value }
+            .toList()
+
+        if (urls.isEmpty()) {
+            linkValidationStatus = null
+            return@LaunchedEffect
+        }
+
+        delay(800) // Debounce typing
+
+        linkValidationStatus = if (urls.size == 1) "Анализ ссылки..." else "Анализ ссылок..."
+        
+        var allOk = true
+        var okCount = 0
+        for (url in urls) {
+            val ok = try {
+                val response: io.ktor.client.statement.HttpResponse = requests.httpClient.get(url) {
+                    header("User-Agent", "Mozilla/5.0")
+                    timeout {
+                        requestTimeoutMillis = 4000
+                        connectTimeoutMillis = 4000
+                    }
+                }
+                response.status.isSuccess()
+            } catch (e: Exception) {
+                false
+            }
+            if (ok) {
+                okCount++
+            } else {
+                allOk = false
+            }
+        }
+
+        linkValidationStatus = if (urls.size == 1) {
+            if (allOk) "✅ Ссылка доступна" else "❌ Ссылка недоступна"
+        } else {
+            if (allOk) "✅ Все ссылки доступны ($okCount из ${urls.size})" 
+            else "❌ Есть недоступные ссылки ($okCount из ${urls.size} ок)"
+        }
     }
 
     Column(modifier = modifier) {
@@ -375,6 +435,14 @@ fun QuestionInput(
                 imeAction = if (currentPlatform is Platform.Mobile) ImeAction.Default else ImeAction.Send,
             ),
         )
+        linkValidationStatus?.let { status ->
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (status.startsWith("❌")) MaterialTheme.colorScheme.error else if (status.startsWith("✅")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 4.dp)
+            )
+        }
         val inInspection = LocalInspectionMode.current
         LaunchedEffect(Unit) {
             if (!inInspection) focusRequester.requestFocus()

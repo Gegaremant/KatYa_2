@@ -1,5 +1,24 @@
 # Release Notes
 
+## v2.4.3
+### Added
+- **Clean Sandbox Install:** `LinuxSandboxManager` now performs a clean wipe of `rootfs`, `home`, and `tmp` directories when installing the sandbox to avoid caching bugs.
+- **Action Logging:** Added robust UI logging of background actions like "Запрашиваю root-права для VLESS" directly into the UI state.
+- **Redesigned Debug & Server Settings:** Consolidated debug logging settings into a new "Отладка" block on the Servers tab with levels: Выкл, Размышления, Кратко, and Полная.
+- **Memory Tool Fixes:** Fixed a localization issue where all tools falsely displayed the same memory string resources.
+- **Task Scheduling Refinements:** Tasks and triggers have been renamed to "Однократно", "Расписание", and "Пульс" for clarity.
+
+## v2.4.15
+### Added
+- **Manual Memory & Tasks:** Added `AddMemorySheet` and `AddEditTaskSheet` UI to manually add memories and schedule tasks (with TIME, CRON, and HEARTBEAT triggers) without relying solely on Katya's autonomous actions.
+- **Operating Modes (Sandbox / God Mode / Bare Android):** Added UI settings to switch Katya between full system access (God Mode) and restricted modes. System prompts and permissions dynamically adjust based on the selected mode.
+- **Interactive Onboarding:** Introduced `StartupPermissionFlow` with a voice greeting on the very first launch, offering a beautiful checklist for granting necessary permissions.
+- **Agent-Reach & Skills Knowledge:** Integrated dynamic capability awareness into the system prompt, so Katya knows whether she has network access (Agent-Reach) and can leverage available Hermes skills.
+- **Dynamic Local Proxy Bypass:** Fixed connection issues by routing local loopback traffic (localhost, 127.0.0.1) directly to services like FreeDeepSeekAPI, bypassing the VLESS proxy.
+### Changed
+- **Token Extraction:** Improved token extraction reliability for DeepSeekAuthDialog by correctly parsing both cookies and localStorage.
+- **Model Selector:** Unified the model selector to robustly fallback to default models when connection status is unknown.
+
 ## v2.3
 ### Added
 - **System Control (Root/Sandbox):** Katya can now execute local shell commands natively via the new `ExecuteCommandTool`. It automatically detects Root (`su`) and uses it if available, or falls back to the app sandbox.

@@ -245,64 +245,48 @@ object CommonTools {
         id = executeCommandTool.schema.name,
         name = "Local Terminal",
         description = executeCommandTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val downloadFileToolInfo = ToolInfo(
         id = downloadFileTool.schema.name,
         name = "File Downloader",
         description = downloadFileTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val sshToolInfo = ToolInfo(
         id = sshTool.schema.name,
         name = "SSH Client",
         description = sshTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val sftpToolInfo = ToolInfo(
         id = sftpTool.schema.name,
         name = "SFTP Client",
         description = sftpTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val rootAppsCatalogToolInfo = ToolInfo(
         id = rootAppsCatalogTool.schema.name,
         name = "Root Apps Catalog",
         description = rootAppsCatalogTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val calendarToolInfo = ToolInfo(
         id = calendarTool.schema.name,
         name = "Calendar Manager",
         description = calendarTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val appGutsToolInfo = ToolInfo(
         id = appGutsTool.schema.name,
         name = "App Guts Analyzer",
         description = appGutsTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val intentToolInfo = ToolInfo(
         id = intentTool.schema.name,
-        name = "Android Intent Sender",
+        name = "Intent Broadcaster",
         description = intentTool.schema.description,
-        nameRes = Res.string.tool_memory_store_name,
-        descriptionRes = Res.string.tool_memory_store_description,
     )
 
     val commonToolDefinitions = listOf(
@@ -315,8 +299,6 @@ object CommonTools {
             id = "server_monitor",
             name = "Server Monitor",
             description = "Monitor CPU, RAM, and Temperature of the configured server",
-            nameRes = Res.string.tool_memory_store_name, // fallback string resource
-            descriptionRes = Res.string.tool_memory_store_description, // fallback
         ),
         executeCommandToolInfo,
         downloadFileToolInfo,

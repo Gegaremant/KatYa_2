@@ -488,7 +488,7 @@ class Requests {
             name.contains("SocketException", ignoreCase = true) ||
             name.contains("Unresolved", ignoreCase = true)
         return if (looksLikeNetworkFailure) {
-            OpenAICompatibleConnectionException()
+            OpenAICompatibleConnectionException(e.message, e)
         } else {
             OpenAICompatibleGenericException(
                 e.message?.takeIf { it.isNotBlank() } ?: "Unexpected error: $name",

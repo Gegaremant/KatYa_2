@@ -651,6 +651,8 @@ class FakeDataRepository : DataRepository {
         mockVlessUri = uri
     }
 
+    override val isVlessConnectedFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     private var mockQuickActions = emptyList<com.katya.app.data.QuickAction>()
     override fun getQuickActions(): List<com.katya.app.data.QuickAction> = mockQuickActions
     override fun setQuickActions(actions: List<com.katya.app.data.QuickAction>) {

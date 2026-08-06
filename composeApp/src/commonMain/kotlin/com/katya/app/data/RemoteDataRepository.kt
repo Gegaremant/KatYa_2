@@ -1850,6 +1850,8 @@ Your task is to restore the connection to the main server.
             runtime = runtime,
             uiMode = uiMode,
             activeSkill = activeSkill,
+            isSandbox = appSettings.isSandboxEnabled(),
+            isGodMode = appSettings.isGodModeEnabled(),
         ).ifEmpty { null }
     }
 
@@ -1895,6 +1897,10 @@ Your task is to restore the connection to the main server.
 
     override fun getMemories(): List<MemoryEntry> = memoryStore.getAllMemories()
 
+    override suspend fun addMemory(key: String, content: String) {
+        memoryStore.store(key, content)
+    }
+
     override suspend fun deleteMemory(key: String) {
         memoryStore.forget(key)
     }
@@ -1910,6 +1916,14 @@ Your task is to restore the connection to the main server.
     }
 
     override fun getScheduledTasks(): List<ScheduledTask> = taskStore.getAllTasks()
+
+    override suspend fun addScheduledTask(description: String, prompt: String, scheduledAtEpochMs: Long, cron: String?, trigger: TaskTrigger): ScheduledTask {
+        return taskStore.addTask(description, prompt, scheduledAtEpochMs, cron, trigger)
+    }
+
+    override suspend fun updateScheduledTask(task: ScheduledTask): ScheduledTask {
+        return taskStore.updateTask(task)
+    }
 
     override suspend fun cancelScheduledTask(id: String) {
         taskStore.removeTask(id)
@@ -1933,10 +1947,19 @@ Your task is to restore the connection to the main server.
         appSettings.setVlessUri(uri)
     }
 
+    override val isVlessConnectedFlow: StateFlow<Boolean>
+        get() = appSettings.isVlessConnectedFlow
+
     override fun isSandboxEnabled(): Boolean = appSettings.isSandboxEnabled()
 
     override fun setSandboxEnabled(enabled: Boolean) {
         appSettings.setSandboxEnabled(enabled)
+    }
+
+    override fun isGodModeEnabled(): Boolean = appSettings.isGodModeEnabled()
+
+    override fun setGodModeEnabled(enabled: Boolean) {
+        appSettings.setGodModeEnabled(enabled)
     }
 
     override fun getQuickActions(): List<QuickAction> = try {
@@ -1992,6 +2015,11 @@ Your task is to restore the connection to the main server.
     }
 
     override fun getEmailAccounts(): List<EmailAccount> = emailStore.getAccounts()
+
+    override suspend fun addEmailAccount(account: EmailAccount, password: String) {
+        emailStore.addAccount(account)
+        emailStore.setPassword(account.id, password)
+    }
 
     override suspend fun removeEmailAccount(id: String) {
         emailStore.removeAccount(id)

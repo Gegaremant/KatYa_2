@@ -476,10 +476,6 @@ fun SettingsScreenContent(
                                 )
                             }
 
-                            SettingsTab.AppLogs -> {
-                                AppLogsScreen()
-                            }
-
                             SettingsTab.Servers -> {
                                 ServersContent()
                             }
@@ -559,8 +555,7 @@ private fun SettingsTabSelector(
                             SettingsTab.Agent -> stringResource(Res.string.settings_tab_agent)
                             SettingsTab.Services -> stringResource(Res.string.settings_tab_services)
                             SettingsTab.Tools -> stringResource(Res.string.settings_tab_tools)
-                            SettingsTab.AppLogs -> "Логи"
-                            SettingsTab.Integrations -> stringResource(Res.string.settings_tab_integrations)
+                            SettingsTab.Integrations -> "Интеграции"
                             SettingsTab.Servers -> "Серверы"
                             else -> ""
                         },

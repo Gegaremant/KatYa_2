@@ -35,3 +35,10 @@ Because Katya runs outside of traditional sandboxes (with Root privileges where 
 - **Dynamic UI Rendering**: Katya doesn't just output boring text. If she needs to show you a recipe, a server dashboard, or a brainstorming map, she renders custom Jetpack Compose widgets dynamically right inside the chat window.
 - **Markdown & Code Support**: Full support for rendering complex Markdown, tables, and formatted code blocks with syntax highlighting.
 - **Backup & Restore**: Easily export and import your entire state — including chat history, memories, tasks, and SSH monitor settings — locally or to your Nextcloud instance.
+
+## 6. Operating Modes & Control
+
+- **Interactive Onboarding**: On the very first launch, Katya greets you with a voice message and provides a beautiful, interactive checklist to grant all necessary system permissions.
+- **Access Modes**: You can seamlessly switch Katya's access level: from a secure **Sandbox** (isolated) to full-scale **God Mode** (Root privileges, complete system control) or **Bare Android** (clean operation without external tools).
+- **Manual Management**: While Katya is fully autonomous, you can always manually create Long-Term Memory entries or schedule new Background Tasks (with Time, Cron, or Heartbeat triggers) via a user-friendly interface.
+- **Environment Awareness (Agent-Reach)**: Katya dynamically analyzes her network reachability and available skills (Hermes skills), adjusting her system prompt to match current conditions.

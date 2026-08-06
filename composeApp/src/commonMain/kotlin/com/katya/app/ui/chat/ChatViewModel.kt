@@ -89,6 +89,7 @@ class ChatViewModel(
             monitorOverlayMode = appSettings.getMonitorOverlayMode(),
             isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
             isVlessEnabled = appSettings.isVlessEnabled(),
+            systemStatus = null,
         ),
     )
     val monitorStats = monitorService.stats
@@ -182,6 +183,12 @@ class ChatViewModel(
                 } else {
                     monitorService.stopMonitoring()
                 }
+            }
+        }
+        
+        viewModelScope.launch {
+            appSettings.systemStatusFlow.collect { status ->
+                _state.update { it.copy(systemStatus = status) }
             }
         }
     }

@@ -79,7 +79,8 @@ class LinuxSandboxManager(
     private fun checkExistingInstallation() {
         val rootfs = File(sandboxDir, "rootfs")
         val proot = File(prootPath)
-        if (rootfs.isDirectory && proot.exists() && proot.canExecute()) {
+        val xrayExists = File(rootfs, "usr/bin/xray").exists()
+        if (rootfs.isDirectory && proot.exists() && proot.canExecute() && xrayExists) {
             _state.value = SandboxState.Ready
         }
     }
@@ -133,6 +134,11 @@ class LinuxSandboxManager(
                     "nativeLibraryDir contents: ${File(nativeLibDir).listFiles()?.map { it.name } ?: "empty"}",
             )
         }
+
+        // Clean up previous installation to avoid caching bugs
+        File(sandboxDir, "rootfs").deleteRecursively()
+        File(sandboxDir, "home").deleteRecursively()
+        File(sandboxDir, "tmp").deleteRecursively()
 
         // Create directories. `homePath` getter creates the externally-visible
         // sandbox-home dir on access, so we only need to ensure sandboxDir + tmp.
@@ -285,11 +291,12 @@ class LinuxSandboxManager(
         if (currentJob?.isActive == true) return
         val packages = listOf(
             "bash", "curl", "wget", "git", "jq", "python3", "py3-pip", "nodejs",
-            "openssh-client", "lftp", "rsync", "xray",
+            "openssh-client", "lftp", "rsync", "xray-core",
         )
         currentJob = scope.launch {
             try {
                 val executor = createProotExecutor()
+                executor.execute("sh -c \"grep -q 'edge/testing' /etc/apk/repositories || echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories\"", timeoutSeconds = 30)
                 for (pkg in packages) {
                     ensureActive()
                     _state.value = SandboxState.Installing("Installing $pkg...")

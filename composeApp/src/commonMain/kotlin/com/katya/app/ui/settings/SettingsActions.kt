@@ -1,6 +1,7 @@
 package com.katya.app.ui.settings
 
 import androidx.compose.runtime.Immutable
+import com.katya.app.data.EmailAccount
 import com.katya.app.data.ImportSection
 import com.katya.app.data.Service
 import com.katya.app.data.ThemeMode
@@ -13,6 +14,7 @@ data class SettingsActions(
     val onAddService: (Service) -> Unit,
     val onRemoveService: (String) -> Unit,
     val onReorderServices: (List<String>) -> Unit,
+    val onAddEmailAccount: (EmailAccount, String) -> Unit,
     val onExpandService: (String?) -> Unit,
     val onChangeApiKey: (String, String) -> Unit,
     val onChangeBaseUrl: (String, String) -> Unit,
@@ -37,7 +39,10 @@ data class SettingsActions(
     val onToggleMemory: (Boolean) -> Unit,
     val onDeleteMemory: (String) -> Unit,
     val onUpdateMemory: (String, String) -> Unit,
+    val onAddMemory: (String, String) -> Unit,
     val onToggleScheduling: (Boolean) -> Unit,
+    val onAddScheduledTask: (String, String, Long, String?, com.katya.app.data.TaskTrigger) -> Unit,
+    val onUpdateScheduledTask: (com.katya.app.data.ScheduledTask) -> Unit,
     val onCancelTask: (String) -> Unit,
     val onToggleDaemon: (Boolean) -> Unit,
     val onToggleVless: (Boolean) -> Unit,
@@ -92,6 +97,7 @@ data class SettingsActions(
             onAddService = {},
             onRemoveService = {},
             onReorderServices = {},
+            onAddEmailAccount = { _, _ -> },
             onExpandService = {},
             onChangeApiKey = { _, _ -> },
             onChangeBaseUrl = { _, _ -> },
@@ -116,7 +122,10 @@ data class SettingsActions(
             onToggleMemory = {},
             onDeleteMemory = {},
             onUpdateMemory = { _, _ -> },
+            onAddMemory = { _, _ -> },
             onToggleScheduling = {},
+            onAddScheduledTask = { _, _, _, _, _ -> },
+            onUpdateScheduledTask = {},
             onCancelTask = {},
             onToggleDaemon = {},
             onToggleVless = {},

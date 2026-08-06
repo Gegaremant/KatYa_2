@@ -20,12 +20,12 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 </div>
 
-### 🆕 What's New in v2.2
-- **Autonomous Brain (Auto-Heal):** If your remote Ollama server goes down, Katya wakes up locally via `LiteRT` and autonomously connects via SSH to try and restart the service (`systemctl restart ollama`), or searches for a free API proxy to keep answering you.
-- **Dynamic Local Model Suggestions:** A new first-launch dialog evaluates your device's RAM (e.g., 4GB vs 8GB) and recommends the optimal GGUF model for Local Inference.
-- **Free API Fallback:** Automatically scrapes and applies a free API key from GitHub if your primary OpenAI/Anthropic quota runs out.
-- **Out of the sandbox:** Katya now fully utilizes Root privileges and has access to the full Android file system, Termux, and system APIs (e.g. Nextcloud).
-- **RHVoice Support:** Select custom TTS voices directly from Katya's settings or easily download the RHVoice library.
+### 🆕 What's New in v2.4.15
+- **Interactive Onboarding:** A new interactive permissions checklist with a voice greeting on the very first launch.
+- **Operating Modes:** Easily switch between God Mode (root + full system control), Sandbox (isolated), and Bare Android (no external tools) to match your security and usage needs.
+- **Manual Memory & Tasks:** New interfaces to directly add memories and schedule background tasks (Cron/Time/Heartbeat) without relying entirely on AI autonomy.
+- **Dynamic Capabilities:** Katya is now fully aware of her environment and can tap into external Hermes skills or verify Agent-Reach network access dynamically.
+- **Autonomous Brain (Auto-Heal):** If your remote Ollama server goes down, Katya wakes up locally via `LiteRT` and autonomously connects via SSH to try and restart the service, or searches for a free API proxy.
 
 ### ✨ Key Features
 
@@ -108,12 +108,12 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 </div>
 
-### 🆕 Что нового в версии 2.0
-- **Автономный Мозг (Auto-Heal):** Если ваш внешний Ollama сервер падает, Катя просыпается на локальном движке `LiteRT` и пытается автономно зайти по SSH, чтобы перезапустить сервис (`systemctl restart ollama`), либо находит бесплатные API-прокси для ответа!
-- **Динамический подбор локальной модели:** При первом запуске Катя оценивает объем RAM телефона (например 4GB или 8GB) и рекомендует самую подходящую GGUF-модель.
-- **Резервные Free API:** Катя автоматически парсит свежие бесплатные API ключи с GitHub, если у вас закончились кредиты в OpenAI или Anthropic.
-- **Выход из песочницы:** Катя теперь на 100% осознает свои Root-права и может беспрепятственно работать с файловой системой, Termux и API-интеграциями (Nextcloud).
-- **Поддержка RHVoice:** Установка и прямое переключение голосов системного синтезатора речи прямо в интерфейсе Кати.
+### 🆕 Что нового в версии 2.4.15
+- **Интерактивный Onboarding:** Красивый стартовый экран с чек-листом необходимых разрешений и голосовым приветствием от Кати при первом запуске.
+- **Режимы работы:** Возможность переключения между God Mode (Root + полный контроль), Sandbox (изоляция) и Bare Android (без внешних утилит) под разные уровни безопасности.
+- **Ручное управление:** Новые экраны для прямого добавления записей в Память и постановки Задач (Cron/Time/Heartbeat) без необходимости просить об этом ассистента.
+- **Динамические навыки:** Системный промпт теперь динамически подстраивается под окружение, предоставляя Кате знания о доступных навыках (Hermes skills) и состоянии сети (Agent-Reach).
+- **Автономный Мозг (Auto-Heal):** Если ваш внешний Ollama сервер падает, Катя просыпается на локальном движке `LiteRT` и пытается автономно зайти по SSH, чтобы перезапустить сервис, либо находит бесплатные API-прокси для ответа.
 
 ### ✨ Ключевые возможности
 

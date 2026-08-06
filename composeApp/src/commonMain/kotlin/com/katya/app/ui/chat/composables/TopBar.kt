@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material3.Icon
@@ -99,7 +100,10 @@ private fun LeadingButtons(
     onShowHistory: () -> Unit,
 ) {
     if (isVlessEnabled) {
-        IconButton(onClick = {}) {
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier.padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
                 imageVector = androidx.compose.material.icons.Icons.Filled.Dns,
                 contentDescription = "Vless proxy is active",

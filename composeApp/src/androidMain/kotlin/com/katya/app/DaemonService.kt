@@ -90,7 +90,11 @@ class DaemonService : Service() {
         freeDeepSeekManager.start()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        vlessProxyManager.start()
+        freeDeepSeekManager.start()
+        return START_STICKY
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 

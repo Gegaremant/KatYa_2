@@ -23,6 +23,7 @@ fun MonitorOverlay(
     stats: MonitorStats,
     selectedService: ServiceEntry?,
     isProcessing: Boolean,
+    systemStatus: String?,
     modifier: Modifier = Modifier,
 ) {
     if (mode == MonitorOverlayMode.OFF) return
@@ -51,21 +52,23 @@ fun MonitorOverlay(
             if (mode == MonitorOverlayMode.SHORT) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        val srvText = if (selectedService?.serviceId == "srv-llm") {
+                        val katyaStatus = systemStatus ?: if (isProcessing) "Думаю..." else "Ожидание"
+                        Text(
+                            text = katyaStatus,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                        )
+                        
+                        val networkStatus = if (selectedService?.serviceId == "srv-llm") {
                             stats.srvShort ?: "Srv: N/A"
                         } else {
                             val serviceName = selectedService?.serviceName ?: "Auto"
                             "API: Connected to $serviceName"
                         }
                         Text(
-                            text = srvText,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                        )
-                        Text(
-                            text = stats.locShort ?: "Loc: N/A",
+                            text = networkStatus,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace,

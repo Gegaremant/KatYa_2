@@ -16,6 +16,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -184,11 +186,14 @@ private fun AppContent(
         LocalDensity provides scaledDensity,
     ) {
         Theme(colorScheme = effectiveColorScheme) {
-            com.katya.app.ui.components.StartupPermissionFlow {
-                // Continue with app startup after permissions are handled or skipped
-            }
-            FullScreenImageHost {
-                com.katya.app.ui.components.WhatsNewDialog()
+            var isOnboardingCompleted by remember { mutableStateOf(appSettings.isOnboardingCompleted()) }
+
+            if (!isOnboardingCompleted && currentPlatform is Platform.Mobile.Android) {
+                com.katya.app.ui.components.StartupPermissionFlow(textToSpeech = textToSpeech) {
+                    isOnboardingCompleted = true
+                }
+            } else {
+                FullScreenImageHost {
                 val chatViewModel: ChatViewModel = koinViewModel()
                 val showTabBar = currentPlatform !is Platform.Mobile
                 val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -260,6 +265,7 @@ private fun AppContent(
                             navigationTabBar = if (showTabBar) navigationTabBar else null,
                         )
                     }
+                }
                 }
             }
         }

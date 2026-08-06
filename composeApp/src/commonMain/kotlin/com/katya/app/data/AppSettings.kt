@@ -41,6 +41,7 @@ enum class ThemeMode {
 
 enum class MonitorOverlayMode {
     OFF,
+    THOUGHTS_ONLY,
     SHORT,
     FULL,
 }
@@ -128,7 +129,7 @@ fun detectExportableSections(json: JsonObject): Map<ImportSection, String?> {
     }
 
     if (json["server_ip"] != null) {
-        sections[ImportSection.SERVERS] = null
+        sections[ImportSection.SERVERS] = "1"
     }
 
     return sections
@@ -187,7 +188,7 @@ fun detectImportSections(json: JsonObject): Map<ImportSection, String?> {
         sections[ImportSection.CONVERSATIONS] = count?.let { "$it" }
     }
     if (json["server_ip"] != null) {
-        sections[ImportSection.SERVERS] = null
+        sections[ImportSection.SERVERS] = "1"
     }
     return sections
 }
@@ -398,6 +399,13 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Monitor Overlay Mode
+    private val _systemStatusFlow = MutableStateFlow<String?>(null)
+    val systemStatusFlow: StateFlow<String?> = _systemStatusFlow
+
+    fun setSystemStatus(status: String?) {
+        _systemStatusFlow.value = status
+    }
+
     private val _monitorOverlayModeFlow = MutableStateFlow(loadInitialMonitorOverlayMode())
     val monitorOverlayModeFlow: StateFlow<MonitorOverlayMode> = _monitorOverlayModeFlow
 
@@ -471,6 +479,20 @@ class AppSettings(internal val settings: Settings) {
         settings.putBoolean(KEY_SANDBOX_ENABLED, enabled)
     }
 
+    // GOD_MODE
+    fun isGodModeEnabled(): Boolean = settings.getBoolean(KEY_GOD_MODE_ENABLED, true)
+
+    fun setGodModeEnabled(enabled: Boolean) {
+        settings.putBoolean(KEY_GOD_MODE_ENABLED, enabled)
+    }
+
+    // Onboarding
+    fun isOnboardingCompleted(): Boolean = settings.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+
+    fun setOnboardingCompleted(completed: Boolean) {
+        settings.putBoolean(KEY_ONBOARDING_COMPLETED, completed)
+    }
+
     // Agent Visibility (showing operations in UI)
     fun isAgentVisibilityEnabled(): Boolean = settings.getBoolean(KEY_AGENT_VISIBILITY_ENABLED, true)
 
@@ -489,6 +511,15 @@ class AppSettings(internal val settings: Settings) {
 
     fun setVlessUri(uri: String) {
         settings.putString(KEY_VLESS_URI, uri)
+    }
+
+    private val _isVlessConnectedFlow = MutableStateFlow(false)
+    val isVlessConnectedFlow: StateFlow<Boolean> = _isVlessConnectedFlow
+
+    fun isVlessConnected(): Boolean = _isVlessConnectedFlow.value
+
+    fun setVlessConnected(connected: Boolean) {
+        _isVlessConnectedFlow.value = connected
     }
 
     fun getScheduledTasksJson(): String = settings.getString(KEY_SCHEDULED_TASKS, "[]")
@@ -766,6 +797,8 @@ class AppSettings(internal val settings: Settings) {
         const val KEY_MODEL_CONTEXT_PREFIX = "model_context_"
 
         const val KEY_SANDBOX_ENABLED = "sandbox_enabled"
+        const val KEY_GOD_MODE_ENABLED = "god_mode_enabled"
+        const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
         const val KEY_AGENT_VISIBILITY_ENABLED = "agent_visibility_enabled"
         const val KEY_VLESS_ENABLED = "vless_enabled"
         const val KEY_VLESS_URI = "vless_uri"

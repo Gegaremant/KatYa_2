@@ -32,7 +32,11 @@ class FreeDeepSeekManager(
     private var prootHandle: ProotHandle? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    fun start() {
+    fun start(force: Boolean = false) {
+        if (!force && (_state.value is DeepSeekProxyState.Running || _state.value is DeepSeekProxyState.Starting || _state.value is DeepSeekProxyState.Installing)) {
+            AppLogger.d("FreeDeepSeekManager", "Already running or starting (state=${_state.value}), skipping start()")
+            return
+        }
         stop()
 
         val instance = dataRepository.getConfiguredServiceInstances().find { it.serviceId == "freedeepseekproxy" }
@@ -40,12 +44,6 @@ class FreeDeepSeekManager(
             _state.value = DeepSeekProxyState.Error("Service not configured")
             return
         }
-        val sessionToken = dataRepository.getInstanceApiKey(instance.instanceId)
-        if (sessionToken.isBlank()) {
-            _state.value = DeepSeekProxyState.Error("Session token missing")
-            return
-        }
-
         proxyJob = scope.launch {
             try {
                 // Wait for sandbox
@@ -53,11 +51,12 @@ class FreeDeepSeekManager(
                     linuxSandboxManager.setup()
                     var waitCount = 0
                     while (linuxSandboxManager.state.value !is SandboxState.Ready && waitCount < 30) {
+                        if (linuxSandboxManager.state.value is SandboxState.Error) break
                         kotlinx.coroutines.delay(1000)
                         waitCount++
                     }
                     if (linuxSandboxManager.state.value !is SandboxState.Ready) {
-                        _state.value = DeepSeekProxyState.Error("Sandbox not ready")
+                        _state.value = DeepSeekProxyState.Error("Sandbox not ready: ${linuxSandboxManager.state.value}")
                         return@launch
                     }
                 }
@@ -65,33 +64,55 @@ class FreeDeepSeekManager(
                 _state.value = DeepSeekProxyState.Installing
                 val executor = linuxSandboxManager.createProotExecutor()
                 
-                // Ensure Python and Git are installed (Depends on the base image, Katya's sandbox usually has them or can install via apk/apt)
-                // Assuming it's Alpine Linux based on KatYa sandbox defaults
-                executor.execute("apk add python3 py3-pip git")
+                // Ensure Node.js and Git are installed
+                executor.execute("apk add nodejs npm git")
 
                 val repoPath = "/root/FreeDeepSeekAPI"
                 val checkRepo = executor.execute("test -d $repoPath")
                 if (checkRepo["exit_code"] != 0) {
                     AppLogger.d("FreeDeepSeekManager", "Cloning FreeDeepSeekAPI")
                     executor.execute("git clone https://github.com/ForgetMeAI/FreeDeepSeekAPI.git $repoPath")
-                    executor.execute("cd $repoPath && pip install --break-system-packages -r requirements.txt")
+                    executor.execute("cd $repoPath && npm install")
                 } else {
                     AppLogger.d("FreeDeepSeekManager", "Pulling latest FreeDeepSeekAPI")
                     executor.execute("cd $repoPath && git pull")
-                    executor.execute("cd $repoPath && pip install --break-system-packages -r requirements.txt")
+                    executor.execute("cd $repoPath && npm install")
                 }
 
                 _state.value = DeepSeekProxyState.Starting
+
+                // Retrieve the DeepSeek session token (if any) to pre-populate auth file
+                val sessionToken = dataRepository.getInstanceApiKey(instance.instanceId)
                 
-                // Write .env file
-                val envFile = File(linuxSandboxManager.homePath, "FreeDeepSeekAPI/.env")
-                envFile.writeText("PORT=8000\nHOST=127.0.0.1\n")
+                // Write deepseek-auth.json via Android File API:
+                // homePath is bind-mounted as /root inside proot, so:
+                // <homePath>/FreeDeepSeekAPI/deepseek-auth.json == /root/FreeDeepSeekAPI/deepseek-auth.json inside proot
+                if (sessionToken.isNotBlank() && !sessionToken.startsWith("{")) {
+                    val authFile = File(linuxSandboxManager.homePath, "FreeDeepSeekAPI/deepseek-auth.json")
+                    authFile.parentFile?.mkdirs()
+                    val authContent = """{"token":"$sessionToken","cookie":"user_session=$sessionToken","wasmUrl":"https://fe-static.deepseek.com/chat/static/sha3_wasm_bg.7b9ca65ddd.wasm"}"""
+                    authFile.writeText(authContent)
+                    AppLogger.d("FreeDeepSeekManager", "Wrote auth file to: ${authFile.absolutePath}, exists=${authFile.exists()}, size=${authFile.length()}")
+                } else {
+                    AppLogger.d("FreeDeepSeekManager", "No valid session token, starting server without auth (user must authorize via DeepSeek button)")
+                }
+                
+                // Verify the file is visible inside proot
+                val verifyResult = executor.execute("cat $repoPath/deepseek-auth.json")
+                val verifyExit = verifyResult["exit_code"]
+                val verifyContent = verifyResult["stdout"]?.toString()?.take(80)
+                AppLogger.d("FreeDeepSeekManager", "Auth file inside proot: exit_code=$verifyExit, content=$verifyContent")
+
+                val proxyEnv = if (dataRepository.isVlessEnabled()) {
+                    "HTTP_PROXY=http://127.0.0.1:10809 HTTPS_PROXY=http://127.0.0.1:10809 http_proxy=http://127.0.0.1:10809 https_proxy=http://127.0.0.1:10809 ALL_PROXY=socks5://127.0.0.1:10808 all_proxy=socks5://127.0.0.1:10808 "
+                } else ""
 
                 prootHandle = executor.executeStreaming(
-                    command = "cd $repoPath && python3 app.py",
+                    // Pass '4' to select "Запустить прокси" from the menu; use PORT/HOST env vars
+                    command = "cd $repoPath && echo '4' | ${proxyEnv}PORT=11434 HOST=127.0.0.1 npm start",
                     onStdout = { 
                         AppLogger.d("DeepSeekOut", it)
-                        if (it.contains("Uvicorn running on") || it.contains("Application startup complete")) {
+                        if (it.contains("running on") || it.contains("listening") || it.contains("started")) {
                             _state.value = DeepSeekProxyState.Running
                         }
                     },

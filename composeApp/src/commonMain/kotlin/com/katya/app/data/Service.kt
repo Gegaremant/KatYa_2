@@ -114,14 +114,23 @@ sealed class Service(
         id = "freedeepseekproxy",
         displayName = "Free DeepSeek Proxy",
         icon = Res.drawable.ic_service_deepseek, // assuming it exists
-        requiresApiKey = true, // We store the session token here
+        requiresApiKey = false, // Auth is handled via DeepSeek auth dialog, not API key field
         defaultModel = "deepseek-chat",
         settingsKeyPrefix = "freedeepseekproxy",
-        chatUrl = "http://127.0.0.1:8000/v1/chat/completions",
-        modelsUrl = "http://127.0.0.1:8000/v1/models",
+        chatUrl = "http://127.0.0.1:11434/v1/chat/completions",
+        modelsUrl = "http://127.0.0.1:11434/v1/models",
         defaultModels = listOf(
             ModelDefinition("deepseek-chat", "DeepSeek Chat (V3)"),
+            ModelDefinition("deepseek-v3", "DeepSeek V3 Alias"),
+            ModelDefinition("deepseek-default", "DeepSeek Default Alias"),
             ModelDefinition("deepseek-reasoner", "DeepSeek Reasoner (R1)"),
+            ModelDefinition("deepseek-r1", "DeepSeek R1 Alias"),
+            ModelDefinition("deepseek-chat-search", "DeepSeek Chat w/ Search"),
+            ModelDefinition("deepseek-default-search", "DeepSeek Default w/ Search"),
+            ModelDefinition("deepseek-reasoner-search", "DeepSeek Reasoner w/ Search"),
+            ModelDefinition("deepseek-r1-search", "DeepSeek R1 w/ Search"),
+            ModelDefinition("deepseek-expert", "DeepSeek Expert"),
+            ModelDefinition("deepseek-v4-pro", "DeepSeek V4 Pro"),
         ),
         supportsImages = false,
         reasoningRequestMode = ReasoningRequestMode.NONE, // Or mapped differently if needed

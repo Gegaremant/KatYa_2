@@ -166,6 +166,9 @@ fun AppSettings.exportToJson(
         val serverPassword = getServerPassword()
         if (serverPassword.isNotBlank()) map["server_password"] = JsonPrimitive(serverPassword)
         map["tunnel_persistent_reconnect"] = JsonPrimitive(isTunnelPersistentReconnectEnabled())
+        map["vless_enabled"] = JsonPrimitive(isVlessEnabled())
+        val vlessUri = getVlessUri()
+        if (vlessUri.isNotBlank()) map["vless_uri"] = JsonPrimitive(vlessUri)
     }
 
     return JsonObject(map)
@@ -380,6 +383,8 @@ fun AppSettings.importFromJson(
             setServerUser(json["server_user"]?.jsonPrimitive?.content ?: "")
             setServerPassword(json["server_password"]?.jsonPrimitive?.content ?: "")
             setTunnelPersistentReconnectEnabled(json["tunnel_persistent_reconnect"]?.jsonPrimitive?.content?.toBoolean() ?: false)
+            setVlessEnabled(json["vless_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: false)
+            setVlessUri(json["vless_uri"]?.jsonPrimitive?.content ?: "")
         } catch (_: Exception) {
             errors++
         }
@@ -389,6 +394,8 @@ fun AppSettings.importFromJson(
         setServerUser("")
         setServerPassword("")
         setTunnelPersistentReconnectEnabled(false)
+        setVlessEnabled(false)
+        setVlessUri("")
     }
 
     return errors

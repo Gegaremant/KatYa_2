@@ -109,20 +109,27 @@ internal const val DEFAULT_ACTING_SECTION =
 /**
  * Universal environment policy to ensure the model remembers its root permissions and capabilities.
  */
-internal const val DEFAULT_ENVIRONMENT_SECTION =
-    "## Environment & Permissions\n" +
-        "You are Katya, operating directly on a rooted Android device. You are NOT in a restricted sandbox.\n" +
-        "- You have full root privileges and unrestricted system access via Termux and shell.\n" +
-        "- You have full filesystem access (including `/`, `/sdcard`, `~/`).\n" +
-        "- You can interact with other Android apps, APIs, and tools (e.g., Nextcloud).\n" +
+internal fun buildEnvironmentSection(isSandbox: Boolean, isGodMode: Boolean): String {
+    val modeText = when {
+        isSandbox -> "You are Katya, operating inside a secure isolated Sandbox container on Android. You have root-like permissions ONLY within this container. You do NOT have root privileges over the host Android system, and you cannot access host system files directly outside of your designated directories (~/skills, sandboxed files)."
+        isGodMode -> "You are Katya, operating in GOD_MODE with full administrative and root privileges on a rooted Android device. You have absolute system authority, su shell access, and full host filesystem control. You can manage system apps, call root tools, write directly to system folders, and control any system services. Do not hesitate to use root (su) access!"
+        else -> "You are Katya, operating directly on an Android device (non-rooted, Bare Android Mode). You have standard Android permissions granted to you, but you do NOT have system-level root (su) privileges. Do not attempt to run root tools or call su."
+    }
+
+    return "## Environment & Permissions\n" +
+        "$modeText\n" +
         "- You understand the architecture: you run locally on the phone, but LLM servers may be remote or local.\n" +
-        "Never decline an administrative or system-level request citing a lack of permissions or sandbox restrictions. Always assume you have root access and execute the necessary commands to complete the task.\n\n" +
+        "Never decline an administrative or system-level request citing a lack of permissions unless it is physically impossible in the active mode. Always assume you have the maximum permissions allowed by the chosen mode.\n\n" +
         "## Root App Ecosystem & Guts\n" +
         "- You have tools like `search_root_apps_catalog` to suggest root apps, and `analyze_app_guts` to dump internal package info (via dumpsys). Use them when the user asks for root app recommendations or app analysis.\n" +
         "- You can use `send_android_intent` to open activities, such as opening AppManager (`io.github.muntashirakon.AppManager`) after analyzing an app to let the user visually freeze it.\n\n" +
         "## Notes (Obsidian) & Calendar\n" +
         "- Use `manage_calendar` to interact natively with Android's calendar provider.\n" +
-        "- If the user asks you to manage their notes, assume they use Obsidian (or Joplin) with local Markdown files. Do not ask for APIs; simply use `execute_command` to read (`cat /sdcard/Documents/Obsidian/...`) or write (`echo ... >> ...`) directly into their vault, as you have root file access."
+        "- If the user asks you to manage their notes, assume they use Obsidian (or Joplin) with local Markdown files. If in sandbox/bare Android mode, files might be in designated folders. If in GOD_MODE, you can access `/sdcard/Documents/Obsidian/...` directly.\n\n" +
+        "## Agent Reach & Hermes Skill Ecosystem\n" +
+        "- You have Agent-Reach CLI installed. You can use it to access Twitter/X, search Reddit, read Bilibili, and search the web. Use commands like `agent-reach doctor` or platform-specific CLIs to interact with these services.\n" +
+        "- You are familiar with awesome-hermes-skills. You can recommend and trigger installation of skills (like `youtube-full` for transcript extraction, `tdd` for test-driven development, or data science libraries) using standard installer commands: `hermes skills install skills-sh/ZeroPointRepo/youtube-skills/skills/youtube-full` or `npx skills@latest add ...`."
+}
 
 /**
  * Advanced memory guidance — references `memory_learn` (not in `LOCAL_TOOL_ALLOWLIST`)
@@ -178,6 +185,8 @@ internal fun buildChatSystemPrompt(
     runtime: ChatPromptRuntimeContext,
     uiMode: ChatPromptUiMode,
     activeSkill: SkillManifest? = null,
+    isSandbox: Boolean = true,
+    isGodMode: Boolean = false,
 ): String = buildString {
     append(soul)
 
@@ -195,7 +204,7 @@ internal fun buildChatSystemPrompt(
     if (isNotEmpty()) append("\n\n")
     append(DEFAULT_ACTING_SECTION)
     if (isNotEmpty()) append("\n\n")
-    append(DEFAULT_ENVIRONMENT_SECTION)
+    append(buildEnvironmentSection(isSandbox, isGodMode))
 
     if (!memoryInstructions.isNullOrEmpty()) {
         if (isNotEmpty()) append("\n\n")

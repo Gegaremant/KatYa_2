@@ -86,6 +86,41 @@ object ServerAutoDetect {
             imapHost = "imap.fastmail.com",
             smtpHost = "smtp.fastmail.com",
         ),
+        "yandex.ru" to ServerConfig(
+            imapHost = "imap.yandex.ru",
+            smtpHost = "smtp.yandex.ru",
+            note = "Requires an App Password. Enable IMAP and generate App Password in Yandex ID.",
+        ),
+        "yandex.com" to ServerConfig(
+            imapHost = "imap.yandex.com",
+            smtpHost = "smtp.yandex.com",
+            note = "Requires an App Password. Enable IMAP and generate App Password in Yandex ID.",
+        ),
+        "ya.ru" to ServerConfig(
+            imapHost = "imap.yandex.ru",
+            smtpHost = "smtp.yandex.ru",
+            note = "Requires an App Password. Enable IMAP and generate App Password in Yandex ID.",
+        ),
+        "mail.ru" to ServerConfig(
+            imapHost = "imap.mail.ru",
+            smtpHost = "smtp.mail.ru",
+            note = "Requires an App Password. Generate password in Mail.ru Account Security > App Passwords.",
+        ),
+        "bk.ru" to ServerConfig(
+            imapHost = "imap.mail.ru",
+            smtpHost = "smtp.mail.ru",
+            note = "Requires an App Password. Generate password in Mail.ru Account Security > App Passwords.",
+        ),
+        "inbox.ru" to ServerConfig(
+            imapHost = "imap.mail.ru",
+            smtpHost = "smtp.mail.ru",
+            note = "Requires an App Password. Generate password in Mail.ru Account Security > App Passwords.",
+        ),
+        "list.ru" to ServerConfig(
+            imapHost = "imap.mail.ru",
+            smtpHost = "smtp.mail.ru",
+            note = "Requires an App Password. Generate password in Mail.ru Account Security > App Passwords.",
+        ),
     )
 
     fun detect(email: String): ServerConfig? {

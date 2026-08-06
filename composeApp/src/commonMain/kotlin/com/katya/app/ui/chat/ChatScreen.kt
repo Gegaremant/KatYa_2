@@ -418,9 +418,7 @@ private fun InteractiveModeContent(
         if (uiState.isLoading && lastAssistant == null) {
             // First load — show centered loading
             Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                WaitingResponseRow(
-                    executingTools = remember { kotlinx.collections.immutable.persistentListOf() },
-                )
+                // Katya status is now in the top bar
             }
         } else if (lastAssistant != null) {
             val contentId = lastAssistant.id
@@ -559,9 +557,10 @@ private fun ChatModeScreen(
 
             com.katya.app.ui.chat.composables.MonitorOverlay(
                 mode = uiState.monitorOverlayMode,
-                stats = monitorStats,
-                selectedService = uiState.availableServices.firstOrNull(),
+                stats = viewModel.monitorStats.value,
+                selectedService = uiState.availableServices.find { it.serviceId == viewModel.currentServiceId.value },
                 isProcessing = uiState.isLoading,
+                systemStatus = uiState.systemStatus,
             )
 
             PendingSmsBanners(
@@ -863,11 +862,7 @@ private fun ChatModeScreen(
                                         (frozenByAssistantId.values.none { it.isPending } || executingToolsState.tools.isNotEmpty())
                                     if (showWaitingRow) {
                                         item(key = "loading") {
-                                            WaitingResponseRow(
-                                                executingTools = if (uiState.isAgentVisibilityEnabled) executingToolsState.tools else persistentListOf(),
-                                                isStatusOnly = executingToolsState.isStatusOnly,
-                                                statusText = fallbackStatusText,
-                                            )
+                                            // Katya status is now in the top bar
                                         }
                                     }
                                     uiState.error?.let { error ->

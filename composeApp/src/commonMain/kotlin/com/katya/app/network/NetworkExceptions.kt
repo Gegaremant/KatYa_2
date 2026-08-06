@@ -47,7 +47,7 @@ class OpenAICompatibleGenericException(message: String, cause: Throwable? = null
 class OpenAICompatibleInvalidApiKeyException : OpenAICompatibleApiException()
 class OpenAICompatibleRateLimitExceededException : OpenAICompatibleApiException()
 class OpenAICompatibleQuotaExhaustedException : OpenAICompatibleApiException()
-class OpenAICompatibleConnectionException : OpenAICompatibleApiException()
+class OpenAICompatibleConnectionException(val detail: String? = null, cause: Throwable? = null) : OpenAICompatibleApiException(detail, cause)
 class OpenAICompatibleModelNotFoundException : OpenAICompatibleApiException()
 class OpenAICompatibleEmptyResponseException : OpenAICompatibleApiException()
 class OpenAICompatibleRequestTooLargeException : OpenAICompatibleApiException()
@@ -91,7 +91,9 @@ fun Exception.toUiError(): UiError {
 
         is OpenAICompatibleQuotaExhaustedException -> UiError.Resource(Res.string.error_quota_exhausted)
 
-        is OpenAICompatibleConnectionException -> UiError.Resource(Res.string.error_openai_compatible_connection)
+        is OpenAICompatibleConnectionException -> detail?.takeIf { it.isNotBlank() }
+            ?.let { UiError.ResourceWithDetail(Res.string.error_openai_compatible_connection, it) }
+            ?: UiError.Resource(Res.string.error_openai_compatible_connection)
 
         is OpenAICompatibleModelNotFoundException -> UiError.Resource(Res.string.error_openai_compatible_model_not_found)
 

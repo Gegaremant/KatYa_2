@@ -79,8 +79,42 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.java.KoinJavaComponent.inject
 import kotlin.coroutines.CoroutineContext
 
+private val proxySelectorInitialized = java.util.concurrent.atomic.AtomicBoolean(false)
+
+private fun isLocalHost(host: String): Boolean {
+    if (host.equals("localhost", ignoreCase = true) || host == "127.0.0.1" || host == "::1") return true
+    if (host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) return true
+    return false
+}
+
+private fun setupDefaultProxySelector() {
+    if (proxySelectorInitialized.compareAndSet(false, true)) {
+        val defaultSelector = java.net.ProxySelector.getDefault()
+        java.net.ProxySelector.setDefault(object : java.net.ProxySelector() {
+            override fun select(uri: java.net.URI): List<java.net.Proxy> {
+                val host = uri.host ?: ""
+                if (isLocalHost(host)) {
+                    return listOf(java.net.Proxy.NO_PROXY)
+                }
+                try {
+                    val appSettings: com.katya.app.data.AppSettings = org.koin.java.KoinJavaComponent.getKoin().get()
+                    if (appSettings.isVlessEnabled()) {
+                        return listOf(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809)))
+                    }
+                } catch (_: Throwable) {}
+                return defaultSelector?.select(uri) ?: listOf(java.net.Proxy.NO_PROXY)
+            }
+
+            override fun connectFailed(uri: java.net.URI, sa: java.net.SocketAddress, ioe: java.io.IOException) {
+                defaultSelector?.connectFailed(uri, sa, ioe)
+            }
+        })
+    }
+}
+
 actual fun httpClient(config: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(Android) {
     config(this)
+    setupDefaultProxySelector()
 }
 
 actual fun getBackgroundDispatcher(): CoroutineContext = Dispatchers.IO

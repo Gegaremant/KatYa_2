@@ -16,16 +16,24 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import com.katya.app.email.ServerAutoDetect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -480,10 +488,34 @@ internal fun EmailSection(
     syncStates: ImmutableMap<String, EmailSyncState>,
     refreshingAccountIds: ImmutableSet<String>,
     onToggleEmail: (Boolean) -> Unit,
+    onAddAccount: (EmailAccount, String) -> Unit,
     onRemoveAccount: (String) -> Unit,
     onChangePollInterval: (Int) -> Unit,
     onRefreshAccount: (String) -> Unit,
 ) {
+    var showAddDialog by remember { mutableStateOf(false) }
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showAdvanced by remember { mutableStateOf(false) }
+
+    val detectedConfig = remember(email) { ServerAutoDetect.detect(email) }
+    var customImapHost by remember { mutableStateOf("") }
+    var customImapPort by remember { mutableStateOf("993") }
+    var customSmtpHost by remember { mutableStateOf("") }
+    var customSmtpPort by remember { mutableStateOf("587") }
+    var customUseStartTls by remember { mutableStateOf(true) }
+
+    androidx.compose.runtime.LaunchedEffect(detectedConfig) {
+        if (detectedConfig != null) {
+            customImapHost = detectedConfig.imapHost
+            customImapPort = detectedConfig.imapPort.toString()
+            customSmtpHost = detectedConfig.smtpHost
+            customSmtpPort = detectedConfig.smtpPort.toString()
+            customUseStartTls = detectedConfig.useStartTls
+        }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
             title = stringResource(Res.string.settings_email),
@@ -501,6 +533,13 @@ internal fun EmailSection(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.fillMaxWidth().handCursor(),
+                ) {
+                    Text("Добавить аккаунт")
+                }
             } else {
                 if (pendingCount > 0) {
                     Text(
@@ -519,6 +558,15 @@ internal fun EmailSection(
                     formatValue = { minutes -> if (minutes == 0) neverLabel else "${minutes}m" },
                     onValueChanged = onChangePollInterval,
                 )
+
+                Spacer(Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.fillMaxWidth().handCursor(),
+                ) {
+                    Text("Добавить аккаунт")
+                }
 
                 Spacer(Modifier.height(12.dp))
 
@@ -556,6 +604,172 @@ internal fun EmailSection(
                 }
             }
         }
+    }
+
+    if (showAddDialog) {
+        val finalImapHost = if (detectedConfig != null && !showAdvanced) detectedConfig.imapHost else customImapHost
+        val finalImapPort = if (detectedConfig != null && !showAdvanced) detectedConfig.imapPort else customImapPort.toIntOrNull() ?: 993
+        val finalSmtpHost = if (detectedConfig != null && !showAdvanced) detectedConfig.smtpHost else customSmtpHost
+        val finalSmtpPort = if (detectedConfig != null && !showAdvanced) detectedConfig.smtpPort else customSmtpPort.toIntOrNull() ?: 587
+        val finalUseStartTls = if (detectedConfig != null && !showAdvanced) detectedConfig.useStartTls else customUseStartTls
+
+        val isFormValid = email.isNotBlank() && email.contains("@") && password.isNotBlank() &&
+                finalImapHost.isNotBlank() && finalSmtpHost.isNotBlank()
+
+        AlertDialog(
+            onDismissRequest = {
+                showAddDialog = false
+                email = ""
+                password = ""
+                showAdvanced = false
+            },
+            title = { Text("Добавление почтового аккаунта") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Пароль или пароль приложения") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            val image = if (passwordVisible) androidx.compose.material.icons.Icons.Default.Visibility else androidx.compose.material.icons.Icons.Default.VisibilityOff
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(imageVector = image, contentDescription = null)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (detectedConfig != null) {
+                        Text(
+                            text = detectedConfig.note.ifEmpty { "Настройки сервера определены автоматически" },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    } else if (email.contains("@") && email.substringAfter("@").contains(".")) {
+                        Text(
+                            text = "Настройки сервера не найдены. Введите их вручную.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 4.dp)
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = showAdvanced || detectedConfig == null,
+                            onCheckedChange = { showAdvanced = it },
+                            enabled = detectedConfig != null
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Настройки серверов IMAP/SMTP", style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    if (showAdvanced || detectedConfig == null) {
+                        OutlinedTextField(
+                            value = customImapHost,
+                            onValueChange = { customImapHost = it },
+                            label = { Text("IMAP Сервер") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = customImapPort,
+                                onValueChange = { customImapPort = it },
+                                label = { Text("Порт IMAP") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = customSmtpPort,
+                                onValueChange = { customSmtpPort = it },
+                                label = { Text("Порт SMTP") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        OutlinedTextField(
+                            value = customSmtpHost,
+                            onValueChange = { customSmtpHost = it },
+                            label = { Text("SMTP Сервер") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Switch(
+                                checked = customUseStartTls,
+                                onCheckedChange = { customUseStartTls = it }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Использовать STARTTLS", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (isFormValid) {
+                            val newAccount = EmailAccount(
+                                id = email.lowercase().trim(),
+                                email = email.trim(),
+                                imapHost = finalImapHost.trim(),
+                                imapPort = finalImapPort,
+                                smtpHost = finalSmtpHost.trim(),
+                                smtpPort = finalSmtpPort,
+                                username = email.trim(),
+                                useStartTls = finalUseStartTls
+                            )
+                            onAddAccount(newAccount, password)
+                            showAddDialog = false
+                            email = ""
+                            password = ""
+                            showAdvanced = false
+                        }
+                    },
+                    enabled = isFormValid,
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Text("Сохранить")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddDialog = false
+                        email = ""
+                        password = ""
+                        showAdvanced = false
+                    },
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Text("Отмена")
+                }
+            },
+        )
     }
 }
 

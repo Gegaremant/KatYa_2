@@ -5,6 +5,7 @@ package com.katya.app.ui.settings
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.AlertDialog
@@ -22,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -84,8 +87,13 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.toInstant
 import org.jetbrains.compose.resources.stringResource
 import kotlin.time.Instant
+import kotlin.time.Clock
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.RadioButton
 
 @Composable
 internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
@@ -111,6 +119,8 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                             tasks = uiState.scheduledTasks,
                             heartbeatLog = uiState.heartbeatLog,
                             onCancelTask = actions.onCancelTask,
+                            onAddScheduledTask = actions.onAddScheduledTask,
+                            onUpdateScheduledTask = actions.onUpdateScheduledTask,
                             isSchedulingEnabled = uiState.isSchedulingEnabled,
                             onToggleScheduling = actions.onToggleScheduling,
                         )
@@ -120,6 +130,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                             memories = uiState.memories,
                             onDeleteMemory = actions.onDeleteMemory,
                             onUpdateMemory = actions.onUpdateMemory,
+                            onAddMemory = actions.onAddMemory,
                             isMemoryEnabled = uiState.isMemoryEnabled,
                             onToggleMemory = actions.onToggleMemory,
                         )
@@ -158,6 +169,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                                 syncStates = uiState.emailSyncStates,
                                 refreshingAccountIds = uiState.refreshingEmailAccountIds,
                                 onToggleEmail = actions.onToggleEmail,
+                                onAddAccount = actions.onAddEmailAccount,
                                 onRemoveAccount = actions.onRemoveEmailAccount,
                                 onChangePollInterval = actions.onChangeEmailPollInterval,
                                 onRefreshAccount = actions.onRefreshEmailAccount,
@@ -210,6 +222,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         memories = uiState.memories,
                         onDeleteMemory = actions.onDeleteMemory,
                         onUpdateMemory = actions.onUpdateMemory,
+                        onAddMemory = actions.onAddMemory,
                         isMemoryEnabled = uiState.isMemoryEnabled,
                         onToggleMemory = actions.onToggleMemory,
                     )
@@ -219,6 +232,8 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         tasks = uiState.scheduledTasks,
                         heartbeatLog = uiState.heartbeatLog,
                         onCancelTask = actions.onCancelTask,
+                        onAddScheduledTask = actions.onAddScheduledTask,
+                        onUpdateScheduledTask = actions.onUpdateScheduledTask,
                         isSchedulingEnabled = uiState.isSchedulingEnabled,
                         onToggleScheduling = actions.onToggleScheduling,
                     )
@@ -252,6 +267,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                             syncStates = uiState.emailSyncStates,
                             refreshingAccountIds = uiState.refreshingEmailAccountIds,
                             onToggleEmail = actions.onToggleEmail,
+                            onAddAccount = actions.onAddEmailAccount,
                             onRemoveAccount = actions.onRemoveEmailAccount,
                             onChangePollInterval = actions.onChangeEmailPollInterval,
                             onRefreshAccount = actions.onRefreshEmailAccount,
@@ -405,10 +421,12 @@ private fun MemoryList(
     memories: ImmutableList<MemoryEntry>,
     onDeleteMemory: (String) -> Unit,
     onUpdateMemory: (String, String) -> Unit,
+    onAddMemory: (String, String) -> Unit,
     isMemoryEnabled: Boolean,
     onToggleMemory: (Boolean) -> Unit,
 ) {
     var showAllDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
     var editingMemory by remember { mutableStateOf<MemoryEntry?>(null) }
 
     val sortedMemories = remember(memories) {
@@ -426,6 +444,21 @@ private fun MemoryList(
         Spacer(Modifier.height(12.dp))
 
         if (isMemoryEnabled) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Добавить запись")
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
             previewMemories.forEach { memory ->
                 SettingsListItem(
                     title = memory.key,
@@ -454,6 +487,16 @@ private fun MemoryList(
             onDismiss = { showAllDialog = false },
             onDeleteMemory = onDeleteMemory,
             onEditMemory = { editingMemory = it },
+        )
+    }
+
+    if (showAddDialog) {
+        AddMemorySheet(
+            onDismiss = { showAddDialog = false },
+            onSave = { k, c ->
+                onAddMemory(k, c)
+                showAddDialog = false
+            }
         )
     }
 
@@ -577,10 +620,14 @@ private fun ScheduledTaskList(
     tasks: ImmutableList<ScheduledTask>,
     heartbeatLog: ImmutableList<HeartbeatLogEntry>,
     onCancelTask: (String) -> Unit,
+    onAddScheduledTask: (String, String, Long, String?, TaskTrigger) -> Unit,
+    onUpdateScheduledTask: (ScheduledTask) -> Unit,
     isSchedulingEnabled: Boolean,
     onToggleScheduling: (Boolean) -> Unit,
 ) {
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
+    var isAddingTask by remember { mutableStateOf(false) }
+    var editingTask by remember { mutableStateOf<ScheduledTask?>(null) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
@@ -592,38 +639,55 @@ private fun ScheduledTaskList(
         Spacer(Modifier.height(12.dp))
 
         val onEveryHeartbeat = stringResource(Res.string.settings_task_details_on_every_heartbeat)
-        if (isSchedulingEnabled && tasks.isNotEmpty()) {
-            val visibleTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
-            if (visibleTasks.isEmpty()) {
-                Text(
-                    text = "Нет активных задач",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            } else {
-                visibleTasks.forEach { task ->
-                    val subtitle = when (task.trigger) {
-                        TaskTrigger.HEARTBEAT -> "${task.status} - $onEveryHeartbeat"
-    
-                        TaskTrigger.CRON -> "${task.status} - ${task.cron?.let { describeCron(it) } ?: "cron"}"
-    
-                        TaskTrigger.TIME -> {
-                            val instant = Instant.fromEpochMilliseconds(task.scheduledAtEpochMs)
-                            val zone = TimeZone.currentSystemDefault()
-                            val scheduledTime = instant.toLocalDateTime(zone)
-                            val offset = zone.offsetAt(instant)
-                            "${task.status} - $scheduledTime $offset"
-                        }
-                    }
-                    SettingsListItem(
-                        title = task.description,
-                        subtitle = subtitle,
-                        onClick = { selectedTaskId = task.id },
-                        onDelete = { onCancelTask(task.id) },
-                        deleteContentDescription = stringResource(Res.string.settings_scheduled_tasks_cancel),
+        if (isSchedulingEnabled) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = { isAddingTask = true },
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Icon(androidx.compose.material.icons.Icons.Default.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Добавить задачу")
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            if (tasks.isNotEmpty()) {
+                val visibleTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
+                if (visibleTasks.isEmpty()) {
+                    Text(
+                        text = "Нет активных задач",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
                     )
-                    Spacer(Modifier.height(8.dp))
+                } else {
+                    visibleTasks.forEach { task ->
+                        val subtitle = when (task.trigger) {
+                            TaskTrigger.HEARTBEAT -> "${task.status} - $onEveryHeartbeat"
+        
+                            TaskTrigger.CRON -> "${task.status} - ${task.cron?.let { describeCron(it) } ?: "cron"}"
+        
+                            TaskTrigger.TIME -> {
+                                val instant = Instant.fromEpochMilliseconds(task.scheduledAtEpochMs)
+                                val zone = TimeZone.currentSystemDefault()
+                                val scheduledTime = instant.toLocalDateTime(zone)
+                                val offset = zone.offsetAt(instant)
+                                "${task.status} - $scheduledTime $offset"
+                            }
+                        }
+                        SettingsListItem(
+                            title = task.description,
+                            subtitle = subtitle,
+                            onClick = { selectedTaskId = task.id },
+                            onDelete = { onCancelTask(task.id) },
+                            deleteContentDescription = stringResource(Res.string.settings_scheduled_tasks_cancel),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
                 }
             }
         }
@@ -635,6 +699,38 @@ private fun ScheduledTaskList(
             task = selectedTask,
             heartbeatLog = heartbeatLog,
             onDismiss = { selectedTaskId = null },
+            onEditClick = { taskToEdit ->
+                editingTask = taskToEdit
+            }
+        )
+    }
+
+    if (isAddingTask) {
+        AddEditTaskSheet(
+            task = null,
+            onDismiss = { isAddingTask = false },
+            onSave = { desc, pr, time, cron, trig ->
+                onAddScheduledTask(desc, pr, time, cron, trig)
+                isAddingTask = false
+            }
+        )
+    }
+
+    if (editingTask != null) {
+        AddEditTaskSheet(
+            task = editingTask,
+            onDismiss = { editingTask = null },
+            onSave = { desc, pr, time, cron, trig ->
+                val updated = editingTask!!.copy(
+                    description = desc,
+                    prompt = pr,
+                    scheduledAtEpochMs = time,
+                    cron = cron,
+                    trigger = trig
+                )
+                onUpdateScheduledTask(updated)
+                editingTask = null
+            }
         )
     }
 }
@@ -644,6 +740,7 @@ private fun TaskDetailsSheet(
     task: ScheduledTask,
     heartbeatLog: ImmutableList<HeartbeatLogEntry>,
     onDismiss: () -> Unit,
+    onEditClick: (ScheduledTask) -> Unit,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -655,11 +752,27 @@ private fun TaskDetailsSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            Text(
-                text = task.description,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = task.description,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
+                    onClick = {
+                        onDismiss()
+                        onEditClick(task)
+                    },
+                    modifier = Modifier.handCursor()
+                ) {
+                    Text("Редактировать")
+                }
+            }
             Spacer(Modifier.height(12.dp))
 
             TaskDetailRow(
@@ -819,4 +932,376 @@ private fun formatTaskInstant(epochMs: Long): String {
     val month = local.month.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
     val minute = local.minute.toString().padStart(2, '0')
     return "${local.day} $month ${local.year} ${local.hour}:$minute"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddMemorySheet(
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit,
+) {
+    var key by remember { mutableStateOf("") }
+    var content by remember { mutableStateOf("") }
+    val isValid = key.isNotBlank() && content.isNotBlank()
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = "Добавить запись в память",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(Modifier.height(12.dp))
+            KaiOutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = key,
+                onValueChange = { key = it },
+                label = { Text("Имя ключа (например, Любимый цвет)") },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(8.dp))
+            KaiOutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = content,
+                onValueChange = { content = it },
+                label = { Text("Содержимое памяти") },
+                minLines = 4,
+                maxLines = 10,
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Text(stringResource(Res.string.settings_memories_edit_cancel))
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (isValid) {
+                            onSave(key.trim(), content.trim())
+                        }
+                    },
+                    enabled = isValid,
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Text(stringResource(Res.string.settings_memories_edit_save))
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+private fun parseLocalDateTime(str: String): Long? {
+    return try {
+        val parts = str.trim().split(' ')
+        val dateParts = parts[0].split('-').map { it.toInt() }
+        val timeParts = parts[1].split(':').map { it.toInt() }
+        val localDateTime = kotlinx.datetime.LocalDateTime(
+            dateParts[0], dateParts[1], dateParts[2],
+            timeParts[0], timeParts[1], 0, 0
+        )
+        localDateTime.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+    } catch (_: Exception) {
+        null
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddEditTaskSheet(
+    task: ScheduledTask?,
+    onDismiss: () -> Unit,
+    onSave: (description: String, prompt: String, scheduledAtEpochMs: Long, cron: String?, trigger: TaskTrigger) -> Unit,
+) {
+    var description by remember(task) { mutableStateOf(task?.description ?: "") }
+    var prompt by remember(task) { mutableStateOf(task?.prompt ?: "") }
+    var trigger by remember(task) { mutableStateOf(task?.trigger ?: TaskTrigger.TIME) }
+
+    // TIME specific states
+    var delayMinutes by remember { mutableStateOf(5) }
+    var useManualTime by remember { mutableStateOf(task != null) }
+    val initialTimeStr = remember {
+        val instant = if (task != null) {
+            Instant.fromEpochMilliseconds(task.scheduledAtEpochMs)
+        } else {
+            Clock.System.now()
+        }
+        val localDateTime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+        val year = localDateTime.year
+        val month = localDateTime.monthNumber.toString().padStart(2, '0')
+        val day = localDateTime.dayOfMonth.toString().padStart(2, '0')
+        val hour = localDateTime.hour.toString().padStart(2, '0')
+        val minute = localDateTime.minute.toString().padStart(2, '0')
+        "$year-$month-$day $hour:$minute"
+    }
+    var manualTimeString by remember { mutableStateOf(initialTimeStr) }
+
+    // CRON specific states
+    var cronString by remember(task) { mutableStateOf(task?.cron ?: "*/5 * * * *") }
+
+    val isInputValid = description.isNotBlank() && prompt.isNotBlank() && when (trigger) {
+        TaskTrigger.TIME -> {
+            if (useManualTime) {
+                parseLocalDateTime(manualTimeString) != null
+            } else {
+                true
+            }
+        }
+        TaskTrigger.CRON -> cronString.isNotBlank()
+        TaskTrigger.HEARTBEAT -> true
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = if (task == null) "Создать новую задачу" else "Редактировать задачу",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            KaiOutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Описание задачи") },
+                singleLine = true,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            KaiOutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = prompt,
+                onValueChange = { prompt = it },
+                label = { Text("Промпт для Кати") },
+                minLines = 3,
+                maxLines = 8,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "Тип триггера запуска",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(
+                    TaskTrigger.TIME to "Однократно",
+                    TaskTrigger.CRON to "По расписанию",
+                    TaskTrigger.HEARTBEAT to "На селф-чек"
+                ).forEach { (tType, label) ->
+                    val isSelected = trigger == tType
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { trigger = tType },
+                        label = { Text(label) },
+                        modifier = Modifier.handCursor()
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            when (trigger) {
+                TaskTrigger.TIME -> {
+                    Text(
+                        text = "Когда запустить?",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = !useManualTime,
+                            onClick = { useManualTime = false },
+                            modifier = Modifier.handCursor()
+                        )
+                        Text("Через интервал")
+
+                        Spacer(Modifier.width(16.dp))
+
+                        RadioButton(
+                            selected = useManualTime,
+                            onClick = { useManualTime = true },
+                            modifier = Modifier.handCursor()
+                        )
+                        Text("Задать время")
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    if (!useManualTime) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.Start),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            OutlinedButton(
+                                onClick = { delayMinutes = (delayMinutes - 5).coerceAtLeast(1) },
+                                modifier = Modifier.handCursor(),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text("-5")
+                            }
+                            OutlinedButton(
+                                onClick = { delayMinutes = (delayMinutes - 1).coerceAtLeast(1) },
+                                modifier = Modifier.handCursor(),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text("-1")
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.padding(horizontal = 2.dp),
+                            ) {
+                                Text(
+                                    text = "$delayMinutes мин",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                            }
+                            OutlinedButton(
+                                onClick = { delayMinutes += 1 },
+                                modifier = Modifier.handCursor(),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text("+1")
+                            }
+                            OutlinedButton(
+                                onClick = { delayMinutes += 5 },
+                                modifier = Modifier.handCursor(),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            ) {
+                                Text("+5")
+                            }
+                        }
+                    } else {
+                        KaiOutlinedTextField(
+                            modifier = Modifier.fillMaxWidth(),
+                            value = manualTimeString,
+                            onValueChange = { manualTimeString = it },
+                            label = { Text("Время (ГГГГ-ММ-ДД ЧЧ:ММ)") },
+                            singleLine = true,
+                        )
+                    }
+                }
+                TaskTrigger.CRON -> {
+                    Text(
+                        text = "Расписание (Cron)",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    KaiOutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = cronString,
+                        onValueChange = { cronString = it },
+                        label = { Text("Выражение cron") },
+                        singleLine = true,
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+                    Text("Быстрые пресеты:")
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        listOf(
+                            "*/5 * * * *" to "5 мин",
+                            "0 * * * *" to "1 час",
+                            "0 */12 * * *" to "12 час",
+                            "0 0 * * *" to "1 день"
+                        ).forEach { (presetCron, label) ->
+                            FilterChip(
+                                selected = cronString == presetCron,
+                                onClick = { cronString = presetCron },
+                                label = { Text(label) },
+                                modifier = Modifier.handCursor()
+                            )
+                        }
+                    }
+                }
+                TaskTrigger.HEARTBEAT -> {
+                    Text(
+                        text = "Задача будет выполняться на каждом периодическом селф-чеке (heartbeat) приложения в фоновом режиме.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Text(stringResource(Res.string.settings_memories_edit_cancel))
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
+                        if (isInputValid) {
+                            val targetTime = when (trigger) {
+                                TaskTrigger.TIME -> {
+                                    if (useManualTime) {
+                                        parseLocalDateTime(manualTimeString) ?: 0L
+                                    } else {
+                                        Clock.System.now().toEpochMilliseconds() + delayMinutes * 60 * 1000L
+                                    }
+                                }
+                                else -> 0L
+                            }
+                            val cronValue = if (trigger == TaskTrigger.CRON) cronString.trim() else null
+                            onSave(description.trim(), prompt.trim(), targetTime, cronValue, trigger)
+                        }
+                    },
+                    enabled = isInputValid,
+                    modifier = Modifier.handCursor(),
+                ) {
+                    Text(stringResource(Res.string.settings_memories_edit_save))
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
 }

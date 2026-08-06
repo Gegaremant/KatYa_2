@@ -2,6 +2,7 @@ package com.katya.app.sandbox
 
 import android.util.Log
 import com.katya.app.data.DataRepository
+import com.katya.app.data.AppSettings
 import com.katya.app.tools.AppLogger
 import com.katya.app.tools.VlessParser
 import kotlinx.coroutines.CoroutineScope
@@ -13,13 +14,18 @@ import java.io.File
 class VlessProxyManager(
     private val dataRepository: DataRepository,
     private val linuxSandboxManager: LinuxSandboxManager,
+    private val appSettings: AppSettings,
 ) {
     private var proxyJob: Job? = null
     private var prootHandle: ProotHandle? = null
     private var rootProcess: Process? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    fun start() {
+    fun start(force: Boolean = false) {
+        if (!force && proxyJob?.isActive == true) {
+            AppLogger.d("VlessProxyManager", "Already running or starting, skipping start()")
+            return
+        }
         stop()
 
         if (!dataRepository.isVlessEnabled()) return
@@ -34,20 +40,35 @@ class VlessProxyManager(
                     // Wait for it to become ready
                     var waitCount = 0
                     while (linuxSandboxManager.state.value !is SandboxState.Ready && waitCount < 30) {
+                        if (linuxSandboxManager.state.value is SandboxState.Error) {
+                            AppLogger.e("VlessProxyManager", "Sandbox error: ${linuxSandboxManager.state.value}")
+                            break
+                        }
                         kotlinx.coroutines.delay(1000)
                         waitCount++
                     }
                     if (linuxSandboxManager.state.value !is SandboxState.Ready) {
-                        Log.e("VlessProxyManager", "Sandbox not ready, aborting proxy start")
+                        AppLogger.e("VlessProxyManager", "Sandbox not ready, aborting proxy start")
                         return@launch
                     }
                 }
 
                 var finalUri = uri
-                if (uri.startsWith("http://") || uri.startsWith("https://")) {
+                if (!uri.startsWith("vless://") && !uri.startsWith("http://") && !uri.startsWith("https://")) {
+                    finalUri = "http://$uri"
+                    AppLogger.d("VlessProxyManager", "Prepended http:// to URI: $finalUri")
+                }
+                
+                if (finalUri.startsWith("http://") || finalUri.startsWith("https://")) {
                     finalUri = kotlinx.coroutines.withContext(Dispatchers.IO) {
                         try {
-                            val response = java.net.URL(uri).readText()
+                            val urlObj = java.net.URL(finalUri)
+                            val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                            connection.connectTimeout = 10000 // 10 seconds
+                            connection.readTimeout = 10000 // 10 seconds
+                            val response = connection.inputStream.bufferedReader().use { it.readText() }
+                            AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100)}")
+                            
                             var decoded = response
                             try {
                                 if (!response.contains("://")) {
@@ -55,21 +76,36 @@ class VlessProxyManager(
                                 }
                             } catch (e: Exception) {}
                             
-                            decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim() ?: uri
+                            val foundVless = decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim()
+                            if (foundVless == null) {
+                                AppLogger.e("VlessProxyManager", "Could not find vless:// link in subscription response")
+                            }
+                            foundVless ?: uri
                         } catch (e: Exception) {
-                            Log.e("VlessProxyManager", "Failed to fetch subscription", e)
+                            AppLogger.e("VlessProxyManager", "Failed to fetch subscription: ${e.message}")
                             uri
                         }
                     }
                 }
                 
                 // Generate config.json
+                appSettings.setSystemStatus("Настраиваю туннель VLESS...")
                 val configJson = VlessParser.generateXrayConfig(finalUri)
                 val configFilePath = File(linuxSandboxManager.homePath, "xray_config.json")
                 configFilePath.writeText(configJson)
 
                 val configPathInSandbox = "/root/xray_config.json"
                 val xrayBinary = "/usr/bin/xray"
+
+                // Launch check connection loop
+                launch {
+                    while (kotlin.coroutines.coroutineContext[Job]?.isActive == true) {
+                        kotlinx.coroutines.delay(2000) // wait 2s for xray to start first
+                        val ok = checkConnection()
+                        appSettings.setVlessConnected(ok)
+                        kotlinx.coroutines.delay(10000) // check every 10s
+                    }
+                }
 
                 // Check for root
                 val isRooted = try {
@@ -81,6 +117,7 @@ class VlessProxyManager(
 
                 if (isRooted) {
                     AppLogger.d("VlessProxyManager", "Starting xray with root privileges")
+                    appSettings.setSystemStatus("Запрашиваю root-права для VLESS")
                     val prootPath = linuxSandboxManager.prootPath
                     val rootfs = linuxSandboxManager.rootfsPath
                     val home = linuxSandboxManager.homePath
@@ -96,12 +133,15 @@ class VlessProxyManager(
                     prootHandle = executor.executeStreaming(
                         command = "$xrayBinary -c $configPathInSandbox",
                         onStdout = { AppLogger.d("XrayOut", it) },
-                        onStderr = { Log.e("XrayErr", it) },
+                        onStderr = { AppLogger.e("XrayErr", it) },
                     )
                     prootHandle?.awaitExit()
                 }
             } catch (e: Exception) {
-                Log.e("VlessProxyManager", "Error starting VLESS proxy", e)
+                AppLogger.e("VlessProxyManager", "Error starting VLESS proxy: ${e.message}")
+            } finally {
+                appSettings.setSystemStatus(null)
+                appSettings.setVlessConnected(false)
             }
         }
     }
@@ -116,5 +156,22 @@ class VlessProxyManager(
 
         rootProcess?.destroyForcibly()
         rootProcess = null
+
+        appSettings.setVlessConnected(false)
+    }
+
+    private fun checkConnection(): Boolean {
+        return try {
+            val proxy = java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809))
+            val connection = java.net.URL("https://www.google.com").openConnection(proxy) as java.net.HttpURLConnection
+            connection.connectTimeout = 3000
+            connection.readTimeout = 3000
+            connection.connect()
+            val code = connection.responseCode
+            connection.disconnect()
+            code in 200..399
+        } catch (e: Exception) {
+            false
+        }
     }
 }

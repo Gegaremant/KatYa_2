@@ -93,6 +93,7 @@ interface DataRepository {
     fun isMemoryEnabled(): Boolean
     fun setMemoryEnabled(enabled: Boolean)
     fun getMemories(): List<MemoryEntry>
+    suspend fun addMemory(key: String, content: String)
     suspend fun deleteMemory(key: String)
     suspend fun updateMemoryContent(key: String, content: String)
 
@@ -100,6 +101,8 @@ interface DataRepository {
     fun isSchedulingEnabled(): Boolean
     fun setSchedulingEnabled(enabled: Boolean)
     fun getScheduledTasks(): List<ScheduledTask>
+    suspend fun addScheduledTask(description: String, prompt: String, scheduledAtEpochMs: Long, cron: String?, trigger: TaskTrigger): ScheduledTask
+    suspend fun updateScheduledTask(task: ScheduledTask): ScheduledTask
     suspend fun cancelScheduledTask(id: String)
 
     // Dynamic UI
@@ -143,10 +146,13 @@ interface DataRepository {
     fun setVlessEnabled(enabled: Boolean)
     fun getVlessUri(): String
     fun setVlessUri(uri: String)
+    val isVlessConnectedFlow: StateFlow<Boolean>
 
     // Linux Sandbox
     fun isSandboxEnabled(): Boolean
     fun setSandboxEnabled(enabled: Boolean)
+    fun isGodModeEnabled(): Boolean
+    fun setGodModeEnabled(enabled: Boolean)
 
     // Quick Actions
     fun getQuickActions(): List<QuickAction>
@@ -167,6 +173,7 @@ interface DataRepository {
     fun isEmailEnabled(): Boolean
     fun setEmailEnabled(enabled: Boolean)
     fun getEmailAccounts(): List<EmailAccount>
+    suspend fun addEmailAccount(account: EmailAccount, password: String)
     suspend fun removeEmailAccount(id: String)
     fun getEmailPollIntervalMinutes(): Int
     fun setEmailPollIntervalMinutes(minutes: Int)

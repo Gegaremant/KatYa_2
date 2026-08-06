@@ -53,7 +53,6 @@ enum class SettingsTab {
     Agent,
     Services,
     Tools,
-    AppLogs,
     Integrations,
     Servers,
 }
@@ -119,6 +118,7 @@ data class SettingsUiState(
     val notificationPendingCount: Int = 0,
     val isVlessEnabled: Boolean = false,
     val vlessUri: String = "",
+    val isVlessConnected: Boolean = false,
     val showDeepSeekAuthDialog: Boolean = false,
     val isFreeFallbackEnabled: Boolean = true,
     val uiScale: Float = 1.0f,

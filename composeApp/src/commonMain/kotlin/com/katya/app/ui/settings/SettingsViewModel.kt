@@ -6,6 +6,7 @@ import com.katya.app.DaemonController
 import com.katya.app.Platform
 import com.katya.app.currentPlatform
 import com.katya.app.data.DataRepository
+import com.katya.app.data.EmailAccount
 import com.katya.app.data.ImportSection
 import com.katya.app.data.Service
 import com.katya.app.data.TaskScheduler
@@ -105,6 +106,9 @@ class SettingsViewModel(
         isSchedulingEnabled = dataRepository.isSchedulingEnabled(),
         scheduledTasks = dataRepository.getScheduledTasks().toImmutableList(),
         isDaemonEnabled = dataRepository.isDaemonEnabled(),
+        isVlessEnabled = dataRepository.isVlessEnabled(),
+        vlessUri = dataRepository.getVlessUri(),
+        isVlessConnected = dataRepository.isVlessConnectedFlow.value,
         showDaemonToggle = currentPlatform is Platform.Mobile.Android,
         isHeartbeatEnabled = dataRepository.getHeartbeatConfig().enabled,
         heartbeatIntervalMinutes = dataRepository.getHeartbeatConfig().intervalMinutes,
@@ -183,7 +187,10 @@ class SettingsViewModel(
         onToggleMemory = ::onToggleMemory,
         onDeleteMemory = ::onDeleteMemory,
         onUpdateMemory = ::onUpdateMemory,
+        onAddMemory = ::onAddMemory,
         onToggleScheduling = ::onToggleScheduling,
+        onAddScheduledTask = ::onAddScheduledTask,
+        onUpdateScheduledTask = ::onUpdateScheduledTask,
         onCancelTask = ::onCancelTask,
         onToggleDaemon = ::onToggleDaemon,
         onToggleVless = ::onToggleVless,
@@ -197,6 +204,7 @@ class SettingsViewModel(
         onChangeHeartbeatService = ::onChangeHeartbeatService,
         onRefreshHeartbeat = ::onRefreshHeartbeat,
         onToggleEmail = ::onToggleEmail,
+        onAddEmailAccount = ::onAddEmailAccount,
         onRemoveEmailAccount = ::onRemoveEmailAccount,
         onChangeEmailPollInterval = ::onChangeEmailPollInterval,
         onRefreshEmailAccount = ::onRefreshEmailAccount,
@@ -243,6 +251,12 @@ class SettingsViewModel(
     )
 
     init {
+        viewModelScope.launch {
+            dataRepository.isVlessConnectedFlow.collect { connected ->
+                _state.update { it.copy(isVlessConnected = connected) }
+            }
+        }
+
         if (_state.value.isWakeWordEnabled) {
             wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), _state.value.wakeWordTrigger)
         }
@@ -574,8 +588,36 @@ class SettingsViewModel(
 
     private fun onUpdateMemory(key: String, content: String) {
         viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.addMemory(key, content) // Update is handled, but add is also supported
             dataRepository.updateMemoryContent(key, content)
             _state.update { it.copy(memories = dataRepository.getMemories().toImmutableList()) }
+        }
+    }
+
+    private fun onAddMemory(key: String, content: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.addMemory(key, content)
+            _state.update { it.copy(memories = dataRepository.getMemories().toImmutableList()) }
+        }
+    }
+
+    private fun onAddScheduledTask(
+        description: String,
+        prompt: String,
+        scheduledAtEpochMs: Long,
+        cron: String?,
+        trigger: com.katya.app.data.TaskTrigger
+    ) {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.addScheduledTask(description, prompt, scheduledAtEpochMs, cron, trigger)
+            _state.update { it.copy(scheduledTasks = dataRepository.getScheduledTasks().toImmutableList()) }
+        }
+    }
+
+    private fun onUpdateScheduledTask(task: com.katya.app.data.ScheduledTask) {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.updateScheduledTask(task)
+            _state.update { it.copy(scheduledTasks = dataRepository.getScheduledTasks().toImmutableList()) }
         }
     }
 
@@ -719,6 +761,18 @@ class SettingsViewModel(
     private fun onToggleEmail(enabled: Boolean) {
         dataRepository.setEmailEnabled(enabled)
         _state.update { it.copy(isEmailEnabled = enabled) }
+    }
+
+    private fun onAddEmailAccount(account: EmailAccount, password: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.addEmailAccount(account, password)
+            _state.update {
+                it.copy(
+                    emailAccounts = dataRepository.getEmailAccounts().toImmutableList(),
+                    emailSyncStates = dataRepository.getEmailSyncStates().toImmutableMap(),
+                )
+            }
+        }
     }
 
     private fun onRemoveEmailAccount(id: String) {

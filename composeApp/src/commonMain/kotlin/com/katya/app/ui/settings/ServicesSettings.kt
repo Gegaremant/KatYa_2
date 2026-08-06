@@ -634,7 +634,7 @@ private fun ServiceSettings(
 
     Spacer(Modifier.height(16.dp))
 
-    if (connectionStatus == ConnectionStatus.Connected || models.isNotEmpty()) {
+    if (models.isNotEmpty()) {
         ModelSelection(selectedModel, models, onSelectModel)
     }
 }
