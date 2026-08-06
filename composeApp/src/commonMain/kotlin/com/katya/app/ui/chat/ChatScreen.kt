@@ -152,6 +152,7 @@ fun ChatScreen(
         isSandboxAvailable = isSandboxAvailable,
         navigationTabBar = navigationTabBar,
         monitorStats = monitorStats,
+        currentServiceId = viewModel.currentServiceId.value,
         wakeWordTriggerCount = wakeWordTriggerCount,
     )
 }
@@ -164,6 +165,7 @@ fun ChatScreenContent(
     isSandboxAvailable: Boolean = false,
     navigationTabBar: (@Composable () -> Unit)? = null,
     monitorStats: com.katya.app.monitor.MonitorStats = com.katya.app.monitor.MonitorStats(),
+    currentServiceId: String? = null,
     wakeWordTriggerCount: Int = 0,
 ) {
     if (uiState.isInteractiveMode && !uiState.isRestoring) {
@@ -485,6 +487,7 @@ private fun ChatModeScreen(
     isSandboxAvailable: Boolean,
     navigationTabBar: (@Composable () -> Unit)?,
     monitorStats: com.katya.app.monitor.MonitorStats,
+    currentServiceId: String?,
     wakeWordTriggerCount: Int,
 ) {
     var showHistorySheet by remember { mutableStateOf(false) }
@@ -557,8 +560,8 @@ private fun ChatModeScreen(
 
             com.katya.app.ui.chat.composables.MonitorOverlay(
                 mode = uiState.monitorOverlayMode,
-                stats = viewModel.monitorStats.value,
-                selectedService = uiState.availableServices.find { it.serviceId == viewModel.currentServiceId.value },
+                stats = monitorStats,
+                selectedService = uiState.availableServices.find { it.serviceId == currentServiceId },
                 isProcessing = uiState.isLoading,
                 systemStatus = uiState.systemStatus,
             )
