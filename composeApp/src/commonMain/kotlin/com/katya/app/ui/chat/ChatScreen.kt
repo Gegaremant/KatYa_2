@@ -137,7 +137,6 @@ fun ChatScreen(
 ) {
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val monitorStats by viewModel.monitorStats.collectAsStateWithLifecycle()
-    val currentServiceId by viewModel.currentServiceId.collectAsStateWithLifecycle()
     var wakeWordTriggerCount by remember { mutableStateOf(0) }
 
     LaunchedEffect(viewModel.wakeWordTriggered) {
@@ -153,7 +152,6 @@ fun ChatScreen(
         isSandboxAvailable = isSandboxAvailable,
         navigationTabBar = navigationTabBar,
         monitorStats = monitorStats,
-        currentServiceId = currentServiceId,
         wakeWordTriggerCount = wakeWordTriggerCount,
     )
 }
@@ -166,7 +164,6 @@ fun ChatScreenContent(
     isSandboxAvailable: Boolean = false,
     navigationTabBar: (@Composable () -> Unit)? = null,
     monitorStats: com.katya.app.monitor.MonitorStats = com.katya.app.monitor.MonitorStats(),
-    currentServiceId: String? = null,
     wakeWordTriggerCount: Int = 0,
 ) {
     if (uiState.isInteractiveMode && !uiState.isRestoring) {
@@ -179,7 +176,6 @@ fun ChatScreenContent(
             isSandboxAvailable = isSandboxAvailable,
             navigationTabBar = navigationTabBar,
             monitorStats = monitorStats,
-            currentServiceId = currentServiceId,
             wakeWordTriggerCount = wakeWordTriggerCount,
         )
     }
@@ -489,7 +485,6 @@ private fun ChatModeScreen(
     isSandboxAvailable: Boolean,
     navigationTabBar: (@Composable () -> Unit)?,
     monitorStats: com.katya.app.monitor.MonitorStats,
-    currentServiceId: String?,
     wakeWordTriggerCount: Int,
 ) {
     var showHistorySheet by remember { mutableStateOf(false) }
@@ -563,7 +558,7 @@ private fun ChatModeScreen(
             com.katya.app.ui.chat.composables.MonitorOverlay(
                 mode = uiState.monitorOverlayMode,
                 stats = monitorStats,
-                selectedService = uiState.availableServices.find { it.serviceId == currentServiceId },
+                selectedService = uiState.availableServices.firstOrNull(),
                 isProcessing = uiState.isLoading,
                 systemStatus = uiState.systemStatus,
             )
