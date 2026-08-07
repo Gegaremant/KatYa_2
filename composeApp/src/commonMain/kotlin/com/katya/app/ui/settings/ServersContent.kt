@@ -18,14 +18,11 @@ import com.katya.app.data.AppSettings
 import com.katya.app.data.LocalServerProfile
 import com.katya.app.data.VlessProxyProfile
 import com.katya.app.tools.AppLogger
-import com.katya.app.ui.components.SettingsCard
-import com.katya.app.ui.components.ToggleableHeadline
-import kotlinx.coroutines.launch
+import com.katya.app.ui.KaiOutlinedTextField
 import org.koin.compose.koinInject
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
-import com.katya.app.ui.components.KaiOutlinedTextField
 
 @Composable
 fun ServersContent(
