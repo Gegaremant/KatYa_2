@@ -227,20 +227,17 @@ fun ServersContent(
         Spacer(Modifier.height(16.dp))
 
         Text("Мониторинг", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-            Text("Режим оверлея", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(
-                    com.katya.app.data.MonitorOverlayMode.OFF to "Откл",
-                    com.katya.app.data.MonitorOverlayMode.SHORT to "Кратко",
-                    com.katya.app.data.MonitorOverlayMode.FULL to "Полная",
-                ).forEach { (mode, label) ->
-                    androidx.compose.material3.FilterChip(
-                        selected = monitorOverlayMode == mode,
-                        onClick = { onChangeMonitorOverlayMode(mode) },
-                        label = { Text(label) },
-                    )
-                }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            listOf(
+                com.katya.app.data.MonitorOverlayMode.OFF to "Откл",
+                com.katya.app.data.MonitorOverlayMode.SHORT to "Кратко",
+                com.katya.app.data.MonitorOverlayMode.FULL to "Полная",
+            ).forEach { (mode, label) ->
+                androidx.compose.material3.FilterChip(
+                    selected = monitorOverlayMode == mode,
+                    onClick = { onChangeMonitorOverlayMode(mode) },
+                    label = { Text(label) },
+                )
             }
         }
 

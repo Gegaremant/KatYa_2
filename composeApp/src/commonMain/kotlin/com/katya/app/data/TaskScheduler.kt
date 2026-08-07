@@ -182,7 +182,7 @@ class TaskScheduler(
                     )
                     if (preview.isNotBlank()) {
                         sendHeartbeatNotification(
-                            title = "Kai heartbeat",
+                            title = "KatYa",
                             body = preview,
                         )
                     }

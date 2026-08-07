@@ -121,16 +121,16 @@ class AndroidMonitorService :
         gpus.forEachIndexed { index, g ->
             val parts = g.split(",")
             if (parts.size >= 4) {
-                gpuStr += " GPU${index + 1} ${parts[0].trim()}% [T:${parts[1].trim()}C M:${parts[2].trim()}/${parts[3].trim()}M]"
+                gpuStr += " G${index + 1}:${parts[0].trim()}%[${parts[1].trim()}C,${parts[2].trim()}/${parts[3].trim()}M]"
             } else if (parts.size >= 2) {
-                gpuStr += " GPU${index + 1} ${parts[0].trim()}% [T:${parts[1].trim()}C]"
+                gpuStr += " G${index + 1}:${parts[0].trim()}%[${parts[1].trim()}C]"
             }
         }
         if (gpuStr.isBlank()) {
-            gpuStr = " GPU N/A"
+            gpuStr = " G:N/A"
         }
 
-        return "Srv: CPU $cpu RAM $ram$gpuStr"
+        return "Srv: CPU $cpu R:$ram$gpuStr"
     }
 }
 

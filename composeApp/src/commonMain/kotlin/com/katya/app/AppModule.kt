@@ -45,7 +45,9 @@ import com.katya.app.ui.chat.ChatViewModel
 import com.katya.app.ui.settings.SettingsViewModel
 import com.katya.app.ui.settings.SplinterlandsViewModel
 import com.katya.app.tools.ExactAlarmPermissionController
+import com.katya.app.tools.AccessibilityPermissionController
 import com.katya.app.tools.BatteryOptimizationPermissionController
+
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -58,6 +60,7 @@ val appModule = module {
     single<SmsSendPermissionController> { SmsSendPermissionController() }
     single<ExactAlarmPermissionController> { ExactAlarmPermissionController() }
     single<BatteryOptimizationPermissionController> { BatteryOptimizationPermissionController() }
+    single<AccessibilityPermissionController> { AccessibilityPermissionController() }
     single<SmsReader> { SmsReader() }
     single<SmsSender> { SmsSender() }
     single<NotificationListenerController> { NotificationListenerController() }

@@ -99,6 +99,11 @@ private fun setupDefaultProxySelector() {
                 try {
                     val appSettings: com.katya.app.data.AppSettings = org.koin.java.KoinJavaComponent.getKoin().get()
                     if (appSettings.isVlessEnabled()) {
+                        val uri = appSettings.getVlessUri()
+                        val directProxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri)
+                        if (directProxy != null) {
+                            return listOf(directProxy)
+                        }
                         return listOf(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809)))
                     }
                 } catch (_: Throwable) {}

@@ -53,6 +53,14 @@ class VlessProxyManager(
                     }
                 }
 
+                val directProxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri)
+                if (directProxy != null) {
+                    AppLogger.d("VlessProxyManager", "Using direct proxy $directProxy, skipping xray launch")
+                    appSettings.setSystemStatus("Использую прямой SOCKS/HTTP прокси")
+                    launchConnectionLoop()
+                    return@launch
+                }
+
                 var finalUri = uri
                 if (!uri.startsWith("vless://") && !uri.startsWith("http://") && !uri.startsWith("https://")) {
                     finalUri = "http://$uri"
@@ -97,15 +105,7 @@ class VlessProxyManager(
                 val configPathInSandbox = "/root/xray_config.json"
                 val xrayBinary = "/usr/bin/xray"
 
-                // Launch check connection loop
-                launch {
-                    while (kotlin.coroutines.coroutineContext[Job]?.isActive == true) {
-                        kotlinx.coroutines.delay(2000) // wait 2s for xray to start first
-                        val ok = checkConnection()
-                        appSettings.setVlessConnected(ok)
-                        kotlinx.coroutines.delay(10000) // check every 10s
-                    }
-                }
+                launchConnectionLoop()
 
                 // Check for root
                 val isRooted = try {
@@ -160,9 +160,56 @@ class VlessProxyManager(
         appSettings.setVlessConnected(false)
     }
 
+    private fun CoroutineScope.launchConnectionLoop() {
+        launch {
+            var failureCount = 0
+            while (kotlin.coroutines.coroutineContext[Job]?.isActive == true) {
+                kotlinx.coroutines.delay(2000) // wait 2s for xray/network
+                val ok = checkConnection()
+                appSettings.setVlessConnected(ok)
+                if (!ok) {
+                    failureCount++
+                    if (failureCount >= 3) {
+                        AppLogger.e("VlessProxyManager", "Connection failed 3 times, attempting recovery...")
+                        attemptRecovery()
+                        failureCount = 0
+                    }
+                } else {
+                    failureCount = 0
+                }
+                kotlinx.coroutines.delay(10000) // check every 10s
+            }
+        }
+    }
+
+    private suspend fun attemptRecovery() {
+        try {
+            val isRooted = try {
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "id")).waitFor() == 0
+            } catch (e: Exception) { false }
+            
+            if (isRooted) {
+                AppLogger.d("VlessProxyManager", "Toggling Airplane mode...")
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1; am broadcast -a android.intent.action.AIRPLANE_MODE")).waitFor()
+                kotlinx.coroutines.delay(2000)
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0; am broadcast -a android.intent.action.AIRPLANE_MODE")).waitFor()
+                kotlinx.coroutines.delay(5000) // wait for network to reconnect
+                start(force = true)
+            } else {
+                AppLogger.d("VlessProxyManager", "No root, cannot toggle airplane mode. Restarting proxy...")
+                start(force = true)
+            }
+        } catch (e: Exception) {
+            AppLogger.e("VlessProxyManager", "Recovery failed: ${e.message}")
+        }
+    }
+
     private fun checkConnection(): Boolean {
         return try {
-            val proxy = java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809))
+            val uri = dataRepository.getVlessUri()
+            val proxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri) 
+                ?: java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809))
+                
             val connection = java.net.URL("https://www.google.com").openConnection(proxy) as java.net.HttpURLConnection
             connection.connectTimeout = 3000
             connection.readTimeout = 3000

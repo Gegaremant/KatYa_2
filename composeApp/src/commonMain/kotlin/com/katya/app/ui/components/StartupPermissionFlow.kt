@@ -43,6 +43,7 @@ fun StartupPermissionFlow(
     val notificationController = koinInject<NotificationPermissionController>()
     val exactAlarmController = koinInject<ExactAlarmPermissionController>()
     val batteryController = koinInject<BatteryOptimizationPermissionController>()
+    val accessibilityController = koinInject<AccessibilityPermissionController>()
     val audioController = koinInject<AudioPermissionController>()
     val smsController = koinInject<SmsPermissionController>()
     val smsSendController = koinInject<SmsSendPermissionController>()
@@ -51,6 +52,7 @@ fun StartupPermissionFlow(
 
     // Setup permission handlers in compose scope
     SetupAudioPermissionHandler(audioController)
+    SetupAccessibilityPermissionHandler(accessibilityController)
 
     val coroutineScope = rememberCoroutineScope()
 
@@ -72,6 +74,7 @@ fun StartupPermissionFlow(
     var hasNotifications by remember { mutableStateOf(notificationController.hasPermission()) }
     var hasBatteryIgnore by remember { mutableStateOf(batteryController.hasPermission()) }
     var hasExactAlarms by remember { mutableStateOf(exactAlarmController.hasPermission()) }
+    var hasAccessibility by remember { mutableStateOf(accessibilityController.hasPermission()) }
     var hasGodModePack by remember {
         mutableStateOf(
             smsController.hasPermission() &&
@@ -87,6 +90,7 @@ fun StartupPermissionFlow(
         hasNotifications = notificationController.hasPermission()
         hasBatteryIgnore = batteryController.hasPermission()
         hasExactAlarms = exactAlarmController.hasPermission()
+        hasAccessibility = accessibilityController.hasPermission()
         hasGodModePack = smsController.hasPermission() &&
                 smsSendController.hasPermission() &&
                 calendarController.hasPermission()
@@ -202,10 +206,10 @@ fun StartupPermissionFlow(
                     ModeSelectorItem(
                         title = "GOD_MODE (Режиссерская версия)",
                         description = "Полная власть над устройством. Требуются Root-права (Magisk) и все доступы.",
-                        selected = !isSandbox && isGodMode,
+                        selected = isSandbox && isGodMode,
                         accent = true,
                         onClick = {
-                            isSandbox = false
+                            isSandbox = true
                             isGodMode = true
                         }
                     )
@@ -243,6 +247,18 @@ fun StartupPermissionFlow(
                             }
                         )
                     }
+
+                    // Accessibility (Common)
+                    PermissionItem(
+                        title = "Специальные возможности",
+                        description = "Используется для управления интерфейсом, автоматизации и работы с выключенным экраном.",
+                        isGranted = hasAccessibility,
+                        onRequest = {
+                            coroutineScope.launch {
+                                hasAccessibility = accessibilityController.requestPermission()
+                            }
+                        }
+                    )
 
                     // Microphone (Common)
                     PermissionItem(

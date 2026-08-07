@@ -7,14 +7,10 @@ enum class FileCategory {
     UNSUPPORTED,
 }
 
-const val MAX_TEXT_FILE_BYTES = 200_000
-const val MAX_PDF_BYTES = 20_000_000
-const val MAX_IMAGE_BYTES = 15_000_000
-
-// Raw image input cap before compression — images typically shrink after compression,
-// so we allow larger raw files than MAX_IMAGE_BYTES while still preventing an OOM
-// from reading a multi-gigabyte file into memory.
-const val MAX_RAW_IMAGE_BYTES = 50_000_000
+const val MAX_TEXT_FILE_BYTES = Int.MAX_VALUE
+const val MAX_PDF_BYTES = Int.MAX_VALUE
+const val MAX_IMAGE_BYTES = Int.MAX_VALUE
+const val MAX_RAW_IMAGE_BYTES = Int.MAX_VALUE
 
 private val textMimeTypes = setOf(
     "application/json",
@@ -61,8 +57,6 @@ fun classifyFile(mimeType: String?, fileName: String?): FileCategory {
     if (ext != null && ext in textExtensions) return FileCategory.TEXT
     if (ext == "pdf") return FileCategory.PDF
 
-    // If mimeType is null and no recognized extension, unsupported
-    if (mimeType == null) return FileCategory.UNSUPPORTED
-
-    return FileCategory.UNSUPPORTED
+    // Treat everything else as text
+    return FileCategory.TEXT
 }

@@ -1,6 +1,6 @@
 <resources>
-    <string name="daemon_channel_name">خدمة Katya 9000 في الخلفية</string>
-    <string name="daemon_channel_description">يبقي Katya 9000 قيد التشغيل لتنفيذ المهام المجدولة</string>
+    <string name="daemon_channel_name">خدمة KatYa في الخلفية</string>
+    <string name="daemon_channel_description">يبقي KatYa قيد التشغيل لتنفيذ المهام المجدولة</string>
     <string name="daemon_notification_text">الخدمة الخلفية قيد التشغيل</string>
     <string name="download_channel_name">تنزيلات النماذج</string>
     <string name="download_channel_description">يعرض التقدم أثناء تنزيل نماذج الذكاء الاصطناعي</string>

@@ -94,7 +94,6 @@ class SettingsViewModel(
         isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
         isVoiceResponseEnabled = dataRepository.isVoiceResponseEnabled(),
         isWatchIntegrationEnabled = dataRepository.isWatchIntegrationEnabled(),
-        voiceUiMode = appSettings.getVoiceUiMode(),
         isWakeWordEnabled = dataRepository.isWakeWordEnabled(),
         wakeWordModelLang = dataRepository.getWakeWordModelLang(),
         wakeWordTrigger = dataRepository.getWakeWordTrigger(),
@@ -173,7 +172,6 @@ class SettingsViewModel(
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleAgentVisibility = ::onToggleAgentVisibility,
         onToggleVoiceResponse = ::onToggleVoiceResponse,
-        onSelectVoiceUiMode = ::onChangeVoiceUiMode,
         onToggleWakeWord = ::onToggleWakeWord,
         onChangeWakeWordTrigger = ::onChangeWakeWordTrigger,
         onSelectWakeWordModelLang = ::onChangeWakeWordModelLang,
@@ -523,10 +521,6 @@ class SettingsViewModel(
         _state.update { it.copy(isWatchIntegrationEnabled = enabled) }
     }
 
-    private fun onChangeVoiceUiMode(mode: com.katya.app.data.VoiceUiMode) {
-        appSettings.setVoiceUiMode(mode)
-        _state.update { it.copy(voiceUiMode = mode) }
-    }
 
     private fun onAddQuickAction(action: com.katya.app.data.QuickAction) {
         val actions = dataRepository.getQuickActions().toMutableList()

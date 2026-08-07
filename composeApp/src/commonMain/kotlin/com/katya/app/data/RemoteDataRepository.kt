@@ -1385,19 +1385,34 @@ class RemoteDataRepository(
         val totalChars = history.sumOf { it.content.length } + systemPromptChars
         if (totalChars <= maxChars) return history
 
-        val availableChars = maxChars - systemPromptChars
+        var availableChars = maxChars - systemPromptChars
+        val toKeepSet = mutableSetOf<History>()
 
-        // Keep messages from the end until we exceed the budget
-        val kept = mutableListOf<History>()
-        var usedChars = 0
-        for (msg in history.reversed()) {
-            val msgChars = msg.content.length
-            if (usedChars + msgChars > availableChars) break
-            kept.add(0, msg)
-            usedChars += msgChars
+        // Always keep the last USER message (current task)
+        val lastUserMsg = history.lastOrNull { it.role == History.Role.USER }
+        if (lastUserMsg != null) {
+            toKeepSet.add(lastUserMsg)
+            availableChars -= lastUserMsg.content.length
         }
 
-        return kept
+        // Always keep the summary if it exists at the start
+        val firstMsg = history.firstOrNull()
+        if (firstMsg != null && firstMsg !== lastUserMsg && firstMsg.content.startsWith("[Conversation summary:")) {
+            toKeepSet.add(firstMsg)
+            availableChars -= firstMsg.content.length
+        }
+
+        // Keep messages from the end until we exceed the budget
+        for (msg in history.reversed()) {
+            if (msg in toKeepSet) continue
+            val msgChars = msg.content.length
+            if (availableChars - msgChars < 0) break // Stop when we can't fit the next contiguous message
+            toKeepSet.add(msg)
+            availableChars -= msgChars
+        }
+
+        // Reconstruct history in original order
+        return history.filter { it in toKeepSet }
     }
 
     /**

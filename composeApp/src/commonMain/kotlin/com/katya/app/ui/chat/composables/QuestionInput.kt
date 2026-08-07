@@ -288,18 +288,13 @@ fun QuestionInput(
             }
         }
 
-        val allowFileAttachment = supportedFileExtensions.isNotEmpty()
-        val filePickerLauncher = if (allowFileAttachment) {
-            rememberFilePickerLauncher(
-                type = FileKitType.File(extensions = supportedFileExtensions),
-                mode = io.github.vinceglb.filekit.dialogs.FileKitMode.Multiple(),
-            ) { files ->
-                files?.forEach { file ->
-                    addFile(PlatformKatyaFile(file))
-                }
+        val filePickerLauncher = rememberFilePickerLauncher(
+            type = FileKitType.File(extensions = null),
+            mode = io.github.vinceglb.filekit.dialogs.FileKitMode.Multiple(),
+        ) { files ->
+            files?.forEach { file ->
+                addFile(PlatformKatyaFile(file))
             }
-        } else {
-            null
         }
 
         val cameraLauncher = rememberImageCaptureLauncher(onResult = { bytes ->
@@ -411,25 +406,21 @@ fun QuestionInput(
             } else {
                 KeyboardActions() // No keyboard send action on mobile
             },
-            leadingIcon = if (filePickerLauncher != null) {
-                {
-                    androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        CircleIconButton(
-                            icon = vectorResource(Res.drawable.ic_attach),
-                            onClick = { filePickerLauncher.launch() },
-                            modifier = Modifier.padding(start = 7.dp),
-                            tint = MaterialTheme.colorScheme.onBackground,
-                        )
-                        CircleIconButton(
-                            icon = androidx.compose.material.icons.Icons.Default.CameraAlt,
-                            onClick = { cameraLauncher.launch() },
-                            modifier = Modifier.padding(start = 2.dp),
-                            tint = MaterialTheme.colorScheme.onBackground,
-                        )
-                    }
+            leadingIcon = {
+                androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    CircleIconButton(
+                        icon = vectorResource(Res.drawable.ic_attach),
+                        onClick = { filePickerLauncher.launch() },
+                        modifier = Modifier.padding(start = 7.dp),
+                        tint = MaterialTheme.colorScheme.onBackground,
+                    )
+                    CircleIconButton(
+                        icon = androidx.compose.material.icons.Icons.Default.CameraAlt,
+                        onClick = { cameraLauncher.launch() },
+                        modifier = Modifier.padding(start = 2.dp),
+                        tint = MaterialTheme.colorScheme.onBackground,
+                    )
                 }
-            } else {
-                null
             },
             keyboardOptions = KeyboardOptions(
                 imeAction = if (currentPlatform is Platform.Mobile) ImeAction.Default else ImeAction.Send,

@@ -34,64 +34,82 @@ fun MonitorOverlay(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
             .padding(4.dp),
     ) {
-        if (stats.error != null) {
-            Text(
-                text = "Monitor Error: ${stats.error}",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 10.sp,
-            )
-        } else if (!stats.isRunning) {
-            Text(
-                text = "Starting Monitor...",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                fontSize = 10.sp,
-            )
-        } else {
-            if (mode == MonitorOverlayMode.SHORT) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        val katyaStatus = systemStatus ?: if (isProcessing) "Думаю..." else "Ожидание"
-                        Text(
-                            text = katyaStatus,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                        )
-                        
-                        val networkStatus = if (selectedService?.serviceId == "srv-llm") {
-                            stats.srvShort ?: "Srv: N/A"
-                        } else {
-                            val serviceName = selectedService?.serviceName ?: "Auto"
-                            "API: Connected to $serviceName"
-                        }
-                        Text(
-                            text = networkStatus,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                        )
+        val katyaStatus = systemStatus ?: if (isProcessing) "Думаю..." else "Ожидание"
+        
+        if (mode == MonitorOverlayMode.SHORT) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = katyaStatus,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                    )
+                    
+                    val networkStatus = if (stats.error != null) {
+                        "SSH Err: ${stats.error}"
+                    } else if (!stats.isRunning) {
+                        "Starting Monitor..."
+                    } else if (selectedService?.serviceId == "srv-llm") {
+                        stats.srvShort ?: "Srv: N/A"
+                    } else {
+                        val serviceName = selectedService?.serviceName ?: "Auto"
+                        "API: Connected to $serviceName"
                     }
-                    if (isProcessing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .size(16.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 2.dp
-                        )
-                    }
+                    
+                    Text(
+                        text = networkStatus,
+                        color = if (stats.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                    )
                 }
-            } else if (mode == MonitorOverlayMode.FULL) {
-                // Full mode: Scrollable box
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = 300.dp)
-                        .verticalScroll(rememberScrollState()),
-                ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(16.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        } else if (mode == MonitorOverlayMode.FULL) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 300.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    text = katyaStatus,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                if (stats.error != null) {
+                    Text(
+                        text = "SSH Err: ${stats.error}",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                } else if (!stats.isRunning) {
+                    Text(
+                        text = "Starting Monitor...",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                } else {
                     Text(
                         text = stats.locShort ?: "Loc: N/A",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
