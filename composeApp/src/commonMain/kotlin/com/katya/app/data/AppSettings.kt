@@ -276,6 +276,16 @@ class AppSettings(internal val settings: Settings) {
     fun isFreeServicePrimary(): Boolean = settings.getBoolean(KEY_FREE_SERVICE_PRIMARY, false)
 
     // Server Monitoring
+    fun getLocalServerProfilesJson(): String = settings.getString("local_server_profiles", "[]")
+    fun setLocalServerProfilesJson(json: String) {
+        settings.putString("local_server_profiles", json)
+    }
+    fun getActiveLocalServerId(): String = settings.getString("active_local_server_id", "")
+    fun setActiveLocalServerId(id: String) {
+        settings.putString("active_local_server_id", id)
+    }
+
+    // Legacy fallback
     fun getServerIp(): String = settings.getString(KEY_SERVER_IP, "")
     fun setServerIp(ip: String) {
         settings.putString(KEY_SERVER_IP, ip)
@@ -501,6 +511,47 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // VLESS Proxy
+    fun getVlessProxyProfilesJson(): String = settings.getString("vless_proxy_profiles", "[]")
+    fun setVlessProxyProfilesJson(json: String) {
+        settings.putString("vless_proxy_profiles", json)
+    }
+    fun getActiveVlessProxyId(): String = settings.getString("active_vless_proxy_id", "")
+    fun setActiveVlessProxyId(id: String) {
+        settings.putString("active_vless_proxy_id", id)
+    }
+    
+    // active connection mode: "VLESS", "LOCAL", "NONE"
+    fun getActiveConnectionMode(): String = settings.getString("active_connection_mode", "NONE")
+    fun setActiveConnectionMode(mode: String) {
+        settings.putString("active_connection_mode", mode)
+    }
+
+    fun isConstantAutoRecoveryEnabled(): Boolean = settings.getBoolean("auto_recovery_enabled", false)
+    fun setConstantAutoRecoveryEnabled(enabled: Boolean) {
+        settings.putBoolean("auto_recovery_enabled", enabled)
+    }
+
+    fun isShowDeviceStateEnabled(): Boolean = settings.getBoolean("show_device_state_enabled", false)
+    fun setShowDeviceStateEnabled(enabled: Boolean) {
+        settings.putBoolean("show_device_state_enabled", enabled)
+    }
+
+    fun isShowConnectionStateEnabled(): Boolean = settings.getBoolean("show_connection_state_enabled", false)
+    fun setShowConnectionStateEnabled(enabled: Boolean) {
+        settings.putBoolean("show_connection_state_enabled", enabled)
+    }
+
+    fun isShowAndVoiceThoughtsEnabled(): Boolean = settings.getBoolean("voice_thoughts_enabled", false)
+    fun setShowAndVoiceThoughtsEnabled(enabled: Boolean) {
+        settings.putBoolean("voice_thoughts_enabled", enabled)
+    }
+
+    fun getLoggingOptionsJson(): String = settings.getString("logging_options", "{}")
+    fun setLoggingOptionsJson(json: String) {
+        settings.putString("logging_options", json)
+    }
+
+    // Legacy fallback
     fun isVlessEnabled(): Boolean = settings.getBoolean(KEY_VLESS_ENABLED, false)
 
     fun setVlessEnabled(enabled: Boolean) {

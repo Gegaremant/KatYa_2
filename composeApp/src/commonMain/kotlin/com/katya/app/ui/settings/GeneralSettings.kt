@@ -210,15 +210,6 @@ internal fun GeneralContent(
                         onDeleteQuickAction = actions.onDeleteQuickAction,
                     )
                 }
-                SettingsCard {
-                    VlessProxySection(
-                        isVlessEnabled = uiState.isVlessEnabled,
-                        onToggleVless = actions.onToggleVless,
-                        vlessUri = uiState.vlessUri,
-                        onChangeVlessUri = actions.onChangeVlessUri,
-                        isVlessConnected = uiState.isVlessConnected,
-                    )
-                }
                 if (uiState.showUiScale) {
                     SettingsCard {
                         UiScaleSection(
@@ -618,55 +609,3 @@ fun WatchIntegrationToggle(
     }
 }
 
-@Composable
-private fun VlessProxySection(
-    isVlessEnabled: Boolean,
-    onToggleVless: (Boolean) -> Unit,
-    vlessUri: String,
-    onChangeVlessUri: (String) -> Unit,
-    isVlessConnected: Boolean,
-) {
-    var localUri by remember(vlessUri) { mutableStateOf(vlessUri) }
-    val isChanged = localUri != vlessUri
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        ToggleableHeadline(
-            title = "Использовать прокси (VLESS / HTTP)",
-            description = "Включает глобальный прокси для всех запросов API моделей. Вставьте vless://, http:// прокси или ссылку на подписку.",
-            checked = isVlessEnabled,
-            onCheckedChange = onToggleVless,
-            actions = {
-                if (isVlessConnected) {
-                    Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Check,
-                        contentDescription = "Подключено",
-                        tint = androidx.compose.ui.graphics.Color(0xFF4CAF50), // Green color
-                        modifier = Modifier.padding(end = 8.dp)
-                    )
-                }
-            }
-        )
-        if (isVlessEnabled) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-            ) {
-                KaiOutlinedTextField(
-                    modifier = Modifier.weight(1f),
-                    value = localUri,
-                    onValueChange = { localUri = it },
-                    placeholder = { Text("vless://... или http://...") },
-                    singleLine = true,
-                )
-                Spacer(Modifier.width(8.dp))
-                if (isChanged) {
-                    androidx.compose.material3.Button(onClick = { onChangeVlessUri(localUri) }) {
-                        Text("Сохранить")
-                    }
-                } else if (vlessUri.isNotBlank()) {
-                    // Do nothing, wait for user to type
-                }
-            }
-        }
-    }
-}
