@@ -28,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlin.time.Clock
+import com.katya.app.tools.AppLogger
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -74,7 +76,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.jsonObject
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Clock
+
 @Composable
 internal fun ExportImportSection(
     onExportSettings: suspend (Set<ImportSection>) -> ByteArray,
@@ -139,16 +141,28 @@ internal fun ExportImportSection(
                 exportPreview = null
                 scope.launch {
                     val zipBytes = withContext(Dispatchers.IO) { onExportSettings(selectedSections) }
-                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-                    val yy = now.year.toString().takeLast(2)
-                    val mm = now.monthNumber.toString().padStart(2, '0')
-                    val dd = now.dayOfMonth.toString().padStart(2, '0')
-                    withContext(Dispatchers.IO) {
-                        saveFileToDevice(
-                            bytes = zipBytes,
-                            baseName = "$yy-$mm-${dd}_Katya_backup",
-                            extension = "zip",
-                        )
+                    if (zipBytes.isNotEmpty()) {
+                        val now = kotlinx.datetime.Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()).toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+                        val yy = now.year.toString().takeLast(2)
+                        val mm = now.monthNumber.toString().padStart(2, '0')
+                        val dd = now.dayOfMonth.toString().padStart(2, '0')
+                        val success = withContext(Dispatchers.IO) {
+                            com.katya.app.saveFileToDevice(
+                                bytes = zipBytes,
+                                baseName = "$yy-$mm-${dd}_Katya_backup",
+                                extension = "zip",
+                            )
+                        }
+                        if (success) {
+                            com.katya.app.showToast("Конфигурация успешно сохранена (${zipBytes.size} байт)")
+                            AppLogger.i("ExportImport", "Конфигурация успешно сохранена (${zipBytes.size} байт)")
+                        } else {
+                            com.katya.app.showToast("Ошибка сохранения конфигурации")
+                            AppLogger.e("ExportImport", "Ошибка сохранения конфигурации")
+                        }
+                    } else {
+                        com.katya.app.showToast("Ошибка: Экспортируемый файл пуст (0 байт)")
+                        AppLogger.e("ExportImport", "Ошибка: Экспортируемый файл пуст (0 байт)")
                     }
                 }
             },

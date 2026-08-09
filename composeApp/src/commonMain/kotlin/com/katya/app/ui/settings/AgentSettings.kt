@@ -2,6 +2,7 @@
 
 package com.katya.app.ui.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,7 @@ import com.katya.app.data.TaskTrigger
 import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.SettingsListItem
 import com.katya.app.ui.handCursor
+import com.katya.app.ui.katyaAdaptiveCardSurface
 import com.katya.app.ui.icons.Replay
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.default_soul
@@ -112,6 +114,14 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         SoulEditor(
                             soulText = uiState.soulText,
                             onSaveSoul = actions.onSaveSoul,
+                        )
+                    }
+                    SettingsCard {
+                        AudioEnginesCard(
+                            sttEngine = uiState.sttEngine,
+                            ttsEngine = uiState.ttsEngine,
+                            onChangeSttEngine = actions.onChangeSttEngine,
+                            onChangeTtsEngine = actions.onChangeTtsEngine,
                         )
                     }
                     SettingsCard {
@@ -215,6 +225,14 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                     SoulEditor(
                         soulText = uiState.soulText,
                         onSaveSoul = actions.onSaveSoul,
+                    )
+                }
+                SettingsCard {
+                    AudioEnginesCard(
+                        sttEngine = uiState.sttEngine,
+                        ttsEngine = uiState.ttsEngine,
+                        onChangeSttEngine = actions.onChangeSttEngine,
+                        onChangeTtsEngine = actions.onChangeTtsEngine,
                     )
                 }
                 SettingsCard {
@@ -1302,6 +1320,81 @@ private fun AddEditTaskSheet(
                 }
             }
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun AudioEnginesCard(
+    sttEngine: com.katya.app.data.SttEngine,
+    ttsEngine: com.katya.app.data.TtsEngine,
+    onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
+    onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Слух и Речь (STT/TTS)",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        
+        Text(
+            text = "Выберите движки для распознавания и синтеза речи. Локальные модели работают полностью без интернета, но требуют загрузки.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
+                .padding(12.dp)
+        ) {
+            Text(
+                text = "Распознавание речи (Слух)",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            com.katya.app.data.SttEngine.entries.forEach { engine ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeSttEngine(engine) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = sttEngine == engine,
+                        onClick = { onChangeSttEngine(engine) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = engine.name, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
+                .padding(12.dp)
+        ) {
+            Text(
+                text = "Синтез речи (Голос)",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            com.katya.app.data.TtsEngine.entries.forEach { engine ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeTtsEngine(engine) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = ttsEngine == engine,
+                        onClick = { onChangeTtsEngine(engine) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = engine.name, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
         }
     }
 }

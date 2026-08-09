@@ -79,8 +79,8 @@ class LinuxSandboxManager(
     private fun checkExistingInstallation() {
         val rootfs = File(sandboxDir, "rootfs")
         val proot = File(prootPath)
-        val xrayExists = File(rootfs, "usr/bin/xray").exists()
-        if (rootfs.isDirectory && proot.exists() && proot.canExecute() && xrayExists) {
+        val bashExists = File(rootfs, "usr/bin/bash").exists()
+        if (rootfs.isDirectory && proot.exists() && proot.canExecute() && bashExists) {
             _state.value = SandboxState.Ready
         }
     }
@@ -112,9 +112,7 @@ class LinuxSandboxManager(
     fun cancel() {
         currentJob?.cancel()
         currentJob = null
-        // Clean up partial downloads
-        File(sandboxDir, "rootfs.tar.gz").delete()
-        // Determine correct state based on what exists
+        File(sandboxDir, "rootfs.zip").delete()
         val rootfs = File(sandboxDir, "rootfs")
         if (rootfs.isDirectory && File(prootPath).exists()) {
             _state.value = SandboxState.Ready
@@ -126,62 +124,52 @@ class LinuxSandboxManager(
     private suspend fun setupInternal() {
         val arch = getLinuxArch()
 
-        // Verify proot is available in nativeLibraryDir
         val proot = File(prootPath)
         if (!proot.exists()) {
-            throw IllegalStateException(
-                "Proot binary not found at $prootPath. " +
-                    "nativeLibraryDir contents: ${File(nativeLibDir).listFiles()?.map { it.name } ?: "empty"}",
-            )
+            throw IllegalStateException("Proot binary not found at $prootPath.")
         }
 
-        // Clean up previous installation to avoid caching bugs
         File(sandboxDir, "rootfs").deleteRecursively()
         File(sandboxDir, "home").deleteRecursively()
         File(sandboxDir, "tmp").deleteRecursively()
 
-        // Create directories. `homePath` getter creates the externally-visible
-        // sandbox-home dir on access, so we only need to ensure sandboxDir + tmp.
         sandboxDir.mkdirs()
         File(sandboxDir, "tmp").mkdirs()
 
-        // Copy libtalloc with correct soname (Android strips .so.2 suffix in jniLibs)
         copyLibtalloc()
+        copyXrayBinary()
 
-        // Download rootfs
         val rootfsDir = File(sandboxDir, "rootfs")
         if (!rootfsDir.isDirectory) {
-            val tarGzFile = File(sandboxDir, "rootfs.tar.gz")
+            val zipFile = File(sandboxDir, "rootfs.zip")
             try {
                 _state.value = SandboxState.Downloading(0f)
-                downloader.download(arch, tarGzFile) { progress ->
+                downloader.download(arch, zipFile) { progress ->
                     _state.value = SandboxState.Downloading(progress)
                 }
 
                 _state.value = SandboxState.Extracting
-                downloader.extractTarGz(tarGzFile, rootfsDir)
+                downloader.extractZip(zipFile, rootfsDir)
             } finally {
-                tarGzFile.delete()
+                zipFile.delete()
             }
         }
 
-        // Post-setup
-        _state.value = SandboxState.Installing("Configuring...")
+        _state.value = SandboxState.Installing("Configuring Termux...")
         downloader.makeWritable(rootfsDir)
-        downloader.writeResolvConf(rootfsDir)
 
         val executor = createProotExecutor()
-        var updated = false
-        for (mirror in downloader.mirrors) {
-            downloader.writeRepositories(rootfsDir, mirror)
-            val result = executor.execute("apk update", timeoutSeconds = 60)
-            if (result["success"] as? Boolean == true) {
-                updated = true
-                break
-            }
+        
+        _state.value = SandboxState.Installing("Updating repositories...")
+        val updateResult = executor.execute("apt update", timeoutSeconds = 60)
+        if (updateResult["success"] as? Boolean != true) {
+            throw IllegalStateException("apt update failed: ${updateResult["stderr"]}")
         }
-        if (!updated) {
-            throw IllegalStateException("apk update failed on all Alpine mirrors")
+
+        _state.value = SandboxState.Installing("Installing Python, SQLite, Curl...")
+        val installResult = executor.execute("apt install -y python sqlite curl", timeoutSeconds = 300)
+        if (installResult["success"] as? Boolean != true) {
+            throw IllegalStateException("apt install failed: ${installResult["stderr"]}")
         }
 
         _state.value = SandboxState.Ready
@@ -194,6 +182,20 @@ class LinuxSandboxManager(
         val source = File(nativeLibDir, "libtalloc.so")
         if (source.exists()) {
             source.copyTo(tallocTarget, overwrite = true)
+        }
+    }
+
+    private fun copyXrayBinary() {
+        val rootfsDir = File(sandboxDir, "rootfs")
+        val binDir = File(rootfsDir, "bin")
+        binDir.mkdirs()
+        val xrayTarget = File(binDir, "xray")
+        if (xrayTarget.exists()) return
+
+        val source = File(nativeLibDir, "libxray.so")
+        if (source.exists()) {
+            source.copyTo(xrayTarget, overwrite = true)
+            xrayTarget.setExecutable(true, false)
         }
     }
 

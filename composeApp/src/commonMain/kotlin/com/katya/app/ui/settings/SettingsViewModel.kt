@@ -90,6 +90,8 @@ class SettingsViewModel(
         availableServicesToAdd = computeAvailableServices().toImmutableList(),
         tools = dataRepository.getToolDefinitions().toImmutableList(),
         soulText = dataRepository.getSoulText(),
+        sttEngine = dataRepository.getSttEngine(),
+        ttsEngine = dataRepository.getTtsEngine(),
         isDynamicUiEnabled = dataRepository.isDynamicUiEnabled(),
         isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
         isVoiceResponseEnabled = dataRepository.isVoiceResponseEnabled(),
@@ -169,6 +171,8 @@ class SettingsViewModel(
         onSelectModel = ::onSelectModel,
         onToggleTool = ::onToggleTool,
         onSaveSoul = ::onSaveSoul,
+        onChangeSttEngine = ::onChangeSttEngine,
+        onChangeTtsEngine = ::onChangeTtsEngine,
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleAgentVisibility = ::onToggleAgentVisibility,
         onToggleVoiceResponse = ::onToggleVoiceResponse,
@@ -499,6 +503,16 @@ class SettingsViewModel(
     private fun onSaveSoul(text: String) {
         dataRepository.setSoulText(text)
         _state.update { it.copy(soulText = text) }
+    }
+
+    private fun onChangeSttEngine(engine: com.katya.app.data.SttEngine) {
+        dataRepository.setSttEngine(engine)
+        _state.update { it.copy(sttEngine = engine) }
+    }
+
+    private fun onChangeTtsEngine(engine: com.katya.app.data.TtsEngine) {
+        dataRepository.setTtsEngine(engine)
+        _state.update { it.copy(ttsEngine = engine) }
     }
 
     private fun onToggleDynamicUi(enabled: Boolean) {

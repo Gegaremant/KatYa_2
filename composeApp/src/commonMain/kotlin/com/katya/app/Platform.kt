@@ -87,7 +87,9 @@ expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)
 
 expect fun decodeToImageBitmap(bytes: ByteArray): ImageBitmap?
 
-expect suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String)
+expect suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String): Boolean
+
+expect fun showToast(message: String)
 
 /**
  * Fires a background push notification for a heartbeat that produced a non-trivial

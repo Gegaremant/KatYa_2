@@ -88,6 +88,12 @@ interface DataRepository {
     fun getSoulText(): String
     fun setSoulText(text: String)
     suspend fun getActiveSystemPrompt(variant: SystemPromptVariant = SystemPromptVariant.CHAT_REMOTE): String?
+    
+    // Audio Engines
+    fun getSttEngine(): SttEngine
+    fun setSttEngine(engine: SttEngine)
+    fun getTtsEngine(): TtsEngine
+    fun setTtsEngine(engine: TtsEngine)
 
     // Memory management
     fun isMemoryEnabled(): Boolean

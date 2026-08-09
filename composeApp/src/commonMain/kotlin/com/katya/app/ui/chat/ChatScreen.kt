@@ -166,6 +166,9 @@ fun ChatScreenContent(
     monitorStats: com.katya.app.monitor.MonitorStats = com.katya.app.monitor.MonitorStats(),
     wakeWordTriggerCount: Int = 0,
 ) {
+    val dataRepository: com.katya.app.data.DataRepository = org.koin.compose.koinInject()
+    val audioHelper: com.katya.app.audio.AudioHelper = org.koin.compose.koinInject()
+    val scope = rememberCoroutineScope()
     if (uiState.isInteractiveMode && !uiState.isRestoring) {
         InteractiveModeScreen(uiState = uiState, wakeWordTriggerCount = wakeWordTriggerCount)
     } else {
@@ -487,6 +490,8 @@ private fun ChatModeScreen(
     monitorStats: com.katya.app.monitor.MonitorStats,
     wakeWordTriggerCount: Int,
 ) {
+    val dataRepository: com.katya.app.data.DataRepository = org.koin.compose.koinInject()
+    val audioHelper: com.katya.app.audio.AudioHelper = org.koin.compose.koinInject()
     var showHistorySheet by remember { mutableStateOf(false) }
     // Hoisted here so the draft survives toggling the sandbox/terminal view, which
     // removes QuestionInput from composition and would otherwise drop the text.
@@ -642,12 +647,18 @@ private fun ChatModeScreen(
                                             textToSpeech?.stop()
                                             uiState.actions.setIsSpeaking(true, lastMessage.id)
                                             try {
-                                                textToSpeech?.say(lastMessage.content.toSpeakableText())
+                                                if (dataRepository.getTtsEngine() == com.katya.app.data.TtsEngine.SYSTEM) {
+                                                    audioHelper.requestExclusiveFocus()
+                                                    textToSpeech?.say(lastMessage.content.toSpeakableText())
+                                                }
                                             } catch (_: TextToSpeechSynthesisInterruptedError) {
                                                 // Speech was interrupted by user
                                             } catch (_: Exception) {
                                                 // Handle TTS errors gracefully (service failure, audio issues, etc.)
                                             } finally {
+                                                if (dataRepository.getTtsEngine() == com.katya.app.data.TtsEngine.SYSTEM) {
+                                                    audioHelper.abandonFocus()
+                                                }
                                                 uiState.actions.setIsSpeaking(false, lastMessage.id)
                                             }
                                         }

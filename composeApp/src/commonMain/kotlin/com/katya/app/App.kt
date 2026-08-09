@@ -108,7 +108,7 @@ fun App(
     } else {
         KoinApplication(
             configuration = koinConfiguration {
-                modules(appModule, com.katya.app.stt.sttModule)
+                modules(appModule, com.katya.app.stt.sttModule, com.katya.app.audio.audioModule)
             },
         ) {
             AppContent(navController, lightColorScheme, darkColorScheme, textToSpeech, onAppOpens)

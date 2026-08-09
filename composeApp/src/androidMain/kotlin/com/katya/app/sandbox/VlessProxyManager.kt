@@ -103,7 +103,7 @@ class VlessProxyManager(
                 configFilePath.writeText(configJson)
 
                 val configPathInSandbox = "/root/xray_config.json"
-                val xrayBinary = "/usr/bin/xray"
+                val xrayBinary = "/data/data/com.termux/files/usr/bin/xray"
 
                 launchConnectionLoop()
 

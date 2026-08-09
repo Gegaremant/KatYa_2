@@ -1,5 +1,8 @@
 package com.katya.app.ui.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,73 +61,94 @@ fun ServersContent(
         
         // VLESS Proxies
         SettingsCard {
-            Text("VLESS Прокси", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            
-            val proxiesStr = appSettings.getVlessProxyProfilesJson()
-            var proxies by remember { 
-                mutableStateOf(
-                    try { Json.decodeFromString<List<VlessProxyProfile>>(proxiesStr) } 
-                    catch (e: Exception) { emptyList() }
-                ) 
-            }
-            var activeProxyId by remember { mutableStateOf(appSettings.getActiveVlessProxyId()) }
-
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                proxies.forEach { proxy ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        RadioButton(
-                            selected = (connectionMode == "VLESS" && activeProxyId == proxy.id),
-                            onClick = {
-                                activeProxyId = proxy.id
-                                connectionMode = "VLESS"
-                                appSettings.setActiveVlessProxyId(proxy.id)
-                                appSettings.setActiveConnectionMode("VLESS")
-                                appSettings.setVlessUri(proxy.uri) // Fallback support
-                            }
-                        )
-                        Text(proxy.name, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                        IconButton(onClick = {
-                            proxies = proxies.filter { it.id != proxy.id }
-                            appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                        }
+            val vlessChecked = connectionMode == "VLESS"
+            ToggleableHeadline(
+                title = "VLESS Прокси",
+                description = "Использовать прокси-сервер VLESS",
+                checked = vlessChecked,
+                onCheckedChange = { isChecked ->
+                    if (isChecked) {
+                        connectionMode = "VLESS"
+                        appSettings.setActiveConnectionMode("VLESS")
+                    } else {
+                        connectionMode = "NONE"
+                        appSettings.setActiveConnectionMode("NONE")
                     }
                 }
-                
-                // Add new
-                var newName by remember { mutableStateOf("") }
-                var newUri by remember { mutableStateOf("") }
-                
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        KaiOutlinedTextField(
-                            value = newName,
-                            onValueChange = { newName = it },
-                            placeholder = { Text("Название (например, NL-1)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        KaiOutlinedTextField(
-                            value = newUri,
-                            onValueChange = { newUri = it },
-                            placeholder = { Text("vless://...") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+            )
+            
+            AnimatedVisibility(
+                visible = vlessChecked,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    
+                    val proxiesStr = appSettings.getVlessProxyProfilesJson()
+                    var proxies by remember { 
+                        mutableStateOf(
+                            try { Json.decodeFromString<List<VlessProxyProfile>>(proxiesStr) } 
+                            catch (e: Exception) { emptyList() }
+                        ) 
                     }
-                    IconButton(onClick = {
-                        if (newName.isNotBlank() && newUri.isNotBlank()) {
-                            val id = "vless_${kotlin.random.Random.nextInt()}"
-                            proxies = proxies + VlessProxyProfile(id, newName, newUri)
-                            appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
-                            newName = ""
-                            newUri = ""
+                    var activeProxyId by remember { mutableStateOf(appSettings.getActiveVlessProxyId()) }
+
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        proxies.forEach { proxy ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                RadioButton(
+                                    selected = (activeProxyId == proxy.id),
+                                    onClick = {
+                                        activeProxyId = proxy.id
+                                        appSettings.setActiveVlessProxyId(proxy.id)
+                                        appSettings.setVlessUri(proxy.uri)
+                                    }
+                                )
+                                Text(proxy.name, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+                                IconButton(onClick = {
+                                    proxies = proxies.filter { it.id != proxy.id }
+                                    appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
                         }
-                    }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.primary)
+                        
+                        // Add new
+                        var newName by remember { mutableStateOf("") }
+                        var newUri by remember { mutableStateOf("") }
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                KaiOutlinedTextField(
+                                    value = newName,
+                                    onValueChange = { newName = it },
+                                    placeholder = { Text("Название (например, NL-1)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                KaiOutlinedTextField(
+                                    value = newUri,
+                                    onValueChange = { newUri = it },
+                                    placeholder = { Text("vless://...") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            IconButton(onClick = {
+                                if (newName.isNotBlank() && newUri.isNotBlank()) {
+                                    val id = "vless_${kotlin.random.Random.nextInt()}"
+                                    proxies = proxies + VlessProxyProfile(id, newName, newUri)
+                                    appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
+                                    newName = ""
+                                    newUri = ""
+                                }
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
                     }
                 }
             }
@@ -134,73 +158,94 @@ fun ServersContent(
         
         // Local Servers
         SettingsCard {
-            Text("Локальные серверы (SSH)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            
-            val serversStr = appSettings.getLocalServerProfilesJson()
-            var servers by remember { 
-                mutableStateOf(
-                    try { Json.decodeFromString<List<LocalServerProfile>>(serversStr) } 
-                    catch (e: Exception) { emptyList() }
-                ) 
-            }
-            var activeServerId by remember { mutableStateOf(appSettings.getActiveLocalServerId()) }
-
-            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                servers.forEach { server ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        RadioButton(
-                            selected = (connectionMode == "LOCAL" && activeServerId == server.id),
-                            onClick = {
-                                activeServerId = server.id
-                                connectionMode = "LOCAL"
-                                appSettings.setActiveLocalServerId(server.id)
-                                appSettings.setActiveConnectionMode("LOCAL")
-                                appSettings.setServerIp(server.ip)
-                            }
-                        )
-                        Text(server.name, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-                        IconButton(onClick = {
-                            servers = servers.filter { it.id != server.id }
-                            appSettings.setLocalServerProfilesJson(Json.encodeToString(servers))
-                        }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
-                        }
+            val localChecked = connectionMode == "LOCAL"
+            ToggleableHeadline(
+                title = "Локальные серверы (SSH)",
+                description = "Подключение к домашнему серверу",
+                checked = localChecked,
+                onCheckedChange = { isChecked ->
+                    if (isChecked) {
+                        connectionMode = "LOCAL"
+                        appSettings.setActiveConnectionMode("LOCAL")
+                    } else {
+                        connectionMode = "NONE"
+                        appSettings.setActiveConnectionMode("NONE")
                     }
                 }
-                
-                // Add new
-                var newName by remember { mutableStateOf("") }
-                var newIp by remember { mutableStateOf("") }
-                
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        KaiOutlinedTextField(
-                            value = newName,
-                            onValueChange = { newName = it },
-                            placeholder = { Text("Название (Home Server)") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        KaiOutlinedTextField(
-                            value = newIp,
-                            onValueChange = { newIp = it },
-                            placeholder = { Text("IP адрес") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+            )
+            
+            AnimatedVisibility(
+                visible = localChecked,
+                enter = expandVertically(),
+                exit = shrinkVertically()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    
+                    val serversStr = appSettings.getLocalServerProfilesJson()
+                    var servers by remember { 
+                        mutableStateOf(
+                            try { Json.decodeFromString<List<LocalServerProfile>>(serversStr) } 
+                            catch (e: Exception) { emptyList() }
+                        ) 
                     }
-                    IconButton(onClick = {
-                        if (newName.isNotBlank() && newIp.isNotBlank()) {
-                            val id = "local_${kotlin.random.Random.nextInt()}"
-                            servers = servers + LocalServerProfile(id, newName, newIp)
-                            appSettings.setLocalServerProfilesJson(Json.encodeToString(servers))
-                            newName = ""
-                            newIp = ""
+                    var activeServerId by remember { mutableStateOf(appSettings.getActiveLocalServerId()) }
+
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        servers.forEach { server ->
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                RadioButton(
+                                    selected = (activeServerId == server.id),
+                                    onClick = {
+                                        activeServerId = server.id
+                                        appSettings.setActiveLocalServerId(server.id)
+                                        appSettings.setServerIp(server.ip)
+                                    }
+                                )
+                                Text(server.name, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+                                IconButton(onClick = {
+                                    servers = servers.filter { it.id != server.id }
+                                    appSettings.setLocalServerProfilesJson(Json.encodeToString(servers))
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
                         }
-                    }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.primary)
+                        
+                        // Add new
+                        var newName by remember { mutableStateOf("") }
+                        var newIp by remember { mutableStateOf("") }
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                KaiOutlinedTextField(
+                                    value = newName,
+                                    onValueChange = { newName = it },
+                                    placeholder = { Text("Название (Home Server)") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                KaiOutlinedTextField(
+                                    value = newIp,
+                                    onValueChange = { newIp = it },
+                                    placeholder = { Text("IP адрес") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                            IconButton(onClick = {
+                                if (newName.isNotBlank() && newIp.isNotBlank()) {
+                                    val id = "local_${kotlin.random.Random.nextInt()}"
+                                    servers = servers + LocalServerProfile(id, newName, newIp)
+                                    appSettings.setLocalServerProfilesJson(Json.encodeToString(servers))
+                                    newName = ""
+                                    newIp = ""
+                                }
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
                     }
                 }
             }
@@ -208,67 +253,88 @@ fun ServersContent(
         
         Spacer(Modifier.height(16.dp))
         
-        // Switches
+        // Auto recovery
         SettingsCard {
-            Column(modifier = Modifier.padding(16.dp)) {
-                ToggleableHeadline(
-                    title = "Постоянное авто-восстановление",
-                    description = "Автоматически переподключаться при обрыве связи",
-                    checked = autoRecovery,
-                    onCheckedChange = { 
-                        autoRecovery = it
-                        appSettings.setConstantAutoRecoveryEnabled(it)
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                
-                ToggleableHeadline(
-                    title = "Показ состояния устройства",
-                    description = "Показывать статус батареи, CPU, RAM",
-                    checked = showDeviceStatus,
-                    onCheckedChange = { 
-                        showDeviceStatus = it
-                        appSettings.setShowDeviceStateEnabled(it)
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                
-                ToggleableHeadline(
-                    title = "Показ состояния подключения",
-                    description = "Отображать пинг и скорость интернета",
-                    checked = showConnectionStatus,
-                    onCheckedChange = { 
-                        showConnectionStatus = it
-                        appSettings.setShowConnectionStateEnabled(it)
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                
-                ToggleableHeadline(
-                    title = "Показ и озвучивание размышлений",
-                    description = "Катя будет проговаривать свои мысли вслух",
-                    checked = voiceThoughts,
-                    onCheckedChange = { 
-                        voiceThoughts = it
-                        appSettings.setShowAndVoiceThoughtsEnabled(it)
-                    }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                
-                ToggleableHeadline(
-                    title = "Включить ведение логов",
-                    description = "Записывать системные события",
-                    checked = isLoggingEnabled,
-                    onCheckedChange = { isLoggingEnabled = it }
-                )
-                if (isLoggingEnabled) {
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { showLogsDialog = true }) {
+            ToggleableHeadline(
+                title = "Постоянное авто-восстановление",
+                description = "Автоматически переподключаться при обрыве связи",
+                checked = autoRecovery,
+                onCheckedChange = { 
+                    autoRecovery = it
+                    appSettings.setConstantAutoRecoveryEnabled(it)
+                }
+            )
+        }
+        
+        Spacer(Modifier.height(16.dp))
+
+        // Device status
+        SettingsCard {
+            ToggleableHeadline(
+                title = "Показ состояния устройства",
+                description = "Показывать статус батареи, CPU, RAM",
+                checked = showDeviceStatus,
+                onCheckedChange = { 
+                    showDeviceStatus = it
+                    appSettings.setShowDeviceStateEnabled(it)
+                }
+            )
+        }
+        
+        Spacer(Modifier.height(16.dp))
+
+        // Connection status
+        SettingsCard {
+            ToggleableHeadline(
+                title = "Показ состояния подключения",
+                description = "Отображать пинг и скорость интернета",
+                checked = showConnectionStatus,
+                onCheckedChange = { 
+                    showConnectionStatus = it
+                    appSettings.setShowConnectionStateEnabled(it)
+                }
+            )
+        }
+        
+        Spacer(Modifier.height(16.dp))
+        
+        // Voice thoughts
+        SettingsCard {
+            ToggleableHeadline(
+                title = "Показ и озвучивание размышлений",
+                description = "Катя будет проговаривать свои мысли вслух",
+                checked = voiceThoughts,
+                onCheckedChange = { 
+                    voiceThoughts = it
+                    appSettings.setShowAndVoiceThoughtsEnabled(it)
+                }
+            )
+        }
+        
+        Spacer(Modifier.height(16.dp))
+        
+        // Logging
+        SettingsCard {
+            ToggleableHeadline(
+                title = "Включить ведение логов",
+                description = "Записывать системные события",
+                checked = isLoggingEnabled,
+                onCheckedChange = { isLoggingEnabled = it }
+            )
+            AnimatedVisibility(visible = isLoggingEnabled) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    Button(
+                        onClick = { showLogsDialog = true },
+                        modifier = Modifier.padding(16.dp).fillMaxWidth()
+                    ) {
                         Text("Посмотреть логи")
                     }
                 }
             }
         }
+        
+        Spacer(Modifier.height(32.dp))
         
         if (showLogsDialog) {
             LogsDialog(onDismiss = { showLogsDialog = false })
@@ -310,3 +376,4 @@ fun LogsDialog(onDismiss: () -> Unit) {
         },
     )
 }
+

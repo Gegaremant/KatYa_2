@@ -960,9 +960,11 @@ internal fun NotificationsSection(
                             text = stringResource(Res.string.settings_notifications_queued, pendingCount),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
                         )
+                        Spacer(Modifier.width(8.dp))
                         TextButton(onClick = onClearPending) {
-                            Text(stringResource(Res.string.settings_notifications_clear_queue))
+                            Text(stringResource(Res.string.settings_notifications_clear_queue), maxLines = 1, softWrap = false)
                         }
                     }
                 }

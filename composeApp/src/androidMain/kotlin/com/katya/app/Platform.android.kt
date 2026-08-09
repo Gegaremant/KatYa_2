@@ -593,9 +593,25 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
 }
 
-actual suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String) {
-    val file = FileKit.openFileSaver(suggestedName = baseName, defaultExtension = extension)
-    file?.write(bytes)
+actual suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String): Boolean {
+    return try {
+        val file = FileKit.openFileSaver(suggestedName = baseName, defaultExtension = extension)
+        if (file != null) {
+            file.write(bytes)
+            true
+        } else {
+            false
+        }
+    } catch (e: Exception) {
+        false
+    }
+}
+
+actual fun showToast(message: String) {
+    val context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+    android.os.Handler(android.os.Looper.getMainLooper()).post {
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+    }
 }
 
 actual fun openTtsSettings() {

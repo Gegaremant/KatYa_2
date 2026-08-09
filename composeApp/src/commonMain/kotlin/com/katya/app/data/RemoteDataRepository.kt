@@ -1763,10 +1763,13 @@ Your task is to restore the connection to the main server.
 
     // Soul (system prompt)
     override fun getSoulText(): String = appSettings.getSoulText()
-
-    override fun setSoulText(text: String) {
-        appSettings.setSoulText(text)
-    }
+    override fun setSoulText(text: String) = appSettings.setSoulText(text)
+    
+    override fun getSttEngine(): SttEngine = appSettings.getSttEngine()
+    override fun setSttEngine(engine: SttEngine) = appSettings.setSttEngine(engine)
+    
+    override fun getTtsEngine(): TtsEngine = appSettings.getTtsEngine()
+    override fun setTtsEngine(engine: TtsEngine) = appSettings.setTtsEngine(engine)
 
     override suspend fun getActiveSystemPrompt(variant: SystemPromptVariant): String? {
         val soul = appSettings.getSoulText().ifEmpty { getString(katya.composeapp.generated.resources.Res.string.default_soul) }

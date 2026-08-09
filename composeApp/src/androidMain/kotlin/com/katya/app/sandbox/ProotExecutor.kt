@@ -132,22 +132,27 @@ class ProotExecutor(
 
     private fun buildProcessArgs(command: String, workingDir: String): Array<String> = arrayOf(
         prootPath,
-        "--rootfs=$rootfsPath",
+        "--bind=$rootfsPath:/data/data/com.termux/files/usr",
+        "--bind=$homePath:/data/data/com.termux/files/home",
+        "--bind=$tmpPath:/data/data/com.termux/files/usr/tmp",
         "--bind=/dev",
         "--bind=/proc",
         "--bind=/sys",
-        "--bind=$homePath:/root",
-        "--bind=$tmpPath:/tmp",
+        "--bind=/sdcard",
+        "--bind=/storage",
         "-0",
         "-w", workingDir,
-        "/bin/sh", "-c", command,
+        "/data/data/com.termux/files/usr/bin/sh", "-c", command,
     )
 
     private fun buildEnvVars(extraEnv: Map<String, String>): Array<String> {
         val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
         val baseEnv = arrayOf(
-            "HOME=/root",
-            "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "PREFIX=/data/data/com.termux/files/usr",
+            "HOME=/data/data/com.termux/files/home",
+            "PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets",
+            "TMPDIR=/data/data/com.termux/files/usr/tmp",
+            "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib",
             "TERM=xterm-256color",
             "LANG=C.UTF-8",
             "LD_LIBRARY_PATH=$libDir",

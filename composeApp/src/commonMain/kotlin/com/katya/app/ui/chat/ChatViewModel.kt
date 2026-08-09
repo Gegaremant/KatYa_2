@@ -374,14 +374,6 @@ class ChatViewModel(
     }
 
     private fun addFile(file: com.katya.app.data.KatyaFile) {
-        val ext = file.extension.lowercase()
-        val supported = dataRepository.supportedFileExtensions()
-        if (ext.isEmpty() || ext !in supported) {
-            _state.update {
-                it.copy(snackbarMessage = Res.string.error_unsupported_file_type)
-            }
-            return
-        }
         _state.update {
             it.copy(files = (it.files + file).toImmutableList())
         }

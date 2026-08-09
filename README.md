@@ -20,7 +20,7 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 </div>
 
-### 🆕 What's New in v2.4.5
+### 🆕 What's New in v3.0.0
 - **VLESS & Local Servers Profiles:** Easily manage and switch between multiple SSH and VLESS Proxy profiles via the new Servers tab UI.
 - **God Mode Enhancements:** Automatic root-permission granting, detailed root action logging to `/sdcard/Katya/`, and system role toggles.
 - **Material Theme Integration:** Startup screens now beautifully respect the global Material3 color scheme.
@@ -113,7 +113,7 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 </div>
 
-### 🆕 Что нового в версии 2.4.5
+### 🆕 Что нового в версии 3.0.0
 - **Профили VLESS и локальных серверов:** Удобное управление и переключение между несколькими SSH и VLESS профилями на новой вкладке Серверы.
 - **Улучшения God Mode:** Автоматическая выдача всех разрешений при наличии Root, детализированное логирование root-действий в `/sdcard/Katya/` и управление системными ролями.
 - **Интеграция с Material Theme:** Стартовые экраны теперь красиво адаптируются под глобальную цветовую схему Material3.

@@ -46,6 +46,18 @@ enum class MonitorOverlayMode {
     FULL,
 }
 
+enum class SttEngine {
+    SYSTEM,
+    LOCAL,
+    CLOUD
+}
+
+enum class TtsEngine {
+    SYSTEM,
+    PIPER,
+    CLOUD
+}
+
 enum class VoiceUiMode {
     FULL_SCREEN,
     BOTTOM_SHEET,
@@ -362,6 +374,21 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Soul (system prompt)
+    fun getAudioTheme(): String = settings.getString("audio_theme", "katya")
+    fun setAudioTheme(theme: String) = settings.putString("audio_theme", theme)
+
+    fun getSttEngine(): SttEngine {
+        val name = settings.getString("stt_engine", SttEngine.SYSTEM.name)
+        return try { SttEngine.valueOf(name) } catch (e: Exception) { SttEngine.SYSTEM }
+    }
+    fun setSttEngine(engine: SttEngine) = settings.putString("stt_engine", engine.name)
+
+    fun getTtsEngine(): TtsEngine {
+        val name = settings.getString("tts_engine", TtsEngine.SYSTEM.name)
+        return try { TtsEngine.valueOf(name) } catch (e: Exception) { TtsEngine.SYSTEM }
+    }
+    fun setTtsEngine(engine: TtsEngine) = settings.putString("tts_engine", engine.name)
+
     fun getSoulText(): String = settings.getString(KEY_SOUL, "")
 
     fun setSoulText(text: String) {
