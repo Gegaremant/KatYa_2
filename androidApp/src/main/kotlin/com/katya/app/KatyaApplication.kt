@@ -19,7 +19,7 @@ class KatyaApplication : Application() {
         context = this
         startKoin {
             androidContext(this@KatyaApplication)
-            modules(appModule, sandboxModule, com.katya.app.stt.sttModule)
+            modules(appModule, sandboxModule, com.katya.app.stt.sttModule, com.katya.app.audio.audioModule)
         }
         // Track app foreground state so the scheduler only pushes a heartbeat notification
         // when the in-app banner isn't visible. ViewModel lifecycle is the wrong signal —
