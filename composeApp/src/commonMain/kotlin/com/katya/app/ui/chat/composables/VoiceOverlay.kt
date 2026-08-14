@@ -28,7 +28,6 @@ import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.prompt_ask_question
 import org.jetbrains.compose.resources.stringResource
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VoiceOverlay(
     isListening: Boolean,
@@ -37,136 +36,85 @@ fun VoiceOverlay(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (mode == VoiceUiMode.BOTTOM_SHEET) {
-        if (isListening) {
-            ModalBottomSheet(
-                onDismissRequest = onCancel,
-                dragHandle = { BottomSheetDefaults.DragHandle() },
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                VoiceContent(
-                    partialResults = partialResults,
-                    onCancel = onCancel,
-                    isFullScreen = false,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                )
-            }
-        }
-    } else {
-        if (isListening) {
-            androidx.compose.ui.window.Dialog(
-                onDismissRequest = onCancel,
-                properties = androidx.compose.ui.window.DialogProperties(
-                    usePlatformDefaultWidth = false,
-                    decorFitsSystemWindows = false
-                )
+    AnimatedVisibility(
+        visible = isListening,
+        enter = slideInVertically { it } + fadeIn(),
+        exit = slideOutVertically { it } + fadeOut(),
+        modifier = modifier
+    ) {
+        val infiniteTransition = rememberInfiniteTransition(label = "listeningPulse")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 0.9f,
+            targetValue = 1.15f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "micPulse"
+        )
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
+            shadowElevation = 4.dp,
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                        .clickable(enabled = false) {}, // Intercept clicks
+                        .size(36.dp)
+                        .scale(scale)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
-                    VoiceContent(
-                        partialResults = partialResults,
-                        onCancel = onCancel,
-                        isFullScreen = true
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Внимаю",
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Внимаю",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (partialResults.isNotBlank()) {
+                        Text(
+                            text = partialResults,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onCancel,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Отмена",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun VoiceContent(
-    partialResults: String,
-    onCancel: () -> Unit,
-    isFullScreen: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "voicePulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAnimation"
-    )
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        if (isFullScreen) {
-            Spacer(modifier = Modifier.weight(1f))
-        }
-
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Listening",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = "Слушаю...",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = partialResults.ifBlank { "..." },
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(0.8f)
-        )
-
-        if (isFullScreen) {
-            Spacer(modifier = Modifier.weight(1f))
-        } else {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        IconButton(
-            onClick = onCancel,
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
-                .padding(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Cancel",
-                tint = MaterialTheme.colorScheme.onErrorContainer
-            )
         }
     }
 }

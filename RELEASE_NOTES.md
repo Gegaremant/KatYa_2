@@ -1,5 +1,19 @@
 # Release Notes
 
+## v3.0.2
+### Added & Improved
+- **Device Admin & Trust Agent Cleanup:** Removed Device Admin and Trust Agent checks to simplify permissions and app startup.
+- **Authorization Text Direction Fix:** Guaranteed LTR text layout for login, credentials, and authorization dialogs.
+- **Header & Title Styling:** Set light color for "Слух и Речь (STT/TTS)" and updated UI card header titles.
+- **Settings Import & Deduplication:** "Заменить настройки" defaults to OFF (`false`). Importing settings automatically merges new items with existing ones without duplicate entries.
+- **VLESS Proxy Connection & Xray Core:** Fixed Xray JSON output (removed empty `"flow": ""` field that caused parse crashes), added binary execution fallback paths in proot/Termux, and updated connection ping target.
+- **Local STT/TTS Model Download Checks:** Added model readiness checks when selecting local STT (Vosk) or TTS (Piper/HRVoise) engines with download prompt dialogs.
+- **Microphone "Внимаю" Banner:** Replaced full-screen listening overlay with a non-blocking bottom banner showing "Внимаю" and real-time speech recognition text.
+- **Device & Connection Status Header:** Added status header lines in main chat for Battery %, charging, CPU/RAM/sensor stats, and API connection status.
+- **Reasoning & Thoughts Display:** Added toggle support to unspoiler `<think>` blocks and read reasoning aloud via TTS voice synthesis.
+- **Email Provider Quick Presets:** Added quick preset chips (Gmail, Outlook, Yandex, Mail.ru) in the Add Email Account dialog with automatic IMAP/SMTP server configuration.
+- **Camera Runtime Permission Fix:** Added runtime `Manifest.permission.CAMERA` permission request and try-catch safety wrapper, resolving camera launch crashes.
+
 ## v2.4.3
 ### Added
 - **Clean Sandbox Install:** `LinuxSandboxManager` now performs a clean wipe of `rootfs`, `home`, and `tmp` directories when installing the sandbox to avoid caching bugs.

@@ -1,3 +1,0 @@
--dontwarn org.apache.logging.log4j.**  
--dontwarn org.ietf.jgss.**  
--dontwarn org.newsclub.net.unix.** 

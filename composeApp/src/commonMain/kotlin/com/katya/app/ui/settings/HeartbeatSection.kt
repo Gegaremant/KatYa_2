@@ -629,6 +629,31 @@ internal fun EmailSection(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    Text(
+                        text = "Быстрый выбор провайдера:",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            "Gmail" to "gmail.com",
+                            "Outlook" to "outlook.com",
+                            "Yandex" to "yandex.ru",
+                            "Mail.ru" to "mail.ru"
+                        ).forEach { (name, domain) ->
+                            AssistChip(
+                                onClick = {
+                                    val username = if (email.contains("@")) email.substringBefore("@") else email
+                                    email = if (username.isNotBlank()) "$username@$domain" else "@$domain"
+                                },
+                                label = { Text(name, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },

@@ -59,6 +59,7 @@ jobs:
       - name: Rename assets
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION#.}"
           mv androidApp-foss-debug.apk "Katya-${VERSION}-android-debug.apk"
 
       - name: Extract changelog

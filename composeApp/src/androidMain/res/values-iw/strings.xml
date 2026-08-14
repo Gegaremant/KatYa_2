@@ -1,8 +1,0 @@
-<resources>
-    <string name="daemon_channel_name">שירות רקע של KatYa</string>
-    <string name="daemon_channel_description">שומר על KatYa פועל לביצוע משימות מתוזמנות</string>
-    <string name="daemon_notification_text">שירות הרקע פועל</string>
-    <string name="download_channel_name">הורדות מודלים</string>
-    <string name="download_channel_description">מציג התקדמות בעת הורדת מודלים של בינה מלאכותית</string>
-    <string name="download_notification_text">מוריד מודל…</string>
-</resources>

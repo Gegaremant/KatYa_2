@@ -103,7 +103,7 @@ class VlessProxyManager(
                 configFilePath.writeText(configJson)
 
                 val configPathInSandbox = "/root/xray_config.json"
-                val xrayBinary = "/data/data/com.termux/files/usr/bin/xray"
+                val xrayCmd = "if [ -f /data/data/com.termux/files/usr/bin/xray ]; then /data/data/com.termux/files/usr/bin/xray -c $configPathInSandbox; elif [ -f /usr/bin/xray ]; then /usr/bin/xray -c $configPathInSandbox; else xray -c $configPathInSandbox; fi"
 
                 launchConnectionLoop()
 
@@ -123,7 +123,7 @@ class VlessProxyManager(
                     val home = linuxSandboxManager.homePath
                     val tmp = linuxSandboxManager.tmpPath
 
-                    val command = "$prootPath -0 --rootfs=$rootfs --bind=/dev --bind=/proc --bind=/sys --bind=$home:/root --bind=$tmp:/tmp -w /root /bin/sh -c '$xrayBinary -c $configPathInSandbox'"
+                    val command = "$prootPath -0 --rootfs=$rootfs --bind=/dev --bind=/proc --bind=/sys --bind=$home:/root --bind=$tmp:/tmp -w /root /bin/sh -c \"$xrayCmd\""
 
                     rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
                     rootProcess?.waitFor()
@@ -131,7 +131,7 @@ class VlessProxyManager(
                     AppLogger.d("VlessProxyManager", "Starting xray with proot (non-root)")
                     val executor = linuxSandboxManager.createProotExecutor()
                     prootHandle = executor.executeStreaming(
-                        command = "$xrayBinary -c $configPathInSandbox",
+                        command = xrayCmd,
                         onStdout = { AppLogger.d("XrayOut", it) },
                         onStderr = { AppLogger.e("XrayErr", it) },
                     )
@@ -210,9 +210,10 @@ class VlessProxyManager(
             val proxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri) 
                 ?: java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809))
                 
-            val connection = java.net.URL("https://www.google.com").openConnection(proxy) as java.net.HttpURLConnection
-            connection.connectTimeout = 3000
-            connection.readTimeout = 3000
+            val urlStr = if (proxy.type() != java.net.Proxy.Type.DIRECT) "http://cp.cloudflare.com/generate_204" else "https://1.1.1.1"
+            val connection = java.net.URL(urlStr).openConnection(proxy) as java.net.HttpURLConnection
+            connection.connectTimeout = 5000
+            connection.readTimeout = 5000
             connection.connect()
             val code = connection.responseCode
             connection.disconnect()
