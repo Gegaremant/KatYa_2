@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+   <uses-permission android:name="android.permission.INTERNET"/>
+   <!-- Android 17+ blocks LAN traffic for apps targeting SDK 37+ without this runtime
+        permission; required to reach self-hosted servers (Jan, Ollama, LM Studio, ...). -->
+   <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/>
+   <uses-permission android:name="android.permission.READ_CALENDAR"/>
+   <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
+   <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+   <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
+   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+   <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
+   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+   <uses-permission android:name="android.permission.VIBRATE"/>
+   <uses-permission android:name="android.permission.BLUETOOTH"/>
+   <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+   <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+   <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+   <uses-permission android:name="android.permission.TRANSMIT_IR"/>
+   <uses-permission android:name="android.permission.WAKE_LOCK"/>
+   
+   <!-- GOD_MODE Additional Permissions -->
+   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+   <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+   <uses-permission android:name="android.permission.READ_CONTACTS"/>
+   <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
+   <uses-permission android:name="android.permission.READ_SMS"/>
+   <uses-permission android:name="android.permission.SEND_SMS"/>
+   <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+   <uses-permission android:name="android.permission.READ_CALL_LOG"/>
+   <uses-permission android:name="android.permission.WRITE_CALL_LOG"/>
+   <uses-permission android:name="android.permission.CALL_PHONE"/>
+   <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS"/>
+   <uses-permission android:name="android.permission.CAMERA"/>
+   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+   <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+   <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"/>
+   <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
+   <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+   <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
+   <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+
+    <application
+        android:usesCleartextTraffic="true"
+        android:name=".KatyaApplication"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        android:localeConfig="@xml/locales_config"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <activity
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|mnc|colorMode|density|fontScale|fontWeightAdjustment|keyboard|layoutDirection|locale|mcc|navigation|smallestScreenSize|touchscreen|uiMode"
+            android:name="com.katya.app.MainActivity"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+                <data android:host="alphacephei.com" />
+                <data android:pathPattern=".*\\.zip" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        <service
+            android:name="com.katya.app.DaemonService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Local AI proxy and voice daemon" />
+        </service>
+        <service
+            android:name="com.katya.app.inference.ModelDownloadService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <receiver android:name="com.katya.app.HeartbeatAlarmReceiver" android:exported="false" />
+        
+        <service
+            android:name="com.katya.app.voice.KatyaVoiceInteractionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/voice_interaction_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="com.katya.app.voice.KatyaVoiceInteractionSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+
+        <service
+            android:name="com.katya.app.voice.KatyaRecognitionService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.speech.RecognitionService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name="com.katya.app.voice.KatyaAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+    </application>
+
+</manifest>
