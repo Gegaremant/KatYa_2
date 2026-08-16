@@ -162,7 +162,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                     val clean = result.trim('"').replace("\\\"", "\"")
                                     android.util.Log.d("DeepSeekAuth", "localStorage result: ${clean.take(80)}")
 
-                                    if (!tokenFound && clean.startsWith("LSKEY:") || clean.startsWith("LSSCAN:")) {
+                                    if (!tokenFound && (clean.startsWith("LSKEY:") || clean.startsWith("LSSCAN:"))) {
                                         val token = clean.substringAfter(":")
                                         if (token.length > 20 && !token.startsWith("{")) {
                                             isLoggedIn = true
