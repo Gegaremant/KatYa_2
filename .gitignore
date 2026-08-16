@@ -40,6 +40,12 @@ local.properties
 build.log
 thing/
 
+# CI runner artifacts
+job_log.txt
+jobs_*.json
+runs*.json
+recent_runs.json
+
 # OS generated files
 .DS_Store
 Thumbs.db
