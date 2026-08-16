@@ -1,0 +1,129 @@
+{
+  "total_count": 1,
+  "jobs": [
+    {
+      "id": 95138011215,
+      "run_id": 31936047123,
+      "workflow_name": "Unit Tests",
+      "head_branch": "master",
+      "run_url": "https://api.github.com/repos/Gegaremant/KatYa_2/actions/runs/31936047123",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTnPrOs8AAAAWJqrYTw",
+      "head_sha": "074781c171230c0c3efe9404956e311fae17f0e9",
+      "url": "https://api.github.com/repos/Gegaremant/KatYa_2/actions/jobs/95138011215",
+      "html_url": "https://github.com/Gegaremant/KatYa_2/actions/runs/31936047123/job/95138011215",
+      "status": "completed",
+      "conclusion": "failure",
+      "created_at": "2026-08-16T08:16:43Z",
+      "started_at": "2026-08-16T08:16:45Z",
+      "completed_at": "2026-08-16T08:18:12Z",
+      "name": "Run Build Checks",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-08-16T08:16:46Z",
+          "completed_at": "2026-08-16T08:16:48Z"
+        },
+        {
+          "name": "Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-08-16T08:16:48Z",
+          "completed_at": "2026-08-16T08:16:53Z"
+        },
+        {
+          "name": "Set up Android SDK",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-08-16T08:16:53Z",
+          "completed_at": "2026-08-16T08:17:11Z"
+        },
+        {
+          "name": "Set up Java",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-08-16T08:17:11Z",
+          "completed_at": "2026-08-16T08:17:11Z"
+        },
+        {
+          "name": "Cache Gradle dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-08-16T08:17:11Z",
+          "completed_at": "2026-08-16T08:17:11Z"
+        },
+        {
+          "name": "Set execution flag for gradlew",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-08-16T08:17:11Z",
+          "completed_at": "2026-08-16T08:17:12Z"
+        },
+        {
+          "name": "Format Code with Spotless",
+          "status": "completed",
+          "conclusion": "failure",
+          "number": 7,
+          "started_at": "2026-08-16T08:17:12Z",
+          "completed_at": "2026-08-16T08:18:09Z"
+        },
+        {
+          "name": "Build and Verify Code",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 8,
+          "started_at": "2026-08-16T08:18:09Z",
+          "completed_at": "2026-08-16T08:18:09Z"
+        },
+        {
+          "name": "Post Cache Gradle dependencies",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 14,
+          "started_at": "2026-08-16T08:18:09Z",
+          "completed_at": "2026-08-16T08:18:09Z"
+        },
+        {
+          "name": "Post Set up Java",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-08-16T08:18:09Z",
+          "completed_at": "2026-08-16T08:18:09Z"
+        },
+        {
+          "name": "Post Checkout repository",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-08-16T08:18:09Z",
+          "completed_at": "2026-08-16T08:18:09Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-08-16T08:18:09Z",
+          "completed_at": "2026-08-16T08:18:09Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Gegaremant/KatYa_2/check-runs/95138011215",
+      "labels": [
+        "ubuntu-latest"
+      ],
+      "runner_id": 1000000455,
+      "runner_name": "GitHub Actions 1000000455",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}

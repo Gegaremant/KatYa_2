@@ -17,7 +17,7 @@ import java.io.File
 import java.util.UUID
 
 actual class ImageCaptureLauncher(
-    private val launchAction: () -> Unit
+    private val launchAction: () -> Unit,
 ) {
     actual fun launch() {
         launchAction()
@@ -31,7 +31,7 @@ actual fun rememberImageCaptureLauncher(onResult: (ByteArray?) -> Unit): ImageCa
     var tempFile by remember { mutableStateOf<File?>(null) }
 
     val takePictureLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
+        contract = ActivityResultContracts.TakePicture(),
     ) { success ->
         if (success) {
             tempFile?.let { file ->
@@ -52,7 +52,7 @@ actual fun rememberImageCaptureLauncher(onResult: (ByteArray?) -> Unit): ImageCa
     }
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
+        contract = ActivityResultContracts.RequestPermission(),
     ) { isGranted ->
         if (isGranted) {
             val uri = tempFileUri
@@ -79,13 +79,13 @@ actual fun rememberImageCaptureLauncher(onResult: (ByteArray?) -> Unit): ImageCa
                 val uri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.fileprovider",
-                    file
+                    file,
                 )
                 tempFileUri = uri
 
                 val hasCameraPermission = ContextCompat.checkSelfPermission(
                     context,
-                    Manifest.permission.CAMERA
+                    Manifest.permission.CAMERA,
                 ) == PackageManager.PERMISSION_GRANTED
 
                 if (hasCameraPermission) {
