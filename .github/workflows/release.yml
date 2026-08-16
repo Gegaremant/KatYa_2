@@ -35,13 +35,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android Build Tools
-        run: |
-          sdkmanager "build-tools;36.0.0"
-          sdkmanager "build-tools;29.0.3"
-
       - name: Build APK
-        run: bash ./gradlew :androidApp:assembleFossDebug --stacktrace
+        run: ./gradlew :androidApp:assembleFossDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -106,6 +101,7 @@ jobs:
       - name: Create Github Release
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ env.TAG_NAME }}
           name: Release ${{ env.TAG_NAME }}
           body_path: changelog.txt
