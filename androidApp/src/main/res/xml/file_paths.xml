@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-path name="external" path="." />
-    <files-path name="files" path="." />
-    <cache-path name="cache" path="." />
-    <external-files-path name="kai_home" path="sandbox-home/" />
+    <cache-path name="cache" path="/" />
+    <files-path name="files" path="/" />
 </paths>
