@@ -13,17 +13,16 @@ permissions:
   contents: write
 
 jobs:
-  apk:
-    name: Generate APK
+  build-and-release:
+    name: Build APK and Create Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}
           fetch-depth: 0
 
-      - name: Setup JDK
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -37,29 +36,6 @@ jobs:
 
       - name: Build APK
         run: ./gradlew :androidApp:assembleFossDebug --no-daemon --stacktrace
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: androidApp/build/outputs/apk/foss/debug/*.apk
-
-  release:
-    name: Release APK
-    needs: [apk]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
-          fetch-depth: 0
-
-      - name: Download APK Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: debug-apk
-          path: ./apk_downloads
 
       - name: Determine Version and Tag
         run: |
@@ -79,16 +55,17 @@ jobs:
 
       - name: Prepare APK Asset
         run: |
-          APK_FILE=$(find ./apk_downloads -name "*.apk" | head -n 1)
+          APK_FILE=$(find androidApp/build/outputs/apk -name "*.apk" | head -n 1)
           if [ -n "$APK_FILE" ]; then
             cp "$APK_FILE" "Katya-${VERSION}-android-debug.apk"
             echo "Successfully prepared Katya-${VERSION}-android-debug.apk from $APK_FILE"
+            ls -la Katya-${VERSION}-android-debug.apk
           else
-            echo "::error::No APK file found in ./apk_downloads!"
+            echo "::error::No APK file found in androidApp/build/outputs/apk!"
             exit 1
           fi
 
-      - name: Extract changelog
+      - name: Extract Changelog
         run: |
           if [ -f RELEASE_NOTES.md ]; then
             sed -n "/^## v${VERSION}/,/^## v/{ /^## v${VERSION}/d; /^## v/d; p; }" RELEASE_NOTES.md > changelog.txt
@@ -96,21 +73,18 @@ jobs:
               sed -n "/^## v\.${VERSION}/,/^## v/{ /^## v\.${VERSION}/d; /^## v/d; p; }" RELEASE_NOTES.md > changelog.txt
             fi
           fi
-          # Fallback if RELEASE_NOTES.md missing or section empty
           if [ ! -s changelog.txt ]; then
-            PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG_NAME}$" | head -n1)
-            if [ -z "$PREVIOUS_TAG" ]; then
-              git log -n 10 --pretty=format:"- %s" --no-merges > changelog.txt
-            else
-              git log --pretty=format:"- %s" "${PREVIOUS_TAG}..HEAD" --no-merges > changelog.txt
-            fi
+            git log -n 10 --pretty=format:"- %s" --no-merges > changelog.txt
           fi
+          cat changelog.txt
 
-      - name: Create Github Release
+      - name: Create or Update Github Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ env.TAG_NAME }}
           name: Release ${{ env.TAG_NAME }}
           body_path: changelog.txt
-          files: Katya-*.apk
+          files: Katya-${{ env.VERSION }}-android-debug.apk
+          make_latest: true
+          overwrite: true
