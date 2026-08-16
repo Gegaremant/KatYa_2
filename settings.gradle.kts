@@ -12,6 +12,8 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+        maven("https://alphacephei.com/maven/")
+        maven("https://jitpack.io")
     }
 }
 
@@ -25,6 +27,8 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        maven("https://alphacephei.com/maven/")
+        maven("https://jitpack.io")
     }
 }
 
