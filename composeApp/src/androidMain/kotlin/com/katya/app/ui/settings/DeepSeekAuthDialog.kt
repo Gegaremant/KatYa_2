@@ -188,6 +188,7 @@ actual fun PlatformDeepSeekAuthDialog(
                     }
                 }
             }
+            }
         }
     }
 }
