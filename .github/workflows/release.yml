@@ -42,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk
+          path: androidApp/build/outputs/apk/foss/debug/*.apk
 
   release:
     name: Release APK
@@ -76,9 +76,15 @@ jobs:
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - name: Rename assets
+      - name: Prepare APK Asset
         run: |
-          mv androidApp-foss-debug.apk "Katya-${VERSION}-android-debug.apk"
+          APK_FILE=$(find . -maxdepth 2 -name "*.apk" | head -n 1)
+          if [ -n "$APK_FILE" ]; then
+            cp "$APK_FILE" "Katya-${VERSION}-android-debug.apk"
+          else
+            echo "::error::No APK file found!"
+            exit 1
+          fi
 
       - name: Extract changelog
         run: |
@@ -105,4 +111,4 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           name: Release ${{ env.TAG_NAME }}
           body_path: changelog.txt
-          files: Katya-*
+          files: Katya-*.apk
