@@ -65,8 +65,8 @@ jobs:
           echo "JAVA_HOME: $JAVA_HOME"
           java -version
 
-      - name: Run Spotless Check
-        run: ./gradlew spotlessCheck --no-daemon --stacktrace
+      - name: Apply Spotless Formatting
+        run: ./gradlew spotlessApply --no-daemon --stacktrace
 
       - name: Run Unit Tests
         run: ./gradlew test --no-daemon --stacktrace

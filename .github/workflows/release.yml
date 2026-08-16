@@ -3,6 +3,9 @@ name: Build and Release
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
+      - master
     tags:
       - 'v*'
 
@@ -19,21 +22,27 @@ jobs:
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
+
       - name: Setup JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
+
       - name: Set execution flag for gradlew
         run: chmod +x gradlew
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install Android Build Tools
         run: |
           sdkmanager "build-tools;36.0.0"
           sdkmanager "build-tools;29.0.3"
+
       - name: Build APK
         run: bash ./gradlew :androidApp:assembleFossDebug --stacktrace
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -56,16 +65,28 @@ jobs:
         with:
           name: debug-apk
 
+      - name: Determine Version and Tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION="${TAG_NAME#v}"
+            VERSION="${VERSION#.}"
+          else
+            VERSION=$(grep 'appVersion =' gradle/libs.versions.toml | cut -d '"' -f 2)
+            if [ -z "$VERSION" ]; then
+              VERSION="3.0.3"
+            fi
+            TAG_NAME="v${VERSION}"
+          fi
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
       - name: Rename assets
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION#.}"
           mv androidApp-foss-debug.apk "Katya-${VERSION}-android-debug.apk"
 
       - name: Extract changelog
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="${VERSION#.}"
           if [ -f RELEASE_NOTES.md ]; then
             sed -n "/^## v${VERSION}/,/^## v/{ /^## v${VERSION}/d; /^## v/d; p; }" RELEASE_NOTES.md > changelog.txt
             if [ ! -s changelog.txt ]; then
@@ -74,17 +95,18 @@ jobs:
           fi
           # Fallback if RELEASE_NOTES.md missing or section empty
           if [ ! -s changelog.txt ]; then
-            PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^${GITHUB_REF_NAME}$" | head -n1)
+            PREVIOUS_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG_NAME}$" | head -n1)
             if [ -z "$PREVIOUS_TAG" ]; then
-              git log --pretty=format:"- %s" "${GITHUB_REF_NAME}" > changelog.txt
+              git log -n 10 --pretty=format:"- %s" --no-merges > changelog.txt
             else
-              git log --pretty=format:"- %s" "${PREVIOUS_TAG}..${GITHUB_REF_NAME}" --no-merges > changelog.txt
+              git log --pretty=format:"- %s" "${PREVIOUS_TAG}..HEAD" --no-merges > changelog.txt
             fi
           fi
 
       - name: Create Github Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ github.ref_name }}
+          tag_name: ${{ env.TAG_NAME }}
+          name: Release ${{ env.TAG_NAME }}
           body_path: changelog.txt
           files: Katya-*
