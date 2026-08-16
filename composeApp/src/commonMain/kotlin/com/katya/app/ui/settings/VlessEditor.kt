@@ -37,7 +37,7 @@ fun VlessEditor(
         KaiOutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            placeholder = { Text("Название (например, NL-1)") },
+            label = { Text("Название (например, NL-1)") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
@@ -45,7 +45,7 @@ fun VlessEditor(
         KaiOutlinedTextField(
             value = uri,
             onValueChange = { uri = it },
-            placeholder = { Text("vless://...") },
+            label = { Text("vless://...") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth()
         )
