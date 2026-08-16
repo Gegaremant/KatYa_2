@@ -1,0 +1,45 @@
+# Built application files
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+*/build/
+composeApp/build/
+androidApp/build/
+
+# Gradle files
+.gradle/
+buildOutput/
+
+# Kotlin
+.kotlin/
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.continue/
+
+# Local configuration
+local.properties
+.env.katya
+.env
+*.log
+build.log
+thing/
+
+# OS generated files
+.DS_Store
+Thumbs.db

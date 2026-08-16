@@ -65,36 +65,8 @@ jobs:
           echo "JAVA_HOME: $JAVA_HOME"
           java -version
 
-      - name: Run spotlessApply
-        run: ./gradlew spotlessApply --no-daemon --stacktrace
+      - name: Run Spotless Check
+        run: ./gradlew spotlessCheck --no-daemon --stacktrace
 
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Fail if fork PR has changes
-        if: |
-          steps.changes.outputs.has_changes == 'true' &&
-          steps.fork-check.outputs.is_fork == 'true'
-        run: |
-          echo "::error::This PR from a fork requires formatting."
-          echo "Please run the following commands locally and push the changes:"
-          echo "  ./gradlew spotlessApply"
-          exit 1
-
-      - name: Commit and push changes
-        if: |
-          steps.changes.outputs.has_changes == 'true' &&
-          (github.event_name == 'push' || steps.fork-check.outputs.is_fork == 'false')
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add -A
-          git commit -m "Auto-fix: spotlessApply [skip ci]"
-          git push
+      - name: Run Unit Tests
+        run: ./gradlew test --no-daemon --stacktrace

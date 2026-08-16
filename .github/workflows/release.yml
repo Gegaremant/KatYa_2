@@ -52,7 +52,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download APK Artifact
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@v4
         with:
           name: debug-apk
 
@@ -65,8 +65,12 @@ jobs:
       - name: Extract changelog
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${VERSION#.}"
           if [ -f RELEASE_NOTES.md ]; then
             sed -n "/^## v${VERSION}/,/^## v/{ /^## v${VERSION}/d; /^## v/d; p; }" RELEASE_NOTES.md > changelog.txt
+            if [ ! -s changelog.txt ]; then
+              sed -n "/^## v\.${VERSION}/,/^## v/{ /^## v\.${VERSION}/d; /^## v/d; p; }" RELEASE_NOTES.md > changelog.txt
+            fi
           fi
           # Fallback if RELEASE_NOTES.md missing or section empty
           if [ ! -s changelog.txt ]; then
