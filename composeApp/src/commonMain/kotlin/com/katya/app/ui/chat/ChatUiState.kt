@@ -3,7 +3,6 @@
 package com.katya.app.ui.chat
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.text.input.TextFieldValue
 import com.katya.app.data.Attachment
 import com.katya.app.data.FallbackStatus
 import com.katya.app.data.QuickAction
@@ -74,8 +73,6 @@ data class ChatUiState(
     val actions: ChatActions,
     val history: ImmutableList<History> = persistentListOf(),
     val isSpeechOutputEnabled: Boolean = false,
-    val isShowReflectionsEnabled: Boolean = false,
-    val textState: TextFieldValue = TextFieldValue(""),
     val isLoading: Boolean = false,
     val error: UiError? = null,
     val warning: StringResource? = null,
@@ -99,8 +96,6 @@ data class ChatUiState(
     val monitorOverlayMode: com.katya.app.data.MonitorOverlayMode = com.katya.app.data.MonitorOverlayMode.OFF,
     val isAgentVisibilityEnabled: Boolean = true,
     val isVlessEnabled: Boolean = false,
-    val isShowDeviceStateEnabled: Boolean = false,
-    val isShowConnectionStateEnabled: Boolean = false,
     val systemStatus: String? = null,
 ) {
     val heartbeatConversationId: String?

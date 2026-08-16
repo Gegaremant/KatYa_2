@@ -560,13 +560,6 @@ private fun ChatModeScreen(
                 },
             )
 
-            StatusLinesHeader(
-                showDeviceState = uiState.isShowDeviceStateEnabled,
-                showConnectionState = uiState.isShowConnectionStateEnabled,
-                stats = monitorStats,
-                availableServices = uiState.availableServices,
-            )
-
             com.katya.app.ui.chat.composables.MonitorOverlay(
                 mode = uiState.monitorOverlayMode,
                 stats = monitorStats,
@@ -656,7 +649,7 @@ private fun ChatModeScreen(
                                             try {
                                                 if (dataRepository.getTtsEngine() == com.katya.app.data.TtsEngine.SYSTEM) {
                                                     audioHelper.requestExclusiveFocus()
-                                                    textToSpeech?.say(lastMessage.content.toSpeakableText(uiState.isShowReflectionsEnabled))
+                                                    textToSpeech?.say(lastMessage.content.toSpeakableText())
                                                 }
                                             } catch (_: TextToSpeechSynthesisInterruptedError) {
                                                 // Speech was interrupted by user
@@ -831,7 +824,6 @@ private fun ChatModeScreen(
                                                         } else {
                                                             persistentListOf()
                                                         },
-                                                        showReflections = uiState.isShowReflectionsEnabled,
                                                     )
                                                     if (history.fallbackServiceName != null) {
                                                         androidx.compose.material3.Text(
@@ -984,42 +976,4 @@ private fun rememberExecutingTools(history: ImmutableList<History>): ExecutingTo
         }
     }
     return state
-}
-
-@Composable
-private fun StatusLinesHeader(
-    showDeviceState: Boolean,
-    showConnectionState: Boolean,
-    stats: com.katya.app.monitor.MonitorStats,
-    availableServices: List<ServiceEntry>,
-) {
-    if (!showDeviceState && !showConnectionState) return
-
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-            if (showDeviceState) {
-                val batteryText = "Батарея: ${stats.batteryLevel}%${if (stats.isCharging) " (зарядка)" else ""}"
-                val cpuText = "CPU: ${(stats.cpuUsage * 100).toInt()}%"
-                val ramText = "RAM: ${stats.ramUsedMb}/${stats.ramTotalMb}MB"
-                val text = "$batteryText | $cpuText | $ramText"
-                Text(
-                    text = text,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (showConnectionState) {
-                val activeService = availableServices.firstOrNull()?.serviceId ?: "Direct API"
-                Text(
-                    text = "Подключение к API: Активно ($activeService)",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-    }
 }

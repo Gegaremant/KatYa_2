@@ -1,0 +1,32 @@
+CREATE TABLE note (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    tags TEXT
+);
+
+selectAllNotes:
+SELECT *
+FROM note
+ORDER BY updated_at DESC;
+
+insertNote:
+INSERT INTO note (title, content, created_at, updated_at, tags)
+VALUES (?, ?, ?, ?, ?);
+
+updateNote:
+UPDATE note
+SET title = ?, content = ?, updated_at = ?, tags = ?
+WHERE id = ?;
+
+deleteNote:
+DELETE FROM note
+WHERE id = ?;
+
+searchNotes:
+SELECT *
+FROM note
+WHERE title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%'
+ORDER BY updated_at DESC;

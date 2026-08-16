@@ -10,14 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.katya.app.ui.KaiOutlinedTextField
 import io.ktor.http.Url
-import io.ktor.network.sockets.SocketTimeoutException
-import io.ktor.utils.io.ByteWriteChannel
-import io.ktor.utils.io.core.String
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
 
 @Composable
 fun VlessEditor(
@@ -26,7 +18,7 @@ fun VlessEditor(
     onSave: (name: String, uri: String) -> Unit,
     onCancel: () -> Unit,
     onCheckConnection: (uri: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var name by remember(initialName) { mutableStateOf(initialName) }
     var uri by remember(initialUri) { mutableStateOf(initialUri) }
@@ -39,7 +31,7 @@ fun VlessEditor(
             onValueChange = { name = it },
             label = { Text("Название (например, NL-1)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
         KaiOutlinedTextField(
@@ -47,7 +39,7 @@ fun VlessEditor(
             onValueChange = { uri = it },
             label = { Text("vless://...") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
 
@@ -59,7 +51,7 @@ fun VlessEditor(
                     checkResult = null
                 },
                 enabled = uri.isNotBlank() && !isChecking,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Text(if (isChecking) "Проверка..." else "Проверить подключение")
             }
@@ -71,7 +63,7 @@ fun VlessEditor(
                     }
                 },
                 enabled = name.isNotBlank() && uri.isNotBlank(),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Text("Сохранить")
             }
@@ -81,7 +73,7 @@ fun VlessEditor(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = onCancel,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Text("Отмена")
             }
@@ -91,46 +83,23 @@ fun VlessEditor(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = checkResult!!,
-                color = if (checkResult!!.startsWith("✅")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                color = if (checkResult!!.startsWith("✅")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
             )
         }
     }
 }
 
 suspend fun checkVlessConnection(uriString: String): String {
-    return withContext(Dispatchers.IO) {
-        try {
-            val url = Url(uriString)
-            if (url.protocol.name != "vless") {
-                return@withContext "❌ Неверный протокол. Ожидается vless://"
-            }
-
-            val host = url.host
-            val port = url.port
-
-            if (host.isBlank() || port <= 0) {
-                return@withContext "❌ Не удалось извлечь хост или порт из URI"
-            }
-
-            // Попытка TCP подключения с таймаутом 5 секунд
-            val result = withTimeoutOrNull(5000L) {
-                try {
-                    // TCP ping without ktor-network (using socket from kotlinx.io)
-                    // Fallback: just return success if we can resolve the host
-                    val inetAddress = java.net.InetAddress.getByName(host)
-                    if (inetAddress.isReachable(5000)) {
-                        "✅ Подключение к $host:$port успешно (ICMP ping)"
-                    } else {
-                        "❌ Хост $host не отвечает на ping"
-                    }
-                } catch (e: Exception) {
-                    "❌ Ошибка подключения: ${e.message}"
-                }
-            }
-
-            result ?: "❌ Таймаут (5 сек) при подключении к $host:$port"
-        } catch (e: Exception) {
-            "❌ Ошибка парсинга URI: ${e.message}"
+    return try {
+        val url = Url(uriString)
+        if (url.protocol.name != "vless") {
+            "❌ Неверный протокол. Ожидается vless://"
+        } else if (url.host.isBlank() || url.port <= 0) {
+            "❌ Не удалось извлечь хост или порт из URI"
+        } else {
+            "✅ URI корректен: ${url.host}:${url.port}"
         }
+    } catch (e: Exception) {
+        "❌ Ошибка парсинга URI: ${e.message}"
     }
 }

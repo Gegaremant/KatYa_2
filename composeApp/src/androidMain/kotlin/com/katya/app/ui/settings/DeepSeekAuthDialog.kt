@@ -27,9 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -39,16 +36,15 @@ actual fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Dialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            var webViewRef by remember { mutableStateOf<WebView?>(null) }
-            var statusText by remember { mutableStateOf("Войдите в DeepSeek — токен будет извлечён автоматически") }
-            var isLoggedIn by remember { mutableStateOf(false) }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        var webViewRef by remember { mutableStateOf<WebView?>(null) }
+        var statusText by remember { mutableStateOf("Войдите в DeepSeek — токен будет извлечён автоматически") }
+        var isLoggedIn by remember { mutableStateOf(false) }
 
-            Surface(modifier = Modifier.fillMaxSize()) {
+        Surface(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Status bar at top
@@ -126,8 +122,26 @@ actual fun PlatformDeepSeekAuthDialog(
                     delay(1500)
                     attempt++
 
-                    // 1. Cookies check removed because `user_session` is just a session ID, not the API token.
-                    // The real API token is in localStorage under `userToken`.
+                    // 1. Try cookies first — most reliable source
+                    val cookies = CookieManager.getInstance()
+                        .getCookie("https://chat.deepseek.com")
+                    if (cookies != null) {
+                        android.util.Log.d("DeepSeekAuth", "Cookies present (attempt $attempt)")
+                        val tokenMatch = Regex("user_session=([^;\\s]+)").find(cookies)
+                        if (tokenMatch != null) {
+                            val token = tokenMatch.groupValues[1]
+                            android.util.Log.d("DeepSeekAuth", "Cookie token found: ${token.take(20)}...")
+                            if (token.length > 10) {
+                                isLoggedIn = true
+                                statusText = "✅ Токен получен! Закрываем..."
+                                delay(500)
+                                onTokenExtracted(token)
+                                onDismiss()
+                                tokenFound = true
+                                break
+                            }
+                        }
+                    }
 
                     if (tokenFound) break
 
@@ -138,17 +152,44 @@ actual fun PlatformDeepSeekAuthDialog(
                             val js = """
                                 (function() {
                                     try {
-                                        var val = localStorage.getItem('userToken');
-                                        if (val && val !== 'null' && val.length > 20) {
-                                            try {
-                                                var j = JSON.parse(val);
-                                                if (j && typeof j === 'object') {
-                                                    var extracted = j.value || j.token;
-                                                    if (extracted && typeof extracted === 'string' && extracted.length > 20) {
-                                                        return 'LSKEY:' + extracted;
+                                        // Try direct token keys
+                                        var keys = ['userToken','token','auth_token','access_token',
+                                                    'Authorization','authorization','jwt','id_token',
+                                                    'user_token','session_token','ds_token'];
+                                        for (var i = 0; i < keys.length; i++) {
+                                            var val = localStorage.getItem(keys[i]);
+                                            if (val && val !== 'null' && val.length > 20) {
+                                                // If it looks like JSON, try to extract .value or .token fields
+                                                try {
+                                                    var j = JSON.parse(val);
+                                                    if (j && typeof j === 'object') {
+                                                        // Skip if value is null/empty
+                                                        var extracted = j.value || j.token || j.access_token || j.jwt;
+                                                        if (extracted && typeof extracted === 'string' && extracted.length > 20) {
+                                                            return 'LSKEY:' + extracted;
+                                                        }
+                                                        // Skip JSON objects where important field is null
+                                                        continue;
                                                     }
+                                                } catch(e) {}
+                                                // Raw string token
+                                                return 'LSKEY:' + val;
+                                            }
+                                        }
+                                        // Scan ALL keys in localStorage for anything that looks like a JWT
+                                        for (var k = 0; k < localStorage.length; k++) {
+                                            var lsKey = localStorage.key(k);
+                                            var lsVal = localStorage.getItem(lsKey);
+                                            if (lsVal && lsVal.length > 40) {
+                                                try {
+                                                    var lsJson = JSON.parse(lsVal);
+                                                    if (lsJson && typeof lsJson === 'object') continue;
+                                                } catch(e) {}
+                                                // Looks like a raw string (JWT etc.)
+                                                if (lsVal.indexOf('.') > 0 || lsVal.length > 100) {
+                                                    return 'LSSCAN:' + lsVal;
                                                 }
-                                            } catch(e) {}
+                                            }
                                         }
                                         return 'NOTFOUND';
                                     } catch(e) {
@@ -162,7 +203,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                     val clean = result.trim('"').replace("\\\"", "\"")
                                     android.util.Log.d("DeepSeekAuth", "localStorage result: ${clean.take(80)}")
 
-                                    if (!tokenFound && (clean.startsWith("LSKEY:") || clean.startsWith("LSSCAN:"))) {
+                                    if (!tokenFound && clean.startsWith("LSKEY:") || clean.startsWith("LSSCAN:")) {
                                         val token = clean.substringAfter(":")
                                         if (token.length > 20 && !token.startsWith("{")) {
                                             isLoggedIn = true
@@ -187,7 +228,6 @@ actual fun PlatformDeepSeekAuthDialog(
                         statusText = "⏳ Ожидание входа... (попытка $attempt)"
                     }
                 }
-            }
             }
         }
     }

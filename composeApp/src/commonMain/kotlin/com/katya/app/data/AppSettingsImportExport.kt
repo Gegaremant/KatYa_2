@@ -190,15 +190,9 @@ fun AppSettings.importFromJson(
 
     if (ImportSection.SERVICES in sections) {
         try {
-            val importedConfigured = json["configured_services"]?.toString() ?: ""
-            if (replace) {
-                settings.putString(KEY_CONFIGURED_SERVICES, importedConfigured)
-                settings.putString(KEY_CURRENT_SERVICE_ID, json["current_service_id"]?.jsonPrimitive?.content ?: Service.Free.id)
-                settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
-            } else {
-                val existingConfigured = settings.getString(KEY_CONFIGURED_SERVICES, "")
-                settings.putString(KEY_CONFIGURED_SERVICES, mergeServicesJson(existingConfigured, importedConfigured))
-            }
+            settings.putString(KEY_CONFIGURED_SERVICES, json["configured_services"]?.toString() ?: "")
+            settings.putString(KEY_CURRENT_SERVICE_ID, json["current_service_id"]?.jsonPrimitive?.content ?: Service.Free.id)
+            settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
             
             json["monitor_overlay_mode"]?.jsonPrimitive?.content?.let {
                 try {
@@ -211,9 +205,7 @@ fun AppSettings.importFromJson(
         }
 
         try {
-            if (replace) {
-                oldInstances.forEach { removeInstanceSettings(it.instanceId) }
-            }
+            oldInstances.forEach { removeInstanceSettings(it.instanceId) }
             val importedInstances = getConfiguredServiceInstances()
             json["instance_settings"]?.jsonArray?.forEach { element ->
                 val obj = element.jsonObject
@@ -242,10 +234,7 @@ fun AppSettings.importFromJson(
 
     if (ImportSection.SOUL in sections) {
         try {
-            val newSoul = json["soul_text"]?.jsonPrimitive?.content ?: ""
-            if (replace || getSoulText().isBlank()) {
-                setSoulText(newSoul)
-            }
+            setSoulText(json["soul_text"]?.jsonPrimitive?.content ?: "")
         } catch (_: Exception) {
             errors++
         }
@@ -257,14 +246,7 @@ fun AppSettings.importFromJson(
         try {
             setMemoryEnabled(json["memory_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
             val memoriesElement = json["agent_memories"]
-            if (memoriesElement != null) {
-                val importedMemories = sanitizeMemories(memoriesElement)
-                if (replace) {
-                    setMemoriesJson(importedMemories)
-                } else {
-                    setMemoriesJson(mergeMemoriesJson(getMemoriesJson(), importedMemories))
-                }
-            }
+            setMemoriesJson(if (memoriesElement != null) sanitizeMemories(memoriesElement) else "")
         } catch (_: Exception) {
             errors++
         }
@@ -277,14 +259,7 @@ fun AppSettings.importFromJson(
         try {
             setSchedulingEnabled(json["scheduling_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: false)
             val tasksElement = json["scheduled_tasks"]
-            if (tasksElement != null) {
-                val importedTasks = sanitizeScheduledTasks(tasksElement)
-                if (replace) {
-                    setScheduledTasksJson(importedTasks)
-                } else {
-                    setScheduledTasksJson(mergeScheduledTasksJson(getScheduledTasksJson(), importedTasks))
-                }
-            }
+            setScheduledTasksJson(if (tasksElement != null) sanitizeScheduledTasks(tasksElement) else "")
         } catch (_: Exception) {
             errors++
         }
@@ -310,12 +285,7 @@ fun AppSettings.importFromJson(
     if (ImportSection.EMAIL in sections) {
         try {
             setEmailEnabled(json["email_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
-            val importedAccountsJson = json["email_accounts"]?.toString() ?: ""
-            if (replace) {
-                setEmailAccountsJson(importedAccountsJson)
-            } else {
-                setEmailAccountsJson(mergeEmailAccountsJson(getEmailAccountsJson(), importedAccountsJson))
-            }
+            setEmailAccountsJson(json["email_accounts"]?.toString() ?: "")
             json["email_passwords"]?.jsonObject?.forEach { (accountId, pw) ->
                 setEmailPassword(accountId, pw.jsonPrimitive.content)
             }
@@ -364,10 +334,8 @@ fun AppSettings.importFromJson(
 
     if (ImportSection.TOOLS in sections) {
         try {
-            if (replace) {
-                for (toolId in toolIds) {
-                    settings.remove("$KEY_TOOL_PREFIX$toolId")
-                }
+            for (toolId in toolIds) {
+                settings.remove("$KEY_TOOL_PREFIX$toolId")
             }
             json["tool_overrides"]?.jsonObject?.forEach { (toolId, enabled) ->
                 setToolEnabled(toolId, enabled.jsonPrimitive.content.toBoolean())
@@ -383,12 +351,7 @@ fun AppSettings.importFromJson(
 
     if (ImportSection.MCP in sections) {
         try {
-            val importedMcp = json["mcp_servers"]?.toString() ?: ""
-            if (replace) {
-                setMcpServersJson(importedMcp)
-            } else {
-                setMcpServersJson(mergeMcpServersJson(getMcpServersJson(), importedMcp))
-            }
+            setMcpServersJson(json["mcp_servers"]?.toString() ?: "")
         } catch (_: Exception) {
             errors++
         }
@@ -402,12 +365,8 @@ fun AppSettings.importFromJson(
             if (element != null) {
                 val conversations = sanitizeConversations(element)
                 val wrapped = SharedJson.encodeToString(ConversationsData(conversations = conversations))
-                if (replace) {
-                    setConversationsJson(wrapped)
-                } else {
-                    setConversationsJson(mergeConversationsJson(getConversationsJson(), wrapped))
-                }
-            } else if (replace) {
+                setConversationsJson(wrapped)
+            } else {
                 setConversationsJson("")
             }
         } catch (_: Exception) {
@@ -520,118 +479,5 @@ private fun sanitizeConversations(element: JsonElement): List<Conversation> {
         } catch (_: Exception) {
             null
         }
-    }
-}
-
-private fun mergeServicesJson(existing: String, imported: String): String {
-    if (existing.isBlank()) return imported
-    if (imported.isBlank()) return existing
-    try {
-        val existingArr = SharedJson.parseToJsonElement(existing).jsonArray.toMutableList()
-        val importedArr = SharedJson.parseToJsonElement(imported).jsonArray
-        val existingIds = existingArr.mapNotNull { it.jsonObject["instanceId"]?.jsonPrimitive?.content }.toSet()
-        for (item in importedArr) {
-            val id = item.jsonObject["instanceId"]?.jsonPrimitive?.content
-            if (id == null || id !in existingIds) {
-                existingArr.add(item)
-            }
-        }
-        return JsonArray(existingArr).toString()
-    } catch (_: Exception) {
-        return imported
-    }
-}
-
-private fun mergeMemoriesJson(existing: String, imported: String): String {
-    if (existing.isBlank()) return imported
-    if (imported.isBlank()) return existing
-    try {
-        val existingList = SharedJson.decodeFromString<List<MemoryEntry>>(existing).toMutableList()
-        val importedList = SharedJson.decodeFromString<List<MemoryEntry>>(imported)
-        val existingKeys = existingList.map { it.key }.toSet()
-        for (entry in importedList) {
-            if (entry.key !in existingKeys) {
-                existingList.add(entry)
-            }
-        }
-        return SharedJson.encodeToString(existingList)
-    } catch (_: Exception) {
-        return imported
-    }
-}
-
-private fun mergeEmailAccountsJson(existing: String, imported: String): String {
-    if (existing.isBlank()) return imported
-    if (imported.isBlank()) return existing
-    try {
-        val existingList = SharedJson.decodeFromString<List<EmailAccount>>(existing).toMutableList()
-        val importedList = SharedJson.decodeFromString<List<EmailAccount>>(imported)
-        val existingIds = existingList.map { it.id }.toSet()
-        for (acc in importedList) {
-            if (acc.id !in existingIds) {
-                existingList.add(acc)
-            }
-        }
-        return SharedJson.encodeToString(existingList)
-    } catch (_: Exception) {
-        return imported
-    }
-}
-
-private fun mergeScheduledTasksJson(existing: String, imported: String): String {
-    if (existing.isBlank()) return imported
-    if (imported.isBlank()) return existing
-    try {
-        val existingList = SharedJson.decodeFromString<List<ScheduledTask>>(existing).toMutableList()
-        val importedList = SharedJson.decodeFromString<List<ScheduledTask>>(imported)
-        val existingIds = existingList.map { it.id }.toSet()
-        for (task in importedList) {
-            if (task.id !in existingIds) {
-                existingList.add(task)
-            }
-        }
-        return SharedJson.encodeToString(existingList)
-    } catch (_: Exception) {
-        return imported
-    }
-}
-
-private fun mergeMcpServersJson(existing: String, imported: String): String {
-    if (existing.isBlank()) return imported
-    if (imported.isBlank()) return existing
-    try {
-        val existingArr = SharedJson.parseToJsonElement(existing).jsonArray.toMutableList()
-        val importedArr = SharedJson.parseToJsonElement(imported).jsonArray
-        val existingIds = existingArr.mapNotNull { 
-            it.jsonObject["id"]?.jsonPrimitive?.content ?: it.jsonObject["name"]?.jsonPrimitive?.content 
-        }.toSet()
-        for (item in importedArr) {
-            val id = item.jsonObject["id"]?.jsonPrimitive?.content ?: item.jsonObject["name"]?.jsonPrimitive?.content
-            if (id == null || id !in existingIds) {
-                existingArr.add(item)
-            }
-        }
-        return JsonArray(existingArr).toString()
-    } catch (_: Exception) {
-        return imported
-    }
-}
-
-private fun mergeConversationsJson(existing: String, imported: String): String {
-    if (existing.isBlank()) return imported
-    if (imported.isBlank()) return existing
-    try {
-        val existingData = SharedJson.decodeFromString<ConversationsData>(existing)
-        val importedData = SharedJson.decodeFromString<ConversationsData>(imported)
-        val existingList = existingData.conversations.toMutableList()
-        val existingIds = existingList.map { it.id }.toSet()
-        for (c in importedData.conversations) {
-            if (c.id !in existingIds) {
-                existingList.add(c)
-            }
-        }
-        return SharedJson.encodeToString(ConversationsData(conversations = existingList))
-    } catch (_: Exception) {
-        return imported
     }
 }

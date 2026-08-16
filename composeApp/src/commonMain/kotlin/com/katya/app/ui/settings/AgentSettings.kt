@@ -117,18 +117,12 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         )
                     }
                     SettingsCard {
-                    AudioEnginesCard(
-                        sttEngine = uiState.sttEngine,
-                        isSttEnabled = uiState.isSttEnabled,
-                        ttsEngine = uiState.ttsEngine,
-                        isTtsEnabled = uiState.isTtsEnabled,
-                        onChangeSttEngine = actions.onChangeSttEngine,
-                        onToggleSttEnabled = actions.onToggleSttEnabled,
-                        onChangeTtsEngine = actions.onChangeTtsEngine,
-                        onToggleTtsEnabled = actions.onToggleTtsEnabled,
-                        isVoskReady = uiState.isVoskReady,
-                        onDownloadVosk = actions.onDownloadVosk,
-                    )
+                        AudioEnginesCard(
+                            sttEngine = uiState.sttEngine,
+                            ttsEngine = uiState.ttsEngine,
+                            onChangeSttEngine = actions.onChangeSttEngine,
+                            onChangeTtsEngine = actions.onChangeTtsEngine,
+                        )
                     }
                     SettingsCard {
                         ScheduledTaskList(
@@ -236,15 +230,9 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                 SettingsCard {
                     AudioEnginesCard(
                         sttEngine = uiState.sttEngine,
-                        isSttEnabled = uiState.isSttEnabled,
                         ttsEngine = uiState.ttsEngine,
-                        isTtsEnabled = uiState.isTtsEnabled,
                         onChangeSttEngine = actions.onChangeSttEngine,
-                        onToggleSttEnabled = actions.onToggleSttEnabled,
                         onChangeTtsEngine = actions.onChangeTtsEngine,
-                        onToggleTtsEnabled = actions.onToggleTtsEnabled,
-                        isVoskReady = uiState.isVoskReady,
-                        onDownloadVosk = actions.onDownloadVosk,
                     )
                 }
                 SettingsCard {
@@ -1339,39 +1327,10 @@ private fun AddEditTaskSheet(
 @Composable
 private fun AudioEnginesCard(
     sttEngine: com.katya.app.data.SttEngine,
-    isSttEnabled: Boolean,
     ttsEngine: com.katya.app.data.TtsEngine,
-    isTtsEnabled: Boolean,
     onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
-    onToggleSttEnabled: (Boolean) -> Unit,
     onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
-    onToggleTtsEnabled: (Boolean) -> Unit,
-    isVoskReady: Boolean = true,
-    onDownloadVosk: () -> Unit = {},
 ) {
-    var missingModelPrompt by remember { mutableStateOf<String?>(null) }
-
-    if (missingModelPrompt != null) {
-        AlertDialog(
-            onDismissRequest = { missingModelPrompt = null },
-            title = { Text("Модель не найдена") },
-            text = { Text(missingModelPrompt!!) },
-            confirmButton = {
-                TextButton(onClick = {
-                    onDownloadVosk()
-                    missingModelPrompt = null
-                }) {
-                    Text("Скачать")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { missingModelPrompt = null }) {
-                    Text("Отмена")
-                }
-            }
-        )
-    }
-
     Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1379,8 +1338,7 @@ private fun AudioEnginesCard(
         Text(
             text = "Слух и Речь (STT/TTS)",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
+            fontWeight = FontWeight.Bold
         )
         
         Text(
@@ -1394,49 +1352,22 @@ private fun AudioEnginesCard(
                 .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
                 .padding(12.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Распознавание речи (Слух)",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                androidx.compose.material3.Switch(
-                    checked = isSttEnabled,
-                    onCheckedChange = onToggleSttEnabled
-                )
-            }
+            Text(
+                text = "Распознавание речи (Слух)",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            if (isSttEnabled) {
-                com.katya.app.data.SttEngine.entries.forEach { engine ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                            onChangeSttEngine(engine)
-                            if (engine == com.katya.app.data.SttEngine.LOCAL && !isVoskReady) {
-                                missingModelPrompt = "Локальная модель распознавания речи (Vosk) не найдена. Скачать и установить модель сейчас?"
-                            }
-                        },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        androidx.compose.material3.RadioButton(
-                            selected = sttEngine == engine,
-                            onClick = {
-                                onChangeSttEngine(engine)
-                                if (engine == com.katya.app.data.SttEngine.LOCAL && !isVoskReady) {
-                                    missingModelPrompt = "Локальная модель распознавания речи (Vosk) не найдена. Скачать и установить модель сейчас?"
-                                }
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = engine.displayName, 
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            com.katya.app.data.SttEngine.entries.forEach { engine ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeSttEngine(engine) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = sttEngine == engine,
+                        onClick = { onChangeSttEngine(engine) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = engine.name, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -1446,49 +1377,22 @@ private fun AudioEnginesCard(
                 .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
                 .padding(12.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Синтез речи (Голос)",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                androidx.compose.material3.Switch(
-                    checked = isTtsEnabled,
-                    onCheckedChange = onToggleTtsEnabled
-                )
-            }
+            Text(
+                text = "Синтез речи (Голос)",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            )
             Spacer(modifier = Modifier.height(8.dp))
-            if (isTtsEnabled) {
-                com.katya.app.data.TtsEngine.entries.forEach { engine ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable {
-                            onChangeTtsEngine(engine)
-                            if (engine == com.katya.app.data.TtsEngine.HRVOISE || engine == com.katya.app.data.TtsEngine.PIPER) {
-                                missingModelPrompt = "Локальная модель синтеза речи (${engine.displayName}) не обнаружена. Загрузить необходимую модель?"
-                            }
-                        },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        androidx.compose.material3.RadioButton(
-                            selected = ttsEngine == engine,
-                            onClick = {
-                                onChangeTtsEngine(engine)
-                                if (engine == com.katya.app.data.TtsEngine.HRVOISE || engine == com.katya.app.data.TtsEngine.PIPER) {
-                                    missingModelPrompt = "Локальная модель синтеза речи (${engine.displayName}) не обнаружена. Загрузить необходимую модель?"
-                                }
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = engine.displayName, 
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            com.katya.app.data.TtsEngine.entries.forEach { engine ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeTtsEngine(engine) },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = ttsEngine == engine,
+                        onClick = { onChangeTtsEngine(engine) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = engine.name, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

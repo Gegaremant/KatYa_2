@@ -1,0 +1,31 @@
+CREATE TABLE memoryEntry (
+    key TEXT NOT NULL PRIMARY KEY,
+    content TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    hitCount INTEGER NOT NULL DEFAULT 1,
+    source TEXT
+);
+
+selectAllMemories:
+SELECT * FROM memoryEntry;
+
+selectMemoryByKey:
+SELECT * FROM memoryEntry WHERE key = ?;
+
+upsertMemory:
+INSERT OR REPLACE INTO memoryEntry (key, content, createdAt, updatedAt, category, hitCount, source)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateMemoryContent:
+UPDATE memoryEntry SET content = ?, updatedAt = ? WHERE key = ?;
+
+reinforceMemory:
+UPDATE memoryEntry SET hitCount = hitCount + 1, updatedAt = ? WHERE key = ?;
+
+deleteMemory:
+DELETE FROM memoryEntry WHERE key = ?;
+
+selectPromotionCandidates:
+SELECT * FROM memoryEntry WHERE hitCount >= ?;

@@ -86,7 +86,6 @@ class ChatViewModel(
             actions = actions,
             showPrivacyInfo = dataRepository.isUsingSharedKey(),
             isSpeechOutputEnabled = dataRepository.isVoiceResponseEnabled(),
-            isShowReflectionsEnabled = dataRepository.isShowReflectionsEnabled(),
             monitorOverlayMode = appSettings.getMonitorOverlayMode(),
             isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
             isVlessEnabled = appSettings.isVlessEnabled(),
@@ -98,13 +97,6 @@ class ChatViewModel(
 
     init {
         updateAvailableServices()
-        _state.update {
-            it.copy(
-                isShowDeviceStateEnabled = appSettings.isShowDeviceStateEnabled(),
-                isShowConnectionStateEnabled = appSettings.isShowConnectionStateEnabled(),
-                isShowReflectionsEnabled = appSettings.isShowAndVoiceThoughtsEnabled(),
-            )
-        }
 
         // Keep restoreCurrentConversation off the main thread; see issue #197 (large persisted
         // tool outputs caused ANRs when JSON-decoded synchronously during VM construction).
@@ -404,10 +396,6 @@ class ChatViewModel(
     }
 
     private fun toggleSpeechOutput() {
-        if (!dataRepository.isTtsEnabled()) {
-            com.katya.app.showToast("Функция Голоса выключена в настройках. Пожалуйста, включите её.")
-            return
-        }
         val newState = !_state.value.isSpeechOutputEnabled
         dataRepository.setVoiceResponseEnabled(newState)
         _state.update {
@@ -596,7 +584,6 @@ class ChatViewModel(
             it.copy(
                 showPrivacyInfo = dataRepository.isUsingSharedKey(),
                 isSpeechOutputEnabled = dataRepository.isVoiceResponseEnabled(),
-                isShowReflectionsEnabled = dataRepository.isShowReflectionsEnabled(),
                 monitorOverlayMode = appSettings.getMonitorOverlayMode(),
                 isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
             )
