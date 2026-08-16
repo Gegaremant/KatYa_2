@@ -10,7 +10,6 @@ android {
         libs.versions.android.compileSdk
             .get()
             .toInt()
-    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         applicationId = "com.inspiredandroid.katya"
