@@ -1,5 +1,12 @@
 # Release Notes
 
+## v3.0.3
+### Fixed & Synchronized
+- **Git Release Synchronization:** Restored missing v3.0.2 release commits (`7763299`) and build files into master, resolving GitHub release desynchronization.
+- **VLESS Proxy UI:** Redesigned VLESS Proxies section to match expandable UI with Edit (`VlessEditor`), Delete, and Selection radio controls. Fixed socket TCP connectivity check to target host:port.
+- **Agent Settings Styling:** Corrected dark theme text color for "Слух и Речь (STT/TTS)" header.
+- **Offline Models Prompt:** Verified model readiness checks and download triggers when selecting offline Vosk STT and TTS engines.
+
 ## v3.0.2
 ### Added & Improved
 - **Device Admin & Trust Agent Cleanup:** Removed Device Admin and Trust Agent checks to simplify permissions and app startup.
