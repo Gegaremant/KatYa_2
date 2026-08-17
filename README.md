@@ -20,10 +20,12 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 </div>
 
-### 🆕 What's New in v3.0.0
-- **VLESS & Local Servers Profiles:** Easily manage and switch between multiple SSH and VLESS Proxy profiles via the new Servers tab UI.
-- **God Mode Enhancements:** Automatic root-permission granting, detailed root action logging to `/sdcard/Katya/`, and system role toggles.
-- **Material Theme Integration:** Startup screens now beautifully respect the global Material3 color scheme.
+### 🆕 What's New in v3.0.4
+- **Three-Mode Switcher & Redesigned Voice UI:** Quick mode toggles ("Chat", "Interactive", "Thinking") in the top bar, light styling for STT/TTS panels, and a non-blocking bottom banner for speech recognition.
+- **Offline Model Checks & Defaults:** Automatic availability checks and download prompts for local Vosk STT and Piper/HRVoise TTS engines, with default speech configurations.
+- **VLESS Proxy & Xray Core Fixes:** Fixed Xray JSON config output, proot execution fallback paths, and live connection ping diagnostics.
+- **Email Presets & Safe Settings Import:** Quick email account setups (Gmail, Outlook, Yandex, Mail.ru) and deduplicated settings import (with overwrite toggle default OFF).
+- **Simplified Permissions & Camera Fix:** Removed legacy Device Admin/Trust Agent dependencies, fixed LTR layout in auth dialogs, and resolved camera runtime permission crashes.
 
 ### 🆕 What's New in v2.4.15
 - **Interactive Onboarding:** A new interactive permissions checklist with a voice greeting on the very first launch.
@@ -113,10 +115,12 @@ An **open-source AI assistant with persistent memory** designed specifically for
 
 </div>
 
-### 🆕 Что нового в версии 3.0.0
-- **Профили VLESS и локальных серверов:** Удобное управление и переключение между несколькими SSH и VLESS профилями на новой вкладке Серверы.
-- **Улучшения God Mode:** Автоматическая выдача всех разрешений при наличии Root, детализированное логирование root-действий в `/sdcard/Katya/` и управление системными ролями.
-- **Интеграция с Material Theme:** Стартовые экраны теперь красиво адаптируются под глобальную цветовую схему Material3.
+### 🆕 Что нового в версии 3.0.4
+- **Переключатель режимов и новый UI:** Быстрый выбор режимов ("Чат", "Интерактив", "Мысли") в верхней панели, светлая надпись "Слух и Речь (STT/TTS)" и компактный баннер "Внимаю".
+- **Проверка локальных моделей:** Проверка наличия моделей для офлайн Vosk STT и Piper/HRVoise TTS с диалогом скачивания и путями по умолчанию.
+- **Исправления VLESS и Xray Core:** Исправлен Xray JSON-конфиг (без пустых полей flow), запуск в proot/Termux и точная пинг-проверка соединения.
+- **Быстрый импорт почты и настроек:** Пресеты подключения для Gmail, Outlook, Yandex, Mail.ru и объединение настроек без дублей (галочка замены выключена по умолчанию).
+- **Оптимизация прав и стабильность камеры:** Удалены проверки Device Admin / Trust Agent, зафиксирован LTR-ввод авторизации и устранён краш при включении камеры.
 
 ### 🆕 Что нового в версии 2.4.15
 - **Интерактивный Onboarding:** Красивый стартовый экран с чек-листом необходимых разрешений и голосовым приветствием от Кати при первом запуске.
