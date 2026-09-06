@@ -3,8 +3,8 @@
 
 
 agp = "9.2.1"
-appVersion = "3.0.4"
-android-versionCode = "132"
+appVersion = "3.1.0"
+android-versionCode = "144"
 android-compileSdk = "37"
 android-minSdk = "26"
 android-targetSdk = "37"
@@ -38,6 +38,8 @@ litert-lm = "0.14.0"
 sqldelight = "2.3.2"
 materialIcons = "1.7.3"
 jsch = "0.2.17"
+commons-compress = "1.27.1"
+xz = "1.10"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
@@ -93,6 +95,7 @@ compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.r
 bouncycastle-provider = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 litert-lm = { module = "com.google.ai.edge.litertlm:litertlm-android", version.ref = "litert-lm" }
+tensorflow-lite = { module = "org.tensorflow:tensorflow-lite", version = "2.17.0" }
 litert-lm-jvm = { module = "com.google.ai.edge.litertlm:litertlm-jvm", version.ref = "litert-lm" }
 sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
 sqldelight-coroutines-extensions = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqldelight" }
@@ -100,6 +103,8 @@ sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", ver
 sqldelight-native-driver = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
 sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
 jsch = { module = "com.github.mwiede:jsch", version.ref = "jsch" }
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
+xz = { module = "org.tukaani:xz", version.ref = "xz" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

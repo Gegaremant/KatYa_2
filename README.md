@@ -1,193 +1,93 @@
 # Katya AI Assistant
 
-**[English](#english) | [Русский](#русский)**
-
----
-
-<a name="english"></a>
-## 🇬🇧 English
-
 <img src="https://img.shields.io/badge/Platform-Android-34a853.svg?logo=android" alt="Android" />
 <div align="center">
 <br>
-<img src="katya_icon.png" height="350">
+<img src="katya_icon.png" height="250">
 <br>
 <br>
 
-An **open-source AI assistant with persistent memory** designed specifically for Android devices.
-
-*Note: The server backend infrastructure for Katya is deployed via the [SmartBotHelper](https://github.com/SokolovAnV/KatYa) repository.*
+**KatYa** — это автономный AI-ассистент для Android-устройств с персистентной памятью, встроенной средой Linux (PRoot) и возможностью полного системного контроля (Root/God Mode).
 
 </div>
-
-### 🆕 What's New in v3.0.4
-- **Three-Mode Switcher & Redesigned Voice UI:** Quick mode toggles ("Chat", "Interactive", "Thinking") in the top bar, light styling for STT/TTS panels, and a non-blocking bottom banner for speech recognition.
-- **Offline Model Checks & Defaults:** Automatic availability checks and download prompts for local Vosk STT and Piper/HRVoise TTS engines, with default speech configurations.
-- **VLESS Proxy & Xray Core Fixes:** Fixed Xray JSON config output, proot execution fallback paths, and live connection ping diagnostics.
-- **Email Presets & Safe Settings Import:** Quick email account setups (Gmail, Outlook, Yandex, Mail.ru) and deduplicated settings import (with overwrite toggle default OFF).
-- **Simplified Permissions & Camera Fix:** Removed legacy Device Admin/Trust Agent dependencies, fixed LTR layout in auth dialogs, and resolved camera runtime permission crashes.
-
-### 🆕 What's New in v2.4.15
-- **Interactive Onboarding:** A new interactive permissions checklist with a voice greeting on the very first launch.
-- **Operating Modes:** Easily switch between God Mode (root + full system control), Sandbox (isolated), and Bare Android (no external tools) to match your security and usage needs.
-- **Manual Memory & Tasks:** New interfaces to directly add memories and schedule background tasks (Cron/Time/Heartbeat) without relying entirely on AI autonomy.
-- **Dynamic Capabilities:** Katya is now fully aware of her environment and can tap into external Hermes skills or verify Agent-Reach network access dynamically.
-- **Autonomous Brain (Auto-Heal):** If your remote Ollama server goes down, Katya wakes up locally via `LiteRT` and autonomously connects via SSH to try and restart the service, or searches for a free API proxy.
-
-### ✨ Key Features
-
-[📖 Read the full list of Katya's capabilities here](docs/capabilities_en.md)
-
-- **Offline Wake Word**: Detects "Привет Катя" locally using Vosk speech recognition without an internet connection.
-- **Direct Ollama Connection**: Tunnels traffic through SSH directly to your private server, completely bypassing cloud API limits.
-- **Server Monitoring**: Real-time SSH monitoring overlay that displays CPU, RAM, and GPU usage of your connected Linux server.
-- **Persistent Memory**: Automatically remembers important facts, details, and preferences across conversations.
-- **Interactive UI**: The AI can generate fully interactive screens (dashboards, recipes, brainstorms) instead of just plain text.
-
-### 📥 Downloads
-
-| Platform | Format | Download |
-|----------|--------|----------|
-| Android | APK | [GitHub Releases](https://github.com/Gegaremant/KatYa_2/releases) |
-
-### 🧠 Architecture
-
-```text
-               ┌─────────────────────────┐
-               │          Chat           │
-               │                         │
-               │  prompt + memories      │
-               │        │                │
-               │        ▼                │
-               │    ┌────────┐           │
-               │    │   AI   │◀─┐        │
-               │    └───┬────┘  │        │
-               │        │   tool calls   │
-               │        │   & results    │
-               │        ▼      │        │
-               │    ┌────────┐ │        │
-               │    │ Tools  │─┘        │
-               │    └───┬────┘          │
-               │        │               │
-               └────────┼───────────────┘
-                        │ store / recall
-                        ▼
-               ┌─────────────────┐    hitCount >= 5
-               │     Memory      │───────────────────┐
-               │                 │                   │
-               │  facts, prefs,  │                   ▼
-               │  learnings      │          ┌────────────────┐
-               │                 │◀─delete──│ Promote into   │
-               └─────────────────┘          │ System Prompt  │
-                        ▲                   └────────────────┘
-                        │ reviews
-                        │
-               ┌─────────────────┐
-               │    Heartbeat    │
-               │                 │
-               │  autonomous     │
-               │  self-check     │
-               │  every 30 min   │
-               │  (8am–10pm)     │
-               │                 │
-               │  all good?      │
-               │  → stays silent │
-               │  needs action?  │
-               │  → notifies user│
-               └─────────────────┘
-```
 
 ---
 
-<a name="русский"></a>
-## 🇷🇺 Русский
+## 🌟 Ключевые возможности
 
-<img src="https://img.shields.io/badge/Platform-Android-34a853.svg?logo=android" alt="Android" />
-<div align="center">
-<br>
-<img src="docs/img/logo.png" height="350">
-<br>
-<br>
+- **Автономность и Память**: Агент способен работать в фоне, выполнять запланированные задачи (cron/heartbeat) и автоматически запоминать важные факты из общения.
+- **Режимы работы**: 
+  - **God Mode (Root)**: Полный контроль над ОС Android (выполнение shell-команд, управление пакетами).
+  - **Sandbox (PRoot)**: Встроенное Debian-окружение для запуска Node.js, Python и Linux-утилит (например, локальный сервер DeepSeek или Xray Core).
+- **Оффлайн и Облачные LLM**: 
+  - Интеграция с локальными моделями через `LiteRT` (выполнение прямо на устройстве).
+  - Поддержка внешних API (OpenAI-совместимые, Ollama, VLLM) и SSH-туннелирования для обхода ограничений.
+- **Локальный Голос (STT / TTS)**: Оффлайн распознавание речи с использованием **Vosk** / **GKPSR** и синтез речи на базе **Piper**, что обеспечивает полную приватность.
+- **Интеграция с сетью и прокси**: Встроенный менеджер VLESS / Xray для управления локальными и удаленными прокси-соединениями с автоматической проверкой работоспособности.
+- **Динамический UI (Dynamic UI)**: Генерация нативного Android Compose интерфейса "на лету" силами самой нейросети.
 
-**Голосовой ассистент с искусственным интеллектом и постоянной памятью**, разработанный специально для Android-устройств.
+---
 
-*Примечание: Инфраструктура сервера для Кати разворачивается через репозиторий [SmartBotHelper](https://github.com/SokolovAnV/KatYa).*
+## 🗺 Карта проекта (Структура папок)
 
-</div>
+Ниже представлено описание файловой структуры репозитория и основных скриптов:
 
-### 🆕 Что нового в версии 3.0.4
-- **Переключатель режимов и новый UI:** Быстрый выбор режимов ("Чат", "Интерактив", "Мысли") в верхней панели, светлая надпись "Слух и Речь (STT/TTS)" и компактный баннер "Внимаю".
-- **Проверка локальных моделей:** Проверка наличия моделей для офлайн Vosk STT и Piper/HRVoise TTS с диалогом скачивания и путями по умолчанию.
-- **Исправления VLESS и Xray Core:** Исправлен Xray JSON-конфиг (без пустых полей flow), запуск в proot/Termux и точная пинг-проверка соединения.
-- **Быстрый импорт почты и настроек:** Пресеты подключения для Gmail, Outlook, Yandex, Mail.ru и объединение настроек без дублей (галочка замены выключена по умолчанию).
-- **Оптимизация прав и стабильность камеры:** Удалены проверки Device Admin / Trust Agent, зафиксирован LTR-ввод авторизации и устранён краш при включении камеры.
+`	ext
+KatYa/
+├── androidApp/          # Точка входа Android-приложения (Сборка, манифест, подписи и Gradle-скрипты)
+├── composeApp/          # Основной кроссплатформенный исходный код (Kotlin Multiplatform)
+│   ├── src/androidMain/ # Специфичные для Android реализации (Platform-specific API)
+│   │   ├── browser/     # Управление встроенным WebView (KatyaWebView)
+│   │   ├── inference/   # Запуск локальных ML-моделей (LiteRT) через аппаратное ускорение
+│   │   ├── network/     # Проверка прокси и работы локальной сети (ProxyConnectionChecker)
+│   │   ├── sandbox/     # Управление Debian PRoot (LinuxSandboxManager), FreeDeepSeek API и VLESS Manager
+│   │   ├── stt/         # Распознавание речи (Vosk, GKPSR, WakeWordPlatform)
+│   │   ├── tools/       # Исполнение root-команд, загрузчики файлов, SSH-клиент, управление будильниками
+│   │   └── voice/       # Службы VoiceInteractionService и AccessibilityService для системного взаимодействия
+│   │
+│   └── src/commonMain/  # Общая бизнес-логика и UI (Compose Multiplatform)
+│       ├── data/        # Настройки (AppSettings), миграции БД, локальное хранилище и персистентность
+│       ├── inference/   # Общие абстракции для работы с LLM (Локальные и удаленные запросы)
+│       ├── network/     # HTTP-клиенты (Ktor) и API-интеграции
+│       ├── skills/      # Модуль расширений и навыков (Hermes Skills) для агента
+│       ├── stt/         # Интерфейсы STT/TTS
+│       ├── tools/       # Общие инструменты агента (Заметки, Календарь, IntentTool)
+│       └── ui/          # Экраны (Chat, Settings), графики, Markdown-рендер и динамические UI-компоненты
+│
+├── gradle/              # Конфигурации Gradle. Содержит libs.versions.toml (централизованное управление версиями)
+├── release_notes_v3.md  # Детальная история изменений (Release Notes) для 3.x ветки
+├── RELEASE_NOTES.md     # Архив старых релиз-ноутов (до 3.0)
+└── README.md            # Этот файл
+`
 
-### 🆕 Что нового в версии 2.4.15
-- **Интерактивный Onboarding:** Красивый стартовый экран с чек-листом необходимых разрешений и голосовым приветствием от Кати при первом запуске.
-- **Режимы работы:** Возможность переключения между God Mode (Root + полный контроль), Sandbox (изоляция) и Bare Android (без внешних утилит) под разные уровни безопасности.
-- **Ручное управление:** Новые экраны для прямого добавления записей в Память и постановки Задач (Cron/Time/Heartbeat) без необходимости просить об этом ассистента.
-- **Динамические навыки:** Системный промпт теперь динамически подстраивается под окружение, предоставляя Кате знания о доступных навыках (Hermes skills) и состоянии сети (Agent-Reach).
-- **Автономный Мозг (Auto-Heal):** Если ваш внешний Ollama сервер падает, Катя просыпается на локальном движке `LiteRT` и пытается автономно зайти по SSH, чтобы перезапустить сервис, либо находит бесплатные API-прокси для ответа.
+### 📂 Что лежит в ключевых папках?
+- **`sandbox/`**: Содержит логику развертывания Debian прямо внутри Android (без root). Здесь лежат скрипты установки `npm`, запуска VLESS-прокси и поднятия локального Node.js-сервера (например, для FreeDeepSeek API).
+- **`tools/`**: Системные "руки" Кати. Здесь реализованы `CommandExecutor` для Bash/Root-скриптов, `SshClient` для туннелей, интеграции с SMS и календарем.
+- **`data/`**: Все, что связано с памятью приложения: SQLite (через SQLDelight) для истории чата, хранилище `katya_secure_prefs.xml` и механизмы бэкапа/восстановления конфигураций.
 
-### ✨ Ключевые возможности
+---
 
-[📖 Полный список возможностей Кати читайте здесь](docs/capabilities_ru.md)
+## 🛠 Версионирование
 
-- **Офлайн активация голосом**: Локальное распознавание фразы "Привет Катя" с помощью движка Vosk, без необходимости интернета.
-- **Прямое подключение к Ollama**: Работа через встроенный SSH туннель напрямую к вашему приватному серверу (никаких лимитов облачных API и платных подписок).
-- **Мониторинг сервера**: Оверлей в реальном времени с отображением загрузки CPU, RAM и GPU с вашего Linux-сервера по SSH.
-- **Постоянная память**: Катя автоматически запоминает важные факты и ваши предпочтения из всех предыдущих диалогов.
-- **Интерактивный UI (Карточки)**: ИИ может генерировать не только скучный текст, но и интерактивные экраны-виджеты.
+В проекте используется централизованное управление версиями через **Gradle Version Catalog**. 
+Если вам нужно обновить версию приложения (например, для нового релиза):
+1. Откройте `gradle/libs.versions.toml`.
+2. Измените параметры в блоке `[versions]`:
+   - `appVersion = "3.1.0"` (Отображаемая версия)
+   - `android-versionCode = "142"` (Код сборки для Google Play)
+3. Синхронизируйте проект. Версия для UI (`composeApp/src/commonMain/kotlin/com/katya/app/AppVersion.kt`) и версия для манифеста (`gradle/libs.versions.toml`, генерируется `Version.kt`) должны совпадать — при сборке релиза обновляйте оба места.
 
-### 📥 Скачать
+---
 
-| Платформа | Формат | Ссылка |
-|----------|--------|----------|
-| Android | APK | [GitHub Releases](https://github.com/Gegaremant/KatYa_2/releases) |
+## 🚀 Установка и сборка
 
-### 🧠 Архитектура
+1. Клонируйте репозиторий.
+2. Откройте проект в Android Studio (или Fleet).
+3. Дождитесь загрузки Gradle-зависимостей.
+4. Выполните сборку:
+   `ash
+   ./gradlew assembleDebug
+   `
+5. Для работы в `God Mode` убедитесь, что ваше устройство имеет **Root-права** (Magisk/KernelSU). Если прав нет, используйте режим **Sandbox**.
 
-```text
-               ┌─────────────────────────┐
-               │           Чат           │
-               │                         │
-               │  запрос + воспоминания  │
-               │        │                │
-               │        ▼                │
-               │    ┌────────┐           │
-               │    │   ИИ   │◀─┐        │
-               │    └───┬────┘  │        │
-               │        │вызовы функций  │
-               │        │и результаты    │
-               │        ▼      │        │
-               │    ┌────────┐ │        │
-               │    │Инструм.│─┘        │
-               │    └───┬────┘          │
-               │        │               │
-               └────────┼───────────────┘
-                        │ запись/чтение
-                        ▼
-               ┌─────────────────┐    hitCount >= 5
-               │     Память      │───────────────────┐
-               │                 │                   │
-               │ факты, вкусы,   │                   ▼
-               │ знания          │          ┌────────────────┐
-               │                 │◀─удал.───│ Перенос в      │
-               └─────────────────┘          │ Системный Промпт│
-                        ▲                   └────────────────┘
-                        │ проверки
-                        │
-               ┌─────────────────┐
-               │   Сердцебиение  │
-               │   (Heartbeat)   │
-               │                 │
-               │ авто-проверка   │
-               │ каждые 30 мин   │
-               │ (с 8:00 до 22:00)│
-               │                 │
-               │ всё хорошо?     │
-               │ → молчит        │
-               │ нужны действия? │
-               │ → пишет юзеру   │
-               └─────────────────┘
-```
+*Подробные изменения последних версий можно найти в [release_notes_v3.md](release_notes_v3.md).*

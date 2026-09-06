@@ -1,5 +1,14 @@
 # Release Notes
 
+## v3.1.0
+### Added & Improved
+- **Sandbox Root Access:** Added UI button and manifest permission (`MANAGE_EXTERNAL_STORAGE`) to allow root-like access to all files for the Linux PRoot sandbox.
+- **Connection Status Reliability:** Expanded network transport checks to support VPNs (like VLESS) so connection status displays accurately.
+- **Agent Work Visibility:** Added inline indicators (e.g. `🛠 Читаю файл`) in ChatScreen when the agent performs tool calls, even if reasoning is hidden.
+- **UI Layout Refresh:** Redesigned the top bar with cleanly separated icon rows and device/connection status blocks on a gray container background.
+- **DeepSeek Authentication Fix:** Removed `bidi-override` CSS which inverted manually pasted tokens, strictly enforcing left-to-right alignment.
+- **Voice Logic Sync:** Linking interface speakers and agent speech synthesis controls; logic prevents enabling voice thoughts if text-to-speech is disabled.
+
 ## v3.0.4
 ### Added & Improved
 - **Mode Switcher:** Added three-mode toggle in the top bar — "Чат" (Chat), "Интерактив" (Interactive), "Мысли" (Thinking) — for quick interaction style switching.
