@@ -15,11 +15,11 @@ class KatyaVoiceInteractionSession(context: Context) : VoiceInteractionSession(c
     override fun onHandleAssist(
         data: Bundle?,
         structure: android.app.assist.AssistStructure?,
-        content: android.app.assist.AssistContent?
+        content: android.app.assist.AssistContent?,
     ) {
         super.onHandleAssist(data, structure, content)
         // Here we can read the screen content and context
-        
+
         // Start the main app activity for voice input
         val intent = Intent(context, Class.forName("com.katya.app.MainActivity")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

@@ -1,5 +1,8 @@
 package com.katya.app.data
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
@@ -18,6 +21,18 @@ class TaskStore(private val appSettings: AppSettings) {
 
     private val json = SharedJson
     private val mutex = Mutex()
+
+    /**
+     * Live view of every persisted task. Updated on every mutation (add/update/
+     * remove), including updates coming from the scheduler completing a task, so
+     * the Settings UI and the chat task widget never show stale lists.
+     */
+    private val _tasksFlow = MutableStateFlow(loadTasks())
+    val tasksFlow: StateFlow<List<ScheduledTask>> = _tasksFlow.asStateFlow()
+
+    private fun publish() {
+        _tasksFlow.value = loadTasks()
+    }
 
     private fun loadTasks(): MutableList<ScheduledTask> = try {
         val decoded = json.decodeFromString<List<ScheduledTask>>(appSettings.getScheduledTasksJson())
@@ -81,6 +96,7 @@ class TaskStore(private val appSettings: AppSettings) {
         )
         tasks.add(task)
         saveTasks(tasks)
+        publish()
         task
     }
 
@@ -113,6 +129,7 @@ class TaskStore(private val appSettings: AppSettings) {
         if (index >= 0) {
             tasks[index] = task
             saveTasks(tasks)
+            publish()
         }
         task
     }
@@ -120,7 +137,10 @@ class TaskStore(private val appSettings: AppSettings) {
     suspend fun removeTask(id: String): Boolean = mutex.withLock {
         val tasks = loadTasks()
         val removed = tasks.removeAll { it.id == id }
-        if (removed) saveTasks(tasks)
+        if (removed) {
+            saveTasks(tasks)
+            publish()
+        }
         removed
     }
 

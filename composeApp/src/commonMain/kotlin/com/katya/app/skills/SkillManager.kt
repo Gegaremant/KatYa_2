@@ -1,6 +1,5 @@
 package com.katya.app.skills
 
-
 import com.katya.app.getBackgroundDispatcher
 import katya.composeapp.generated.resources.Res
 import kotlinx.coroutines.CoroutineScope
@@ -49,7 +48,9 @@ class SkillManager(
     fun getSkill(id: String): SkillManifest? = _skills.value.firstOrNull { it.id == id }
 
     suspend fun uninstall(id: String) {
-        // No-op for now since custom skills are disabled
+        if (com.katya.app.deleteSkillDir(id)) {
+            load()
+        }
     }
 
     suspend fun installFromGitHub(owner: String, repo: String, ref: String, path: String): Result<SkillManifest> = registry.fetchSkillFiles(SkillSource.GitHub(owner, repo, ref, path)).mapCatching { install(it) }
@@ -62,14 +63,29 @@ class SkillManager(
 
     /** Writes a downloaded skill into `~/skills/<id>/`, replacing any existing copy, then reloads. */
     internal suspend fun install(downloaded: DownloadedSkill): SkillManifest {
-        // No-op for now since custom skills are disabled
+        com.katya.app.writeSkillFile(downloaded.id, "SKILL.md", downloaded.rawSkillMd)
+        downloaded.files.forEach { (fileName, content) ->
+            com.katya.app.writeSkillFile(downloaded.id, fileName, content)
+        }
+        load()
         return getSkill(downloaded.id) ?: error("Skill '${downloaded.id}' not found after install")
     }
 
     /** Reads every `~/skills/<id>/` folder back into the in-memory cache. */
     suspend fun load() {
         val skills = mutex.withLock {
-            loadBuiltInSkills().sortedBy { it.id }
+            val builtIn = loadBuiltInSkills()
+            val custom = com.katya.app.readSandboxSkillFiles().mapNotNull { (id, content) ->
+                val parsed = SkillFrontmatterParser.parse(content) as? SkillFrontmatterParser.Result.Ok ?: return@mapNotNull null
+                SkillManifest(
+                    id = parsed.id,
+                    displayName = SkillFrontmatterParser.displayName(parsed.id),
+                    description = parsed.description,
+                    body = parsed.body,
+                    isBuiltIn = false,
+                )
+            }
+            (custom + builtIn).distinctBy { it.id }.sortedBy { it.id }
         }
         _skills.value = skills
     }

@@ -40,7 +40,9 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,24 +66,32 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.katya.app.Platform
 import com.katya.app.currentPlatform
+import com.katya.app.data.AppSettings
+import com.katya.app.data.BytesKatyaFile
+import com.katya.app.data.KatyaFile
+import com.katya.app.data.PlatformKatyaFile
 import com.katya.app.data.ServiceEntry
+import com.katya.app.data.VoiceUiMode
 import com.katya.app.data.imageExtensions
+import com.katya.app.network.Requests
 import com.katya.app.skills.SkillManifest
 import com.katya.app.stt.createSttController
 import com.katya.app.tools.AudioPermissionController
 import com.katya.app.tools.SetupAudioPermissionHandler
+import com.katya.app.tools.rememberImageCaptureLauncher
 import com.katya.app.ui.gradientBrush
 import com.katya.app.ui.handCursor
 import com.katya.app.ui.outlineTextFieldColors
 import io.github.vinceglb.filekit.PlatformFile
-import com.katya.app.data.KatyaFile
-import com.katya.app.data.PlatformKatyaFile
-import com.katya.app.data.BytesKatyaFile
-import com.katya.app.tools.rememberImageCaptureLauncher
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.extension
 import io.github.vinceglb.filekit.name
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.http.isSuccess
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.ic_attach
 import katya.composeapp.generated.resources.ic_file
@@ -91,25 +101,12 @@ import katya.composeapp.generated.resources.ic_up
 import katya.composeapp.generated.resources.prompt_ask_question
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
-import com.katya.app.data.AppSettings
-import com.katya.app.data.VoiceUiMode
-import com.katya.app.network.Requests
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.plugins.timeout
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.http.isSuccess
-import kotlinx.coroutines.delay
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.LaunchedEffect
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -130,6 +127,8 @@ fun QuestionInput(
     audioPermissionController: com.katya.app.tools.AudioPermissionController? = null,
     wakeWordTriggerCount: Int = 0,
     installedSkills: ImmutableList<SkillManifest> = persistentListOf(),
+    triggerVoiceInput: Boolean = false,
+    onConsumeVoiceInputTrigger: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isPreview = androidx.compose.ui.platform.LocalInspectionMode.current
@@ -152,18 +151,6 @@ fun QuestionInput(
     val appSettings: AppSettings? = if (isPreview) null else koinInject()
     val voiceUiMode by (appSettings?.voiceUiModeFlow ?: kotlinx.coroutines.flow.MutableStateFlow(VoiceUiMode.FULL_SCREEN)).collectAsStateWithLifecycle()
 
-    if (isListening) {
-        VoiceOverlay(
-            isListening = isListening,
-            partialResults = partialResults,
-            mode = voiceUiMode,
-            onCancel = {
-                sttController?.stopListening()
-                onTextStateChange(TextFieldValue(""))
-            }
-        )
-    }
-
     val requests: Requests = if (isPreview) Requests() else koinInject()
     var linkValidationStatus by remember { mutableStateOf<String?>(null) }
 
@@ -181,7 +168,7 @@ fun QuestionInput(
         delay(800) // Debounce typing
 
         linkValidationStatus = if (urls.size == 1) "Анализ ссылки..." else "Анализ ссылок..."
-        
+
         var allOk = true
         var okCount = 0
         for (url in urls) {
@@ -207,8 +194,11 @@ fun QuestionInput(
         linkValidationStatus = if (urls.size == 1) {
             if (allOk) "✅ Ссылка доступна" else "❌ Ссылка недоступна"
         } else {
-            if (allOk) "✅ Все ссылки доступны ($okCount из ${urls.size})" 
-            else "❌ Есть недоступные ссылки ($okCount из ${urls.size} ок)"
+            if (allOk) {
+                "✅ Все ссылки доступны ($okCount из ${urls.size})"
+            } else {
+                "❌ Есть недоступные ссылки ($okCount из ${urls.size} ок)"
+            }
         }
     }
 
@@ -315,124 +305,160 @@ fun QuestionInput(
         }
 
         val focusRequester = remember { FocusRequester() }
-        TextField(
-            value = textState,
-            onValueChange = onTextStateChange,
-            modifier = Modifier
-                .focusRequester(focusRequester)
-                .padding(16.dp)
-                .heightIn(max = 120.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(28.dp))
-                .background(MaterialTheme.colorScheme.background)
-                .border(
-                    BorderStroke(width = 2.dp, brush = gradientBrush),
-                    shape = RoundedCornerShape(28.dp),
-                )
-                .onPreviewKeyEvent { event ->
-                    // Only handle hardware keyboard on desktop/web platforms
-                    if (currentPlatform !is Platform.Mobile && event.key.keyCode == Key.Enter.keyCode && event.type == KeyEventType.KeyDown) {
-                        if (event.isShiftPressed) {
-                            // Shift+Enter -> manually insert newline
-                            val currentText = textState.text
-                            val selection = textState.selection
-                            val start = minOf(selection.start, selection.end).coerceIn(0, currentText.length)
-                            val end = maxOf(selection.start, selection.end).coerceIn(0, currentText.length)
-
-                            val newText = currentText.replaceRange(start, end, "\n")
-                            onTextStateChange(
-                                TextFieldValue(
-                                    text = newText,
-                                    selection = TextRange(start + 1),
-                                ),
-                            )
-                            return@onPreviewKeyEvent true
-                        } else {
-                            // Enter without Shift -> send message and consume event
-                            submitQuestion()
-                            return@onPreviewKeyEvent true
-                        }
-                    }
-                    return@onPreviewKeyEvent false
-                },
-            colors = outlineTextFieldColors(),
-            placeholder = {
-                Text(
-                    stringResource(Res.string.prompt_ask_question),
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            },
-            trailingIcon = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(end = 7.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    if (availableServices.size > 1) {
-                        ServiceSelector(
-                            services = availableServices,
-                            onSelectService = onSelectService,
+        androidx.compose.animation.AnimatedVisibility(
+            visible = !isListening,
+            enter = androidx.compose.animation.expandVertically(),
+            exit = androidx.compose.animation.shrinkVertically(),
+        ) {
+            Column {
+                TextField(
+                    value = textState,
+                    onValueChange = onTextStateChange,
+                    modifier = Modifier
+                        .focusRequester(focusRequester)
+                        .padding(16.dp)
+                        .heightIn(max = 120.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(28.dp))
+                        .background(MaterialTheme.colorScheme.background)
+                        .border(
+                            BorderStroke(width = 2.dp, brush = gradientBrush),
+                            shape = RoundedCornerShape(28.dp),
                         )
-                    }
-                    if (isLoading) {
-                        TrailingIcon(icon = Res.drawable.ic_stop, onClick = cancel, isPulsing = true)
-                    } else if (textState.text.isNotBlank() && !isListening) {
-                        TrailingIcon(icon = Res.drawable.ic_up, onClick = { submitQuestion() })
-                    } else if (isListening) {
-                        TrailingIcon(icon = Res.drawable.ic_stop, onClick = { sttController?.stopListening() }, isPulsing = true)
-                    } else {
-                        IconButton(onClick = {
-                            coroutineScope.launch {
-                                if (audioPermissionController?.requestPermission() == true) {
-                                    sttController?.startListening { result ->
-                                        onTextStateChange(TextFieldValue(""))
-                                        ask(result.trim())
-                                    }
+                        .onPreviewKeyEvent { event ->
+                            // Only handle hardware keyboard on desktop/web platforms
+                            if (currentPlatform !is Platform.Mobile && event.key.keyCode == Key.Enter.keyCode && event.type == KeyEventType.KeyDown) {
+                                if (event.isShiftPressed) {
+                                    // Shift+Enter -> manually insert newline
+                                    val currentText = textState.text
+                                    val selection = textState.selection
+                                    val start = minOf(selection.start, selection.end).coerceIn(0, currentText.length)
+                                    val end = maxOf(selection.start, selection.end).coerceIn(0, currentText.length)
+
+                                    val newText = currentText.replaceRange(start, end, "\n")
+                                    onTextStateChange(
+                                        TextFieldValue(
+                                            text = newText,
+                                            selection = TextRange(start + 1),
+                                        ),
+                                    )
+                                    return@onPreviewKeyEvent true
+                                } else {
+                                    // Enter without Shift -> send message and consume event
+                                    submitQuestion()
+                                    return@onPreviewKeyEvent true
                                 }
                             }
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Speak",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp),
+                            return@onPreviewKeyEvent false
+                        },
+                    colors = outlineTextFieldColors(),
+                    placeholder = {
+                        Text(
+                            stringResource(Res.string.prompt_ask_question),
+                            color = MaterialTheme.colorScheme.onBackground,
+                        )
+                    },
+                    trailingIcon = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(end = 7.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            if (availableServices.size > 1) {
+                                ServiceSelector(
+                                    services = availableServices,
+                                    onSelectService = onSelectService,
+                                )
+                            }
+                            if (isLoading) {
+                                TrailingIcon(icon = Res.drawable.ic_stop, onClick = cancel, isPulsing = true)
+                            } else if (textState.text.isNotBlank() && !isListening) {
+                                TrailingIcon(icon = Res.drawable.ic_up, onClick = { submitQuestion() })
+                            } else if (isListening) {
+                                TrailingIcon(icon = Res.drawable.ic_stop, onClick = { sttController?.stopListening() }, isPulsing = true)
+                            } else {
+                                IconButton(onClick = {
+                                    coroutineScope.launch {
+                                        if (audioPermissionController?.requestPermission() == true) {
+                                            sttController?.startListening { result ->
+                                                onTextStateChange(TextFieldValue(""))
+                                                ask(result.trim())
+                                            }
+                                        }
+                                    }
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Speak",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    keyboardActions = if (currentPlatform !is Platform.Mobile) {
+                        KeyboardActions(onSend = { submitQuestion() })
+                    } else {
+                        KeyboardActions() // No keyboard send action on mobile
+                    },
+                    leadingIcon = {
+                        androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            CircleIconButton(
+                                icon = vectorResource(Res.drawable.ic_attach),
+                                onClick = { filePickerLauncher.launch() },
+                                modifier = Modifier.padding(start = 7.dp),
+                                tint = MaterialTheme.colorScheme.onBackground,
+                            )
+                            CircleIconButton(
+                                icon = androidx.compose.material.icons.Icons.Default.CameraAlt,
+                                onClick = { cameraLauncher.launch() },
+                                modifier = Modifier.padding(start = 2.dp),
+                                tint = MaterialTheme.colorScheme.onBackground,
                             )
                         }
+                    },
+                    keyboardOptions = KeyboardOptions(
+                        imeAction = if (currentPlatform is Platform.Mobile) ImeAction.Default else ImeAction.Send,
+                    ),
+                )
+                linkValidationStatus?.let { status ->
+                    Text(
+                        text = status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (status.startsWith("❌")) {
+                            MaterialTheme.colorScheme.error
+                        } else if (status.startsWith("✅")) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 4.dp),
+                    )
+                }
+            }
+        }
+        if (isListening) {
+            VoiceOverlay(
+                isListening = isListening,
+                partialResults = partialResults,
+                mode = voiceUiMode,
+                onCancel = {
+                    sttController?.stopListening()
+                    onTextStateChange(TextFieldValue(""))
+                },
+            )
+        }
+        LaunchedEffect(triggerVoiceInput) {
+            if (triggerVoiceInput) {
+                if (audioPermissionController?.requestPermission() == true) {
+                    sttController?.startListening { result ->
+                        onTextStateChange(TextFieldValue(""))
+                        ask(result.trim())
                     }
                 }
-            },
-            keyboardActions = if (currentPlatform !is Platform.Mobile) {
-                KeyboardActions(onSend = { submitQuestion() })
-            } else {
-                KeyboardActions() // No keyboard send action on mobile
-            },
-            leadingIcon = {
-                androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    CircleIconButton(
-                        icon = vectorResource(Res.drawable.ic_attach),
-                        onClick = { filePickerLauncher.launch() },
-                        modifier = Modifier.padding(start = 7.dp),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                    )
-                    CircleIconButton(
-                        icon = androidx.compose.material.icons.Icons.Default.CameraAlt,
-                        onClick = { cameraLauncher.launch() },
-                        modifier = Modifier.padding(start = 2.dp),
-                        tint = MaterialTheme.colorScheme.onBackground,
-                    )
-                }
-            },
-            keyboardOptions = KeyboardOptions(
-                imeAction = if (currentPlatform is Platform.Mobile) ImeAction.Default else ImeAction.Send,
-            ),
-        )
-        linkValidationStatus?.let { status ->
-            Text(
-                text = status,
-                style = MaterialTheme.typography.bodySmall,
-                color = if (status.startsWith("❌")) MaterialTheme.colorScheme.error else if (status.startsWith("✅")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 24.dp, top = 2.dp, bottom = 4.dp)
-            )
+                onConsumeVoiceInputTrigger()
+            }
         }
         val inInspection = LocalInspectionMode.current
         LaunchedEffect(Unit) {

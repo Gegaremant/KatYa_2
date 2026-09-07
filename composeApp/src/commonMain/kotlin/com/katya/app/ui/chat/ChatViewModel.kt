@@ -9,6 +9,10 @@ import com.katya.app.data.Service
 import com.katya.app.data.ServiceEntry
 import com.katya.app.data.TaskScheduler
 import com.katya.app.data.UiSubmission
+import com.katya.app.device.DeviceInfoProvider
+import com.katya.app.device.NetworkStatusProvider
+import com.katya.app.device.createDeviceInfoProvider
+import com.katya.app.device.createNetworkStatusProvider
 import com.katya.app.getBackgroundDispatcher
 import com.katya.app.network.UiError
 import com.katya.app.network.toUiError
@@ -41,6 +45,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.getString
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 
 class ChatViewModel(
@@ -77,6 +82,8 @@ class ChatViewModel(
         goBackInteractiveMode = ::goBackInteractiveMode,
         sendSmsDraft = ::sendSmsDraft,
         discardSmsDraft = ::discardSmsDraft,
+        consumeVoiceInputTrigger = ::consumeVoiceInputTrigger,
+        cancelScheduledTask = ::cancelScheduledTask,
     )
     private val freeModeNames: Map<FreeMode, String> = FreeMode.entries.associateWith { "Free ${it.modelId.replaceFirstChar { c -> c.uppercase() }}" }
     private var currentJob: Job? = null
@@ -94,6 +101,12 @@ class ChatViewModel(
     )
     val monitorStats = monitorService.stats
     val wakeWordTriggered = wakeWordPlatform.wakeWordTriggered
+
+    // Lazily-created device/network providers (Android actuals) reused across
+    // polling ticks. The network provider is stateful: it derives live speed
+    // from TrafficStats deltas between consecutive calls, so keep one instance.
+    private val deviceInfoProvider: DeviceInfoProvider? by lazy { createDeviceInfoProvider() }
+    private val networkStatusProvider: NetworkStatusProvider? by lazy { createNetworkStatusProvider() }
 
     init {
         updateAvailableServices()
@@ -146,6 +159,14 @@ class ChatViewModel(
             }
         }
 
+        // Live scheduled-task list so the chat widget (and any other consumer)
+        // reflects tasks added, completed or cancelled by the scheduler/agent.
+        viewModelScope.launch {
+            dataRepository.scheduledTasksFlow.collect { tasks ->
+                _state.update { it.copy(scheduledTasks = tasks.toImmutableList()) }
+            }
+        }
+
         viewModelScope.launch {
             dataRepository.openHeartbeatRequested
                 .filter { it }
@@ -164,8 +185,17 @@ class ChatViewModel(
             dataRepository.openAssistRequested
                 .filter { it }
                 .collect {
-                    startNewChat()
+                    _state.update { it.copy(triggerVoiceInput = true) }
                     dataRepository.consumeOpenAssistRequest()
+                }
+        }
+
+        viewModelScope.launch {
+            dataRepository.sharedTextRequested
+                .filter { it != null }
+                .collect { shared ->
+                    ask(shared)
+                    dataRepository.consumeSharedTextRequest()
                 }
         }
 
@@ -185,12 +215,90 @@ class ChatViewModel(
                 }
             }
         }
-        
+
         viewModelScope.launch {
             appSettings.systemStatusFlow.collect { status ->
                 _state.update { it.copy(systemStatus = status) }
             }
         }
+
+        // Tasks #8-10: surface device (CPU/RAM/battery) and connection
+        // (speed/latency/indicator) states in the top bar whenever the
+        // corresponding server-settings toggles are enabled. Nothing is shown
+        // while both toggles are off, and the flags/strings are refreshed on a
+        // 1.5 s tick so switching the toggles takes effect without a restart.
+        viewModelScope.launch(backgroundDispatcher) {
+            while (true) {
+                val showDevice = appSettings.isShowDeviceStateEnabled()
+                val showConnection = appSettings.isShowConnectionStateEnabled()
+                if (showDevice || showConnection) {
+                    val (connectionText, networkConnected) = if (showConnection) {
+                        buildConnectionStatus()
+                    } else {
+                        null to false
+                    }
+                    _state.update {
+                        it.copy(
+                            showDeviceStatus = showDevice,
+                            showConnectionStatus = showConnection,
+                            deviceStatus = if (showDevice) buildDeviceStatusText() else null,
+                            connectionStatus = connectionText,
+                            isNetworkConnected = networkConnected,
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            showDeviceStatus = false,
+                            showConnectionStatus = false,
+                            deviceStatus = null,
+                            connectionStatus = null,
+                            isNetworkConnected = false,
+                        )
+                    }
+                }
+                delay(1_500)
+            }
+        }
+    }
+
+    private suspend fun buildDeviceStatusText(): String? {
+        val provider = deviceInfoProvider ?: return null
+        val status = provider.getDeviceStatus() ?: return null
+        val parts = buildList {
+            status.cpuUsage?.let { add("CPU ${(it * 100).roundToInt()}%") }
+            status.ramUsedPercent?.let { add("RAM ${(it * 100).roundToInt()}%") }
+            if (status.batteryPercent != null) {
+                val charging = if (status.isCharging == true) " (зарядка)" else ""
+                add("Батарея ${status.batteryPercent}%$charging")
+            }
+        }
+        return parts.joinToString(" · ").ifEmpty { null }
+    }
+
+    private suspend fun buildConnectionStatus(): Pair<String?, Boolean> {
+        val provider = networkStatusProvider ?: return null to false
+        val status = provider.getNetworkStatus() ?: return null to false
+        if (!status.isConnected) return "○ Нет подключения" to false
+        val parts = buildList {
+            add("●")
+            status.networkType?.let { add(it) }
+            status.pingMs?.let { add("$it мс") }
+            status.downloadKbps?.let { add("↓ ${formatSpeed(it)}") }
+            status.uploadKbps?.let { add("↑ ${formatSpeed(it)}") }
+        }
+        return parts.joinToString(" · ") to true
+    }
+
+    private fun formatSpeed(kbps: Float): String = if (kbps >= 1024f) {
+        "${formatOneDecimal(kbps / 1024f)} МБ/с"
+    } else {
+        "${kbps.roundToInt()} КБ/с"
+    }
+
+    private fun formatOneDecimal(value: Float): String {
+        val rounded = (value * 10).roundToInt()
+        return "${rounded / 10}.${rounded % 10}"
     }
 
     val state = combine(
@@ -436,20 +544,27 @@ class ChatViewModel(
         val currentFreeMode = dataRepository.getFreeMode()
         val freeIsPrimary = dataRepository.isFreeServicePrimary() || configuredEntries.isEmpty()
 
-        val freeModes = (listOf(currentFreeMode) + FreeMode.entries.filter { it != currentFreeMode }).map { mode ->
-            ServiceEntry(
-                instanceId = mode.instanceId,
-                serviceId = Service.Free.id,
-                serviceName = freeModeNames.getValue(mode),
-                modelId = "",
-                icon = mode.icon,
-            )
+        val freeModes = if (freeIsPrimary) {
+            (listOf(currentFreeMode) + FreeMode.entries.filter { it != currentFreeMode }).map { mode ->
+                ServiceEntry(
+                    instanceId = mode.instanceId,
+                    serviceId = Service.Free.id,
+                    serviceName = freeModeNames.getValue(mode),
+                    modelId = "",
+                    icon = mode.icon,
+                )
+            }
+        } else {
+            // Only show the built-in Free (Kai standard) models while one of them is
+            // actually selected. Once a real configured service is chosen, keep the
+            // model list from being cluttered by the two always-present entries.
+            emptyList()
         }
 
         val entries = if (freeIsPrimary) {
             freeModes + configuredEntries
         } else {
-            configuredEntries + freeModes
+            configuredEntries
         }.toImmutableList()
 
         val primaryService = entries.firstOrNull()?.let { Service.fromId(it.serviceId) }
@@ -530,8 +645,18 @@ class ChatViewModel(
     }
 
     private fun discardSmsDraft(draftId: String) {
-        viewModelScope.launch(backgroundDispatcher) {
+        viewModelScope.launch {
             dataRepository.discardSmsDraft(draftId)
+        }
+    }
+
+    private fun consumeVoiceInputTrigger() {
+        _state.update { it.copy(triggerVoiceInput = false) }
+    }
+
+    private fun cancelScheduledTask(id: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.cancelScheduledTask(id)
         }
     }
 

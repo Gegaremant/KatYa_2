@@ -2,7 +2,6 @@
 
 package com.katya.app.data
 
-
 import com.katya.app.compressImageBytes
 import com.katya.app.currentPlatform
 import com.katya.app.data.providers.buildAnthropicMessages
@@ -171,6 +170,7 @@ class RemoteDataRepository(
     private val mcpServerManager: McpServerManager,
     private val skillManager: SkillManager,
     private val localInferenceEngine: LocalInferenceEngine? = null,
+    private val piperVoiceManager: com.katya.app.tts.PiperVoiceManager? = null,
 ) : DataRepository {
 
     private val prettyJson = Json { prettyPrint = true }
@@ -792,7 +792,7 @@ class RemoteDataRepository(
                     } else {
                         rawBytes
                     }
-                    
+
                     Attachment(
                         data = Base64.encode(processedBytes),
                         mimeType = fileMimeType ?: "text/plain",
@@ -1653,7 +1653,6 @@ Your task is to restore the connection to the main server.
             chatHistory.value = emptyList()
         }
         conversationStorage.deleteConversation(id)
-
     }
 
     override fun regenerate() {
@@ -1764,12 +1763,32 @@ Your task is to restore the connection to the main server.
     // Soul (system prompt)
     override fun getSoulText(): String = appSettings.getSoulText()
     override fun setSoulText(text: String) = appSettings.setSoulText(text)
-    
+
     override fun getSttEngine(): SttEngine = appSettings.getSttEngine()
     override fun setSttEngine(engine: SttEngine) = appSettings.setSttEngine(engine)
-    
+    override val sttEngineFlow: StateFlow<SttEngine> = appSettings.sttEngineFlow
+
     override fun getTtsEngine(): TtsEngine = appSettings.getTtsEngine()
     override fun setTtsEngine(engine: TtsEngine) = appSettings.setTtsEngine(engine)
+    override val ttsEngineFlow: StateFlow<TtsEngine> = appSettings.ttsEngineFlow
+
+    override fun getCloudSttUrl(): String = appSettings.getCloudSttUrl()
+    override fun setCloudSttUrl(url: String) = appSettings.setCloudSttUrl(url)
+    override fun getCloudSttKey(): String = appSettings.getCloudSttKey()
+    override fun setCloudSttKey(key: String) = appSettings.setCloudSttKey(key)
+    override fun getCloudSttModel(): String = appSettings.getCloudSttModel()
+    override fun setCloudSttModel(model: String) = appSettings.setCloudSttModel(model)
+    override fun getCloudTtsUrl(): String = appSettings.getCloudTtsUrl()
+    override fun setCloudTtsUrl(url: String) = appSettings.setCloudTtsUrl(url)
+    override fun getCloudTtsKey(): String = appSettings.getCloudTtsKey()
+    override fun setCloudTtsKey(key: String) = appSettings.setCloudTtsKey(key)
+    override fun getCloudTtsModel(): String = appSettings.getCloudTtsModel()
+    override fun setCloudTtsModel(model: String) = appSettings.setCloudTtsModel(model)
+    override fun getCloudTtsVoice(): String = appSettings.getCloudTtsVoice()
+    override fun setCloudTtsVoice(voice: String) = appSettings.setCloudTtsVoice(voice)
+
+    override fun getDistro(): Distro = appSettings.getDistro()
+    override fun setDistro(distro: Distro) = appSettings.setDistro(distro)
 
     override suspend fun getActiveSystemPrompt(variant: SystemPromptVariant): String? {
         val soul = appSettings.getSoulText().ifEmpty { getString(katya.composeapp.generated.resources.Res.string.default_soul) }
@@ -1888,7 +1907,10 @@ Your task is to restore the connection to the main server.
     override fun setWakeWordSound(enabled: Boolean) = appSettings.setWakeWordSound(enabled)
     override fun isWakeWordSoundEnabled(): Boolean = appSettings.isWakeWordSoundEnabled()
     override fun setVoiceResponseEnabled(enabled: Boolean) = appSettings.setVoiceResponseEnabled(enabled)
-    
+
+    override fun isVoiceRecognitionEnabled(): Boolean = appSettings.isVoiceRecognitionEnabled()
+    override fun setVoiceRecognitionEnabled(enabled: Boolean) = appSettings.setVoiceRecognitionEnabled(enabled)
+
     override fun isWatchIntegrationEnabled(): Boolean = appSettings.isWatchIntegrationEnabled()
     override fun setWatchIntegrationEnabled(enabled: Boolean) = appSettings.setWatchIntegrationEnabled(enabled)
 
@@ -1935,13 +1957,11 @@ Your task is to restore the connection to the main server.
 
     override fun getScheduledTasks(): List<ScheduledTask> = taskStore.getAllTasks()
 
-    override suspend fun addScheduledTask(description: String, prompt: String, scheduledAtEpochMs: Long, cron: String?, trigger: TaskTrigger): ScheduledTask {
-        return taskStore.addTask(description, prompt, scheduledAtEpochMs, cron, trigger)
-    }
+    override val scheduledTasksFlow: StateFlow<List<ScheduledTask>> = taskStore.tasksFlow
 
-    override suspend fun updateScheduledTask(task: ScheduledTask): ScheduledTask {
-        return taskStore.updateTask(task)
-    }
+    override suspend fun addScheduledTask(description: String, prompt: String, scheduledAtEpochMs: Long, cron: String?, trigger: TaskTrigger): ScheduledTask = taskStore.addTask(description, prompt, scheduledAtEpochMs, cron, trigger)
+
+    override suspend fun updateScheduledTask(task: ScheduledTask): ScheduledTask = taskStore.updateTask(task)
 
     override suspend fun cancelScheduledTask(id: String) {
         taskStore.removeTask(id)
@@ -2291,6 +2311,17 @@ Your task is to restore the connection to the main server.
         _openAssistRequested.value = false
     }
 
+    private val _sharedTextRequested = MutableStateFlow<String?>(null)
+    override val sharedTextRequested: StateFlow<String?> = _sharedTextRequested
+
+    override fun requestSharedText(text: String) {
+        _sharedTextRequested.value = text
+    }
+
+    override fun consumeSharedTextRequest() {
+        _sharedTextRequested.value = null
+    }
+
     override suspend fun addAssistantMessage(content: String) {
         val now = Clock.System.now().toEpochMilliseconds()
 
@@ -2351,11 +2382,11 @@ Your task is to restore the connection to the main server.
 
     override fun getLocalEngineState(): StateFlow<EngineState>? = localInferenceEngine?.engineState
 
-    override fun getLocalDownloadingModelId(): StateFlow<String?>? = localInferenceEngine?.downloadingModelId
+    override fun getLocalDownloadingModelIds(): StateFlow<Set<String>>? = localInferenceEngine?.downloadingModelIds
 
-    override fun getLocalDownloadProgress(): StateFlow<Float?>? = localInferenceEngine?.downloadProgress
+    override fun getLocalDownloadProgresses(): StateFlow<Map<String, Float>>? = localInferenceEngine?.downloadProgresses
 
-    override fun getLocalDownloadError(): StateFlow<DownloadError?>? = localInferenceEngine?.downloadError
+    override fun getLocalDownloadErrors(): StateFlow<Map<String, DownloadError>>? = localInferenceEngine?.downloadErrors
 
     override fun getLocalDownloadedModels(): List<DownloadedModel> = localInferenceEngine?.getDownloadedModels() ?: emptyList()
 
@@ -2379,11 +2410,54 @@ Your task is to restore the connection to the main server.
         localInferenceEngine?.startDownload(model)
     }
 
-    override fun cancelLocalModelDownload() {
-        localInferenceEngine?.cancelDownload()
+    override fun cancelLocalModelDownload(modelId: String) {
+        localInferenceEngine?.cancelDownload(modelId)
+    }
+
+    override suspend fun importLocalModel(model: LocalModel, fileBytes: ByteArray) {
+        localInferenceEngine?.importModel(model, fileBytes)
     }
 
     override suspend fun deleteLocalModel(modelId: String) {
         localInferenceEngine?.deleteModel(modelId)
     }
+
+    override suspend fun saveLocalModelToDevice(modelId: String): Boolean {
+        val model = localInferenceEngine?.getDownloadedModels()?.firstOrNull { it.id == modelId }
+            ?: return false
+        val extension = model.filePath.substringAfterLast('.', "bin")
+        return com.katya.app.saveLargeFileToDevice(
+            srcFilePath = model.filePath,
+            baseName = model.displayName.replace(" ", "_"),
+            extension = extension,
+        )
+    }
+
+    override fun getPiperInstalledVoices(): List<com.katya.app.tts.PiperVoiceInfo> = piperVoiceManager?.getInstalledVoices() ?: emptyList()
+
+    override fun getPiperSelectedVoice(): String? = piperVoiceManager?.getSelectedVoice()
+
+    override fun setPiperSelectedVoice(baseName: String) {
+        piperVoiceManager?.setSelectedVoice(baseName)
+    }
+
+    override fun getPiperDownloadingBaseName(): StateFlow<String?>? = piperVoiceManager?.downloadingBaseName
+
+    override fun getPiperDownloadProgress(): StateFlow<Float?>? = piperVoiceManager?.downloadProgress
+
+    override fun getPiperDownloadError(): StateFlow<String?>? = piperVoiceManager?.downloadError
+
+    override fun startPiperVoiceDownload(modelUrl: String) {
+        piperVoiceManager?.startDownload(modelUrl)
+    }
+
+    override suspend fun importPiperVoice(fileName: String, fileBytes: ByteArray) {
+        piperVoiceManager?.importVoice(fileName, fileBytes)
+    }
+
+    override suspend fun deletePiperVoice(baseName: String) {
+        piperVoiceManager?.deleteVoice(baseName)
+    }
+
+    override suspend fun exportPiperVoice(baseName: String): Boolean = piperVoiceManager?.exportVoice(baseName) ?: false
 }

@@ -17,8 +17,8 @@ class SshTool : Tool {
             "port" to ParameterSchema("integer", "Порт SSH (обычно 22)", true),
             "user" to ParameterSchema("string", "Имя пользователя", true),
             "password" to ParameterSchema("string", "Пароль", true),
-            "command" to ParameterSchema("string", "Команда для выполнения", true)
-        )
+            "command" to ParameterSchema("string", "Команда для выполнения", true),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
@@ -36,7 +36,7 @@ class SshTool : Tool {
             val output = sshClient.executeCommand(host, port, user, password, command)
             mapOf(
                 "success" to !output.startsWith("SSH Error:"),
-                "output" to output
+                "output" to output,
             )
         }
     }

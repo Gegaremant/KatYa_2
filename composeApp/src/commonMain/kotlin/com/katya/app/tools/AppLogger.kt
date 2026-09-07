@@ -9,6 +9,14 @@ object AppLogger {
     private val _logs = MutableStateFlow<List<String>>(emptyList())
     val logs: StateFlow<List<String>> = _logs
     var isEnabled = true
+    var logFilePath: String? = null
+        private set
+
+    fun setLogFilePath(path: String?) {
+        logFilePath = path
+        // If path is set, we can initialize file writing
+    }
+
     fun d(tag: String, message: String) {
         if (!isEnabled) return
         val logEntry = "[${Clock.System.now().toEpochMilliseconds()}] D/$tag: $message"
@@ -41,6 +49,16 @@ object AppLogger {
         val truncatedEntry = if (entry.length > 2000) entry.take(2000) + "... [TRUNCATED]" else entry
         _logs.update { current ->
             (current + truncatedEntry).takeLast(1000) // Keep last 1000 lines
+        }
+        // Write to file if path is set
+        logFilePath?.let { path ->
+            try {
+                val file = java.io.File(path)
+                file.parentFile?.mkdirs()
+                file.appendText(entry + "\n")
+            } catch (e: Exception) {
+                // Silent fail to avoid log recursion
+            }
         }
     }
 }

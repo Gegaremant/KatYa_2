@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -35,45 +36,105 @@ fun VoiceOverlay(
     partialResults: String,
     mode: VoiceUiMode,
     onCancel: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    if (mode == VoiceUiMode.BOTTOM_SHEET) {
-        if (isListening) {
-            ModalBottomSheet(
-                onDismissRequest = onCancel,
-                dragHandle = { BottomSheetDefaults.DragHandle() },
-                containerColor = MaterialTheme.colorScheme.surface,
-            ) {
-                VoiceContent(
-                    partialResults = partialResults,
-                    onCancel = onCancel,
-                    isFullScreen = false,
-                    modifier = Modifier.padding(bottom = 32.dp)
-                )
-            }
+    // New bottom bar style for voice input
+    if (isListening) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = isListening,
+            enter = androidx.compose.animation.slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(300),
+            ),
+            exit = androidx.compose.animation.slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(300),
+            ),
+        ) {
+            ListeningBar(
+                partialResults = partialResults,
+                onCancel = onCancel,
+                modifier = modifier,
+            )
         }
-    } else {
-        if (isListening) {
-            androidx.compose.ui.window.Dialog(
-                onDismissRequest = onCancel,
-                properties = androidx.compose.ui.window.DialogProperties(
-                    usePlatformDefaultWidth = false,
-                    decorFitsSystemWindows = false
-                )
+    }
+}
+
+@Composable
+private fun ListeningBar(
+    partialResults: String,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "voicePulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "pulseAnimation",
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(
+                width = 2.dp,
+                brush = com.katya.app.ui.gradientBrush,
+                shape = RoundedCornerShape(28.dp),
+            ),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
-                        .clickable(enabled = false) {}, // Intercept clicks
-                    contentAlignment = Alignment.Center
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .scale(scale)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    VoiceContent(
-                        partialResults = partialResults,
-                        onCancel = onCancel,
-                        isFullScreen = true
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Listening",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
                     )
                 }
+                Text(
+                    text = if (partialResults.isNotBlank()) partialResults else "Внимаю...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(
+                onClick = onCancel,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Cancel",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
@@ -84,89 +145,11 @@ private fun VoiceContent(
     partialResults: String,
     onCancel: () -> Unit,
     isFullScreen: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "voicePulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAnimation"
-    )
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        if (isFullScreen) {
-            Spacer(modifier = Modifier.weight(1f))
-        }
-
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Listening",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = "Слушаю...",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = partialResults.ifBlank { "..." },
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(0.8f)
-        )
-
-        if (isFullScreen) {
-            Spacer(modifier = Modifier.weight(1f))
-        } else {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        IconButton(
-            onClick = onCancel,
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.errorContainer, CircleShape)
-                .padding(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Cancel",
-                tint = MaterialTheme.colorScheme.onErrorContainer
-            )
-        }
+    // Keep old full-screen content for backward compatibility if needed
+    // This is now unused but kept to avoid breaking existing references
+    Box(modifier = Modifier.fillMaxSize()) {
+        Text("Legacy VoiceOverlay content")
     }
 }

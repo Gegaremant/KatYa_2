@@ -1,8 +1,8 @@
 package com.katya.app.sandbox
 
 import android.util.Log
-import com.katya.app.data.DataRepository
 import com.katya.app.data.AppSettings
+import com.katya.app.data.DataRepository
 import com.katya.app.tools.AppLogger
 import com.katya.app.tools.VlessParser
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +31,7 @@ class VlessProxyManager(
         if (!dataRepository.isVlessEnabled()) return
         val uri = dataRepository.getVlessUri()
         if (uri.isBlank()) return
+        AppLogger.d("VlessProxyManager", "VLESS URI (truncated): ${uri.take(100)}")
 
         proxyJob = scope.launch {
             try {
@@ -66,7 +67,7 @@ class VlessProxyManager(
                     finalUri = "http://$uri"
                     AppLogger.d("VlessProxyManager", "Prepended http:// to URI: $finalUri")
                 }
-                
+
                 if (finalUri.startsWith("http://") || finalUri.startsWith("https://")) {
                     finalUri = kotlinx.coroutines.withContext(Dispatchers.IO) {
                         try {
@@ -76,14 +77,14 @@ class VlessProxyManager(
                             connection.readTimeout = 10000 // 10 seconds
                             val response = connection.inputStream.bufferedReader().use { it.readText() }
                             AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100)}")
-                            
+
                             var decoded = response
                             try {
                                 if (!response.contains("://")) {
                                     decoded = String(android.util.Base64.decode(response.trim(), android.util.Base64.DEFAULT))
                                 }
                             } catch (e: Exception) {}
-                            
+
                             val foundVless = decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim()
                             if (foundVless == null) {
                                 AppLogger.e("VlessProxyManager", "Could not find vless:// link in subscription response")
@@ -95,15 +96,26 @@ class VlessProxyManager(
                         }
                     }
                 }
-                
+                AppLogger.d("VlessProxyManager", "Final URI after processing: ${finalUri.take(100)}")
+
                 // Generate config.json
                 appSettings.setSystemStatus("Настраиваю туннель VLESS...")
                 val configJson = VlessParser.generateXrayConfig(finalUri)
+                AppLogger.d("VlessProxyManager", "Generated config JSON length: ${configJson.length}")
                 val configFilePath = File(linuxSandboxManager.homePath, "xray_config.json")
                 configFilePath.writeText(configJson)
+                AppLogger.d("VlessProxyManager", "Config written to: ${configFilePath.absolutePath}")
 
                 val configPathInSandbox = "/root/xray_config.json"
-                val xrayBinary = "/data/data/com.termux/files/usr/bin/xray"
+                val distro = try {
+                    appSettings.getDistro()
+                } catch (_: Exception) {
+                    com.katya.app.data.Distro.DEBIAN
+                }
+                val xrayBinary = when (distro) {
+                    com.katya.app.data.Distro.TERMUX -> "/data/data/com.termux/files/usr/bin/xray"
+                    com.katya.app.data.Distro.DEBIAN -> "/bin/xray"
+                }
 
                 launchConnectionLoop()
 
@@ -124,21 +136,24 @@ class VlessProxyManager(
                     val tmp = linuxSandboxManager.tmpPath
 
                     val command = "$prootPath -0 --rootfs=$rootfs --bind=/dev --bind=/proc --bind=/sys --bind=$home:/root --bind=$tmp:/tmp -w /root /bin/sh -c '$xrayBinary -c $configPathInSandbox'"
+                    AppLogger.d("VlessProxyManager", "Root command: $command")
 
                     rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
                     rootProcess?.waitFor()
                 } else {
                     AppLogger.d("VlessProxyManager", "Starting xray with proot (non-root)")
                     val executor = linuxSandboxManager.createProotExecutor()
+                    val cmd = "$xrayBinary -c $configPathInSandbox"
+                    AppLogger.d("VlessProxyManager", "Non-root command: $cmd")
                     prootHandle = executor.executeStreaming(
-                        command = "$xrayBinary -c $configPathInSandbox",
+                        command = cmd,
                         onStdout = { AppLogger.d("XrayOut", it) },
                         onStderr = { AppLogger.e("XrayErr", it) },
                     )
                     prootHandle?.awaitExit()
                 }
             } catch (e: Exception) {
-                AppLogger.e("VlessProxyManager", "Error starting VLESS proxy: ${e.message}")
+                AppLogger.e("VlessProxyManager", "Error starting VLESS proxy: ${e.message}\n${e.stackTraceToString()}")
             } finally {
                 appSettings.setSystemStatus(null)
                 appSettings.setVlessConnected(false)
@@ -186,8 +201,10 @@ class VlessProxyManager(
         try {
             val isRooted = try {
                 Runtime.getRuntime().exec(arrayOf("su", "-c", "id")).waitFor() == 0
-            } catch (e: Exception) { false }
-            
+            } catch (e: Exception) {
+                false
+            }
+
             if (isRooted) {
                 AppLogger.d("VlessProxyManager", "Toggling Airplane mode...")
                 Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1; am broadcast -a android.intent.action.AIRPLANE_MODE")).waitFor()
@@ -204,21 +221,21 @@ class VlessProxyManager(
         }
     }
 
-    private fun checkConnection(): Boolean {
-        return try {
-            val uri = dataRepository.getVlessUri()
-            val proxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri) 
-                ?: java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809))
-                
-            val connection = java.net.URL("https://www.google.com").openConnection(proxy) as java.net.HttpURLConnection
-            connection.connectTimeout = 3000
-            connection.readTimeout = 3000
-            connection.connect()
-            val code = connection.responseCode
-            connection.disconnect()
-            code in 200..399
-        } catch (e: Exception) {
-            false
-        }
+    private fun checkConnection(): Boolean = try {
+        val uri = dataRepository.getVlessUri()
+        val proxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri)
+            ?: java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 10809))
+
+        val connection = java.net.URL("https://1.1.1.1").openConnection(proxy) as java.net.HttpURLConnection
+        connection.connectTimeout = 3000
+        connection.readTimeout = 3000
+        connection.connect()
+        val code = connection.responseCode
+        connection.disconnect()
+        AppLogger.d("VlessProxyManager", "Connection check response code: $code")
+        code in 200..399
+    } catch (e: Exception) {
+        AppLogger.e("VlessProxyManager", "Connection check failed: ${e.message}\n${e.stackTraceToString()}")
+        false
     }
 }

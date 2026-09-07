@@ -63,9 +63,19 @@ class FreeDeepSeekManager(
 
                 _state.value = DeepSeekProxyState.Installing
                 val executor = linuxSandboxManager.createProotExecutor()
-                
+
                 // Ensure Node.js and Git are installed
-                executor.execute("apk add nodejs npm git")
+                val distro = try {
+                    org.koin.core.context.GlobalContext.get().get<com.katya.app.data.AppSettings>()
+                        .getDistro()
+                } catch (_: Exception) {
+                    com.katya.app.data.Distro.DEBIAN
+                }
+                val installCmd = when (distro) {
+                    com.katya.app.data.Distro.DEBIAN -> "apt-get install -y --no-install-recommends nodejs npm git"
+                    com.katya.app.data.Distro.TERMUX -> "apk add nodejs npm git"
+                }
+                executor.execute(installCmd)
 
                 val repoPath = "/root/FreeDeepSeekAPI"
                 val checkRepo = executor.execute("test -d $repoPath")
@@ -83,7 +93,7 @@ class FreeDeepSeekManager(
 
                 // Retrieve the DeepSeek session token (if any) to pre-populate auth file
                 val sessionToken = dataRepository.getInstanceApiKey(instance.instanceId)
-                
+
                 // Write deepseek-auth.json via Android File API:
                 // homePath is bind-mounted as /root inside proot, so:
                 // <homePath>/FreeDeepSeekAPI/deepseek-auth.json == /root/FreeDeepSeekAPI/deepseek-auth.json inside proot
@@ -96,7 +106,7 @@ class FreeDeepSeekManager(
                 } else {
                     AppLogger.d("FreeDeepSeekManager", "No valid session token, starting server without auth (user must authorize via DeepSeek button)")
                 }
-                
+
                 // Verify the file is visible inside proot
                 val verifyResult = executor.execute("cat $repoPath/deepseek-auth.json")
                 val verifyExit = verifyResult["exit_code"]
@@ -105,12 +115,14 @@ class FreeDeepSeekManager(
 
                 val proxyEnv = if (dataRepository.isVlessEnabled()) {
                     "HTTP_PROXY=http://127.0.0.1:10809 HTTPS_PROXY=http://127.0.0.1:10809 http_proxy=http://127.0.0.1:10809 https_proxy=http://127.0.0.1:10809 ALL_PROXY=socks5://127.0.0.1:10808 all_proxy=socks5://127.0.0.1:10808 "
-                } else ""
+                } else {
+                    ""
+                }
 
                 prootHandle = executor.executeStreaming(
                     // Pass '4' to select "Запустить прокси" from the menu; use PORT/HOST env vars
                     command = "cd $repoPath && echo '4' | ${proxyEnv}PORT=11434 HOST=127.0.0.1 npm start",
-                    onStdout = { 
+                    onStdout = {
                         AppLogger.d("DeepSeekOut", it)
                         if (it.contains("running on") || it.contains("listening") || it.contains("started")) {
                             _state.value = DeepSeekProxyState.Running
@@ -135,5 +147,26 @@ class FreeDeepSeekManager(
         prootHandle?.cancel()
         prootHandle = null
         _state.value = DeepSeekProxyState.Stopped
+    }
+
+    suspend fun runDoctor(): String = kotlinx.coroutines.withContext(Dispatchers.IO) {
+        try {
+            val executor = linuxSandboxManager.createProotExecutor()
+            val repoPath = "/root/FreeDeepSeekAPI"
+            val proxyEnv = if (dataRepository.isVlessEnabled()) {
+                "HTTP_PROXY=http://127.0.0.1:10809 HTTPS_PROXY=http://127.0.0.1:10809 http_proxy=http://127.0.0.1:10809 https_proxy=http://127.0.0.1:10809 ALL_PROXY=socks5://127.0.0.1:10808 all_proxy=socks5://127.0.0.1:10808 "
+            } else {
+                ""
+            }
+            AppLogger.d("FreeDeepSeekManager", "Running npm run doctor...")
+            val result = executor.execute("cd $repoPath && ${proxyEnv}npm run doctor")
+            val out = result["stdout"]?.toString() ?: ""
+            val err = result["stderr"]?.toString() ?: ""
+            AppLogger.d("FreeDeepSeekManager", "Doctor completed. Code: ${result["exit_code"]}")
+            if (out.isNotBlank()) out else err
+        } catch (e: Exception) {
+            AppLogger.e("FreeDeepSeekManager", "Doctor failed: ${e.message}")
+            "Error: ${e.message}"
+        }
     }
 }

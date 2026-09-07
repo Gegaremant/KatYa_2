@@ -62,7 +62,7 @@ actual class SshClient actual constructor() {
         user: String,
         pass: String,
         localPath: String,
-        remotePath: String
+        remotePath: String,
     ): String {
         var session: Session? = null
         var channel: com.jcraft.jsch.ChannelSftp? = null
@@ -93,7 +93,7 @@ actual class SshClient actual constructor() {
         user: String,
         pass: String,
         remotePath: String,
-        localPath: String
+        localPath: String,
     ): String {
         var session: Session? = null
         var channel: com.jcraft.jsch.ChannelSftp? = null

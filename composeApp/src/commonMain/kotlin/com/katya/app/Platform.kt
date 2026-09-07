@@ -11,6 +11,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
 import kotlin.coroutines.CoroutineContext
 
+/** Package name of the standalone RHVoice TTS engine app (F-Droid / GitHub releases). */
+const val RHVOICE_PACKAGE = "com.github.olga_yakovleva.rhvoice.android"
+
 expect fun httpClient(config: HttpClientConfig<*>.() -> Unit = {}): HttpClient
 
 expect fun createSecureSettings(): Settings
@@ -78,6 +81,12 @@ expect fun openUrl(url: String): Boolean
 
 expect fun openTtsSettings()
 
+/**
+ * Returns true when the app identified by [packageName] is installed on this device.
+ * Used to warn the user when a voice/STT engine (e.g. RHVoice) is selected but not installed.
+ */
+expect fun isAppInstalled(packageName: String): Boolean
+
 expect fun openAssistantSettings()
 
 expect fun openAccessibilitySettings()
@@ -88,6 +97,13 @@ expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)
 expect fun decodeToImageBitmap(bytes: ByteArray): ImageBitmap?
 
 expect suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String): Boolean
+
+/**
+ * Streams a (potentially large) local file to a user-chosen destination via the
+ * system "save as" dialog. Unlike [saveFileToDevice] it avoids loading the whole
+ * content into memory, so it's suitable for multi-GB local AI models.
+ */
+expect suspend fun saveLargeFileToDevice(srcFilePath: String, baseName: String, extension: String): Boolean
 
 expect fun showToast(message: String)
 
@@ -112,3 +128,9 @@ expect suspend fun extractBackupZip(zipBytes: ByteArray): String?
 expect fun createLocalNote(title: String, content: String): String
 
 expect fun getDirectoryPath(directory: Any?): String?
+
+expect suspend fun writeSkillFile(skillId: String, fileName: String, content: String): Boolean
+
+expect suspend fun deleteSkillDir(skillId: String): Boolean
+
+expect suspend fun readSandboxSkillFiles(): Map<String, String>

@@ -74,6 +74,14 @@ actual fun rememberImageCaptureLauncher(onResult: (ByteArray?) -> Unit): ImageCa
     return remember {
         ImageCaptureLauncher {
             try {
+                // Check if device has a camera
+                val hasCamera = context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+                if (!hasCamera) {
+                    android.util.Log.e("ImageCapture", "No camera available on this device")
+                    onResult(null)
+                    return@ImageCaptureLauncher
+                }
+
                 val file = File(context.cacheDir, "camera_capture_${UUID.randomUUID()}.jpg")
                 tempFile = file
                 val uri = FileProvider.getUriForFile(
@@ -89,12 +97,24 @@ actual fun rememberImageCaptureLauncher(onResult: (ByteArray?) -> Unit): ImageCa
                 ) == PackageManager.PERMISSION_GRANTED
 
                 if (hasCameraPermission) {
-                    takePictureLauncher.launch(uri)
+                    try {
+                        takePictureLauncher.launch(uri)
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImageCapture", "Error launching camera", e)
+                        tempFile?.delete()
+                        onResult(null)
+                    }
                 } else {
-                    requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    try {
+                        requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    } catch (e: Exception) {
+                        android.util.Log.e("ImageCapture", "Error requesting camera permission", e)
+                        tempFile?.delete()
+                        onResult(null)
+                    }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                android.util.Log.e("ImageCapture", "Unexpected error", e)
                 tempFile?.delete()
                 onResult(null)
             }

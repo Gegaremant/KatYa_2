@@ -29,12 +29,10 @@ interface ConversationPersistence {
 /** Returns null on platforms without a bundled SQLite (wasm). */
 expect fun createConversationSqlDriver(): SqlDriver?
 
-fun createConversationPersistence(database: KatyaDatabase?, appSettings: AppSettings): ConversationPersistence {
-    return if (database != null) {
-        SqlConversationPersistence(database, appSettings)
-    } else {
-        SettingsConversationPersistence(appSettings)
-    }
+fun createConversationPersistence(database: KatyaDatabase?, appSettings: AppSettings): ConversationPersistence = if (database != null) {
+    SqlConversationPersistence(database, appSettings)
+} else {
+    SettingsConversationPersistence(appSettings)
 }
 
 class SqlConversationPersistence(

@@ -24,10 +24,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -47,12 +50,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
@@ -75,12 +80,17 @@ import com.katya.app.inference.estimateGpuMemoryMb
 import com.katya.app.network.dtos.SponsorsResponseDto
 import com.katya.app.ui.KaiClearableTextField
 import com.katya.app.ui.components.KatyaSlider
+import com.katya.app.ui.components.ResourceImage
 import com.katya.app.ui.components.VerticalScrollbarForScroll
 import com.katya.app.ui.handCursor
 import com.katya.app.ui.icons.DragIndicator
 import com.katya.app.ui.katyaAdaptiveCardBorder
 import com.katya.app.ui.katyaAdaptiveCardColors
 import com.katya.app.ui.katyaAdaptiveCardSurface
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.readBytes
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.ic_arrow_drop_down
 import katya.composeapp.generated.resources.litert_cancel
@@ -125,9 +135,12 @@ import katya.composeapp.generated.resources.settings_status_error_quota_exhauste
 import katya.composeapp.generated.resources.settings_status_error_rate_limited
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
+import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import sh.calvin.reorderable.ReorderableColumn
@@ -240,6 +253,7 @@ private fun SponsorList(
 @Composable
 internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions) {
     var showAddServiceSheet by remember { mutableStateOf(false) }
+    var serviceFilter by remember { mutableStateOf<ServiceFilter?>(null) }
 
     // Configured services list
     val entries = uiState.configuredServices
@@ -267,12 +281,14 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                     localAvailableModels = uiState.localAvailableModels,
                     totalDeviceMemoryBytes = uiState.totalDeviceMemoryBytes,
                     localFreeSpaceBytes = uiState.localFreeSpaceBytes,
-                    localDownloadingModelId = uiState.localDownloadingModelId,
-                    localDownloadProgress = uiState.localDownloadProgress,
-                    localDownloadError = uiState.localDownloadError,
+                    localDownloadingModelIds = uiState.localDownloadingModelIds,
+                    localDownloadProgresses = uiState.localDownloadProgresses,
+                    localDownloadErrors = uiState.localDownloadErrors,
                     onDownloadLocalModel = actions.onDownloadLocalModel,
                     onCancelLocalModelDownload = actions.onCancelLocalModelDownload,
+                    onImportLocalModel = actions.onImportLocalModel,
                     onDeleteLocalModel = actions.onDeleteLocalModel,
+                    onSaveLocalModelToDevice = actions.onSaveLocalModelToDevice,
                     onChangeModelContextTokens = actions.onChangeModelContextTokens,
                     modelContextTokens = uiState.modelContextTokens,
                     onOpenAppPermissionSettings = actions.onOpenAppPermissionSettings,
@@ -291,31 +307,81 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
 
     if (uiState.availableServicesToAdd.isNotEmpty()) {
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = { showAddServiceSheet = true }, modifier = Modifier.handCursor()) {
-            Text(stringResource(Res.string.settings_add_service))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // Кнопка "Добавить бесплатный" с выпадающим меню
+            var showFreeDropdown by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.weight(1f)) {
+                OutlinedButton(
+                    onClick = { showFreeDropdown = true },
+                    modifier = Modifier.fillMaxWidth().handCursor(),
+                ) {
+                    Text("+ Бесплатный")
+                }
+                DropdownMenu(
+                    expanded = showFreeDropdown,
+                    onDismissRequest = { showFreeDropdown = false },
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surface),
+                ) {
+                    val allServices = uiState.availableServicesToAdd
+                    val localModelService = allServices.find { it is Service.LiteRT }
+                    val freeDeepSeekProxy = allServices.find { it is Service.FreeDeepSeekProxy }
+                    val legacyAiService = allServices.find { it is Service.LegacyFree }
+                    val selfHostedService = allServices.find { it is Service.OpenAICompatible }
+
+                    listOf(
+                        "Local model" to localModelService,
+                        "Free deepseek proxy" to freeDeepSeekProxy,
+                        "Legacy brain" to legacyAiService,
+                        "Self hosted" to selfHostedService,
+                    ).forEach { (label, service) ->
+                        if (service != null) {
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    actions.onAddService(service)
+                                    showFreeDropdown = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            // Кнопка "Добавить по API"
+            OutlinedButton(
+                onClick = {
+                    serviceFilter = ServiceFilter.PAID
+                    showAddServiceSheet = true
+                },
+                modifier = Modifier.weight(1f).handCursor(),
+            ) {
+                Text("+ Внешний API")
+            }
         }
     }
 
-    // Free tier card (always at bottom)
-    Spacer(Modifier.height(16.dp))
-    FreeSettings(
-        showFallbackToggle = entries.isNotEmpty(),
-        isFreeFallbackEnabled = uiState.isFreeFallbackEnabled,
-        onToggleFreeFallback = actions.onToggleFreeFallback,
-        currentSponsors = uiState.currentSponsors,
-        pastSponsors = uiState.pastSponsors,
-    )
-
-    // Add service bottom sheet
+    // Add service bottom sheet — теперь только для "Добавить по API" (платные сервисы)
     if (showAddServiceSheet) {
         ModalBottomSheet(
-            onDismissRequest = { showAddServiceSheet = false },
+            onDismissRequest = {
+                showAddServiceSheet = false
+                serviceFilter = null
+            },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         ) {
             val addServiceScrollState = rememberScrollState()
             Box {
                 Column(modifier = Modifier.verticalScroll(addServiceScrollState).padding(16.dp)) {
-                    val services = uiState.availableServicesToAdd
+                    val allServices = uiState.availableServicesToAdd
+                    // Только платные сервисы (не isOnDevice, не FreeDeepSeekProxy, с apiKeyUrl)
+                    val filteredServices = allServices.filter { service ->
+                        !service.isOnDevice &&
+                            service !is Service.FreeDeepSeekProxy &&
+                            service.apiKeyUrl != null
+                    }
+                    val services = filteredServices.toImmutableList()
                     services.forEachIndexed { index, service ->
                         val isFirst = index == 0
                         val isLast = index == services.lastIndex
@@ -330,6 +396,7 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                             onClick = {
                                 actions.onAddService(service)
                                 showAddServiceSheet = false
+                                serviceFilter = null
                             },
                             modifier = Modifier.fillMaxWidth().handCursor(),
                             shape = itemShape,
@@ -389,9 +456,14 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                 }
                 actions.onShowDeepSeekAuthDialog(false)
             },
-            onDismiss = { actions.onShowDeepSeekAuthDialog(false) }
+            onDismiss = { actions.onShowDeepSeekAuthDialog(false) },
         )
     }
+}
+
+private enum class ServiceFilter {
+    PAID,
+    FREE,
 }
 
 @Composable
@@ -408,12 +480,14 @@ private fun ConfiguredServiceCardContent(
     localAvailableModels: ImmutableList<LocalModel> = persistentListOf(),
     totalDeviceMemoryBytes: Long = Long.MAX_VALUE,
     localFreeSpaceBytes: Long = 0L,
-    localDownloadingModelId: String? = null,
-    localDownloadProgress: Float? = null,
-    localDownloadError: DownloadError? = null,
+    localDownloadingModelIds: ImmutableSet<String> = persistentSetOf(),
+    localDownloadProgresses: ImmutableMap<String, Float> = persistentMapOf(),
+    localDownloadErrors: ImmutableMap<String, DownloadError> = persistentMapOf(),
     onDownloadLocalModel: (LocalModel) -> Unit = {},
-    onCancelLocalModelDownload: () -> Unit = {},
+    onCancelLocalModelDownload: (String) -> Unit = {},
+    onImportLocalModel: (LocalModel, ByteArray) -> Unit = { _, _ -> },
     onDeleteLocalModel: (String) -> Unit = {},
+    onSaveLocalModelToDevice: (String) -> Unit = {},
     onChangeModelContextTokens: (String, Int) -> Unit = { _, _ -> },
     modelContextTokens: ImmutableMap<String, Int> = persistentMapOf(),
     onOpenAppPermissionSettings: () -> Unit = {},
@@ -511,13 +585,15 @@ private fun ConfiguredServiceCardContent(
                         availableModels = localAvailableModels,
                         totalDeviceMemoryBytes = totalDeviceMemoryBytes,
                         freeSpaceBytes = localFreeSpaceBytes,
-                        downloadingModelId = localDownloadingModelId,
-                        downloadProgress = localDownloadProgress,
-                        downloadError = localDownloadError,
+                        downloadingModelIds = localDownloadingModelIds,
+                        downloadProgresses = localDownloadProgresses,
+                        downloadErrors = localDownloadErrors,
                         onSelectModel = onSelectModel,
                         onDownloadModel = onDownloadLocalModel,
                         onCancelDownload = onCancelLocalModelDownload,
+                        onImportModel = onImportLocalModel,
                         onDeleteModel = onDeleteLocalModel,
+                        onSaveLocalModelToDevice = onSaveLocalModelToDevice,
                         onChangeModelContextTokens = onChangeModelContextTokens,
                         modelContextTokens = modelContextTokens,
                         hfRepoUrl = hfRepoUrl,
@@ -551,12 +627,12 @@ private fun ConfiguredServiceCardContent(
                         connectionStatus = entry.connectionStatus,
                         onOpenAppPermissionSettings = onOpenAppPermissionSettings,
                     )
-                    
+
                     if (entry.service is Service.FreeDeepSeekProxy) {
                         Spacer(Modifier.height(8.dp))
                         OutlinedButton(
                             onClick = { onShowDeepSeekAuthDialog(true) },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text("Авторизация в DeepSeek")
                         }
@@ -707,13 +783,15 @@ private fun LiteRTSettings(
     availableModels: ImmutableList<LocalModel>,
     totalDeviceMemoryBytes: Long,
     freeSpaceBytes: Long,
-    downloadingModelId: String?,
-    downloadProgress: Float?,
-    downloadError: DownloadError?,
+    downloadingModelIds: ImmutableSet<String>,
+    downloadProgresses: ImmutableMap<String, Float>,
+    downloadErrors: ImmutableMap<String, DownloadError>,
     onSelectModel: (String) -> Unit,
     onDownloadModel: (LocalModel) -> Unit,
-    onCancelDownload: () -> Unit,
+    onCancelDownload: (String) -> Unit,
+    onImportModel: (LocalModel, ByteArray) -> Unit,
     onDeleteModel: (String) -> Unit,
+    onSaveLocalModelToDevice: (String) -> Unit = {},
     onChangeModelContextTokens: (String, Int) -> Unit,
     modelContextTokens: ImmutableMap<String, Int>,
     hfRepoUrl: String = "",
@@ -724,6 +802,57 @@ private fun LiteRTSettings(
     hfModels: ImmutableList<LocalModel> = persistentListOf(),
 ) {
     val downloadedIds = remember(downloadedModels) { downloadedModels.map { it.id }.toSet() }
+    val scope = rememberCoroutineScope()
+    val uriHandler = LocalUriHandler.current
+    var selectedModelForImport by remember { mutableStateOf<LocalModel?>(null) }
+    val filePicker = rememberFilePickerLauncher(
+        type = FileKitType.File(listOf("tflite", "bin", "gguf", "litertlm")),
+    ) { file ->
+        val modelToImport = selectedModelForImport
+        if (file != null && modelToImport != null) {
+            scope.launch {
+                try {
+                    val bytes = file.readBytes()
+                    onImportModel(modelToImport, bytes)
+                } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
+                    com.katya.app.tools.AppLogger.e("ModelImport", "Failed reading import file: $t\n${t.stackTraceToString()}")
+                    com.katya.app.showToast("Не удалось импортировать файл: ${t.message ?: t::class.simpleName}")
+                }
+            }
+        }
+        selectedModelForImport = null
+    }
+    // Standalone picker used by the "Выбрать" action in the HuggingFace block:
+    // imports any local model file as a fresh catalog entry without waiting for a
+    // repository search first.
+    val importAnyFilePicker = rememberFilePickerLauncher(
+        type = FileKitType.File(listOf("tflite", "bin", "gguf", "litertlm")),
+    ) { file ->
+        if (file != null) {
+            scope.launch {
+                try {
+                    val bytes = file.readBytes()
+                    val model = LocalModel(
+                        id = file.name.removeSuffix(".tflite").removeSuffix(".bin").removeSuffix(".gguf").removeSuffix(".litertlm"),
+                        displayName = file.name,
+                        fileName = file.name,
+                        sizeBytes = bytes.size.toLong(),
+                        downloadUrl = "",
+                        gpuMemoryMb = 0,
+                        defaultContextTokens = 4096,
+                        maxContextTokens = 8192,
+                        kvPerTokenBytes = 65000,
+                    )
+                    onImportModel(model, bytes)
+                } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
+                    com.katya.app.tools.AppLogger.e("ModelImport", "Failed reading import file: $t\n${t.stackTraceToString()}")
+                    com.katya.app.showToast("Не удалось импортировать файл: ${t.message ?: t::class.simpleName}")
+                }
+            }
+        }
+    }
 
     Text(
         text = stringResource(Res.string.litert_on_device_description),
@@ -744,9 +873,11 @@ private fun LiteRTSettings(
     availableModels.forEach { model ->
         val isDownloaded = model.id in downloadedIds
         val isSelected = selectedModel?.id == model.id
-        val isDownloading = downloadingModelId == model.id
+        val isDownloading = downloadingModelIds.contains(model.id)
+        val progress = downloadProgresses[model.id]
+        val error = downloadErrors[model.id]
         val steps = (model.maxContextTokens - model.defaultContextTokens) / 1024
-        val storedContextTokens = modelContextTokens[model.id] ?: model.defaultContextTokens
+        val storedContextTokens = modelContextTokens[model.id] ?: model.maxContextTokens
         var contextSliderValue by remember(storedContextTokens) {
             mutableStateOf(((storedContextTokens - model.defaultContextTokens) / 1024).toFloat())
         }
@@ -805,13 +936,39 @@ private fun LiteRTSettings(
                             )
                         }
                     } else if (!isDownloading) {
+                        IconButton(
+                            onClick = {
+                                selectedModelForImport = model
+                                filePicker.launch()
+                            },
+                            modifier = Modifier.handCursor(),
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Folder,
+                                contentDescription = "Выбрать локальный файл",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         TextButton(
                             onClick = { onDownloadModel(model) },
                             modifier = Modifier.handCursor(),
-                            enabled = downloadingModelId == null,
+                            enabled = true,
                         ) {
                             Text(stringResource(Res.string.litert_download))
                         }
+                    }
+                }
+                if (isDownloaded) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(start = 4.dp)) {
+                        Text(
+                            text = "Сохранить в выбранное место…",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .handCursor()
+                                .clickable { onSaveLocalModelToDevice(model.id) }
+                                .padding(vertical = 4.dp),
+                        )
                     }
                 }
                 Spacer(Modifier.height(8.dp))
@@ -829,25 +986,24 @@ private fun LiteRTSettings(
                     valueRange = 0f..steps.toFloat(),
                     steps = steps - 1,
                 )
-                if (isDownloading && downloadProgress != null) {
+                if (isDownloading && progress != null) {
                     Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { downloadProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier.weight(1f).height(8.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            strokeCap = StrokeCap.Round,
+                        )
+                        Spacer(Modifier.width(12.dp))
                         Text(
-                            text = "${(downloadProgress * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelSmall,
+                            text = "${(progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         TextButton(
-                            onClick = onCancelDownload,
+                            onClick = { onCancelDownload(model.id) },
                             modifier = Modifier.handCursor(),
                         ) {
                             Text(
@@ -857,23 +1013,22 @@ private fun LiteRTSettings(
                         }
                     }
                 }
+                if (error != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(
+                            when (error) {
+                                DownloadError.NOT_ENOUGH_DISK_SPACE -> Res.string.litert_error_not_enough_disk_space
+                                DownloadError.NETWORK_ERROR -> Res.string.litert_error_network
+                                DownloadError.DOWNLOAD_INCOMPLETE -> Res.string.litert_error_download_incomplete
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
-    }
-
-    if (downloadError != null) {
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(
-                when (downloadError) {
-                    DownloadError.NOT_ENOUGH_DISK_SPACE -> Res.string.litert_error_not_enough_disk_space
-                    DownloadError.NETWORK_ERROR -> Res.string.litert_error_network
-                    DownloadError.DOWNLOAD_INCOMPLETE -> Res.string.litert_error_download_incomplete
-                },
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
     }
 
     Spacer(Modifier.height(8.dp))
@@ -887,35 +1042,94 @@ private fun LiteRTSettings(
     Spacer(Modifier.height(16.dp))
     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
     Text(
-        text = "HuggingFace Custom Models",
+        text = "HuggingFace Models",
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.primary,
     )
     Spacer(Modifier.height(8.dp))
     Text(
-        text = "Вставьте ссылку на репозиторий с моделями в формате GGUF или LiteRT.",
+        text = "Вставьте ссылку на репозиторий с моделями (GGUF или LiteRT) или прямую ссылку на файл модели.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Spacer(Modifier.height(8.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        KaiClearableTextField(
-            value = hfRepoUrl,
-            onValueChange = onChangeHfRepoUrl,
-            label = { Text("https://huggingface.co/...", color = MaterialTheme.colorScheme.onBackground) },
-            modifier = Modifier.weight(1f),
-            singleLine = true,
-        )
-        Spacer(Modifier.width(8.dp))
-        Button(
-            onClick = onFetchHfModels,
-            enabled = !isFetchingHfModels && hfRepoUrl.isNotBlank(),
+    KaiClearableTextField(
+        value = hfRepoUrl,
+        onValueChange = onChangeHfRepoUrl,
+        label = { Text("https://huggingface.co/...", color = MaterialTheme.colorScheme.onBackground) },
+        modifier = Modifier.fillMaxWidth(),
+        singleLine = true,
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        OutlinedButton(
+            onClick = { uriHandler.openUri("https://huggingface.co") },
+            modifier = Modifier.handCursor(),
         ) {
-            if (isFetchingHfModels) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
-            } else {
-                Text("Поиск")
-            }
+            ResourceImage(
+                filePath = "files/ic_hf.png",
+                contentDescription = "HuggingFace",
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("Открыть HF")
+        }
+        val directFileUrl = hfRepoUrl.trim().let { url ->
+            if (url.isNotEmpty() && HF_DIRECT_FILE_SUFFIXES.any { url.endsWith(it, ignoreCase = true) }) url else null
+        }
+        TextButton(
+            onClick = {
+                val url = directFileUrl
+                if (url != null) onDownloadModel(hfModelFromDirectUrl(url))
+            },
+            enabled = directFileUrl != null && !isFetchingHfModels,
+            modifier = Modifier.handCursor(),
+        ) {
+            Text("Скачать")
+        }
+        IconButton(
+            onClick = {
+                selectedModelForImport = null
+                importAnyFilePicker.launch()
+            },
+            modifier = Modifier.handCursor(),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = "Выбрать локальный файл модели",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(
+            onClick = {
+                val toDelete = selectedModel?.takeIf { it.id in downloadedIds }?.id
+                    ?: downloadedModels.firstOrNull()?.id
+                if (toDelete != null) onDeleteModel(toDelete)
+            },
+            enabled = downloadedIds.isNotEmpty(),
+            modifier = Modifier.handCursor(),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Удалить модель",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Button(
+        onClick = onFetchHfModels,
+        enabled = !isFetchingHfModels && hfRepoUrl.isNotBlank(),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (isFetchingHfModels) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = MaterialTheme.colorScheme.onPrimary)
+        } else {
+            Text("Поиск моделей в репозитории")
         }
     }
     if (hfError != null) {
@@ -949,7 +1163,7 @@ private fun LiteRTSettings(
             fitsDeviceModels.forEach { model ->
                 val isDownloaded = model.id in downloadedIds
                 val isSelected = selectedModel?.id == model.id
-                val isDownloading = downloadingModelId == model.id
+                val isDownloading = downloadingModelIds.contains(model.id)
                 val estimatedMemoryMb = estimateGpuMemoryMb(model, model.defaultContextTokens)
                 val performance = calculateDevicePerformance(totalDeviceMemoryBytes, estimatedMemoryMb)
 
@@ -996,10 +1210,22 @@ private fun LiteRTSettings(
                                     )
                                 }
                             } else if (!isDownloading) {
+                                IconButton(
+                                    onClick = {
+                                        selectedModelForImport = model
+                                        filePicker.launch()
+                                    },
+                                    modifier = Modifier.handCursor(),
+                                ) {
+                                    Icon(
+                                        imageVector = androidx.compose.material.icons.Icons.Default.Folder,
+                                        contentDescription = "Выбрать локальный файл",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                                 TextButton(
                                     onClick = { onDownloadModel(model) },
                                     modifier = Modifier.handCursor(),
-                                    enabled = downloadingModelId == null,
                                 ) {
                                     Text(stringResource(Res.string.litert_download))
                                 }
@@ -1010,6 +1236,32 @@ private fun LiteRTSettings(
             }
         }
     }
+}
+
+private val HF_DIRECT_FILE_SUFFIXES = listOf(".gguf", ".litertlm", ".tflite", ".bin")
+
+/**
+ * Builds a [LocalModel] from a direct HuggingFace file URL (…/resolve/main/…)
+ * so it can be downloaded right away without a repository search.
+ */
+private fun hfModelFromDirectUrl(url: String): LocalModel {
+    val fileName = url.substringAfterLast('/').substringBefore('?').ifBlank { "model.gguf" }
+    val baseId = fileName
+        .removeSuffix(".gguf")
+        .removeSuffix(".litertlm")
+        .removeSuffix(".tflite")
+        .removeSuffix(".bin")
+    return LocalModel(
+        id = baseId,
+        displayName = fileName,
+        fileName = fileName,
+        sizeBytes = 0L,
+        downloadUrl = url,
+        gpuMemoryMb = 0,
+        defaultContextTokens = 4096,
+        maxContextTokens = 8192,
+        kvPerTokenBytes = 65000,
+    )
 }
 
 @Composable

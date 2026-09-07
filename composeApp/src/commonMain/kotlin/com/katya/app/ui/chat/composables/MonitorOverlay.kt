@@ -4,18 +4,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.Alignment
 import com.katya.app.data.MonitorOverlayMode
-import com.katya.app.monitor.MonitorStats
 import com.katya.app.data.ServiceEntry
+import com.katya.app.monitor.MonitorStats
 
 @Composable
 fun MonitorOverlay(
@@ -35,7 +35,7 @@ fun MonitorOverlay(
             .padding(4.dp),
     ) {
         val katyaStatus = systemStatus ?: if (isProcessing) "Думаю..." else "Ожидание"
-        
+
         if (mode == MonitorOverlayMode.SHORT) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -46,7 +46,7 @@ fun MonitorOverlay(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 10.sp,
                     )
-                    
+
                     val networkStatus = if (stats.error != null) {
                         "SSH Err: ${stats.error}"
                     } else if (!stats.isRunning) {
@@ -57,7 +57,7 @@ fun MonitorOverlay(
                         val serviceName = selectedService?.serviceName ?: "Auto"
                         "API: Connected to $serviceName"
                     }
-                    
+
                     Text(
                         text = networkStatus,
                         color = if (stats.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -73,7 +73,7 @@ fun MonitorOverlay(
                             .padding(end = 8.dp)
                             .size(16.dp),
                         color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
                     )
                 }
             }

@@ -89,17 +89,15 @@ fun VlessEditor(
     }
 }
 
-suspend fun checkVlessConnection(uriString: String): String {
-    return try {
-        val url = Url(uriString)
-        if (url.protocol.name != "vless") {
-            "❌ Неверный протокол. Ожидается vless://"
-        } else if (url.host.isBlank() || url.port <= 0) {
-            "❌ Не удалось извлечь хост или порт из URI"
-        } else {
-            "✅ URI корректен: ${url.host}:${url.port}"
-        }
-    } catch (e: Exception) {
-        "❌ Ошибка парсинга URI: ${e.message}"
+suspend fun checkVlessConnection(uriString: String): String = try {
+    val url = Url(uriString)
+    if (url.protocol.name != "vless") {
+        "❌ Неверный протокол. Ожидается vless://"
+    } else if (url.host.isBlank() || url.port <= 0) {
+        "❌ Не удалось извлечь хост или порт из URI"
+    } else {
+        "✅ URI корректен: ${url.host}:${url.port}"
     }
+} catch (e: Exception) {
+    "❌ Ошибка парсинга URI: ${e.message}"
 }

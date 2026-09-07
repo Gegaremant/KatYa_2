@@ -15,7 +15,7 @@ expect class SshClient() {
         user: String,
         pass: String,
         localPath: String,
-        remotePath: String
+        remotePath: String,
     ): String
 
     fun downloadFile(
@@ -24,6 +24,6 @@ expect class SshClient() {
         user: String,
         pass: String,
         remotePath: String,
-        localPath: String
+        localPath: String,
     ): String
 }

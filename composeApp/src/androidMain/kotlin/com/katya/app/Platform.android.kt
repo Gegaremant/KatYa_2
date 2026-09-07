@@ -14,6 +14,7 @@ import androidx.core.net.toUri
 import com.katya.app.data.AppSettings
 import com.katya.app.data.EmailStore
 import com.katya.app.data.MemoryStore
+import com.katya.app.data.NotesStore
 import com.katya.app.data.NotificationStore
 import com.katya.app.data.SmsDraftStore
 import com.katya.app.data.SmsStore
@@ -40,6 +41,7 @@ import com.katya.app.tools.EmailTools
 import com.katya.app.tools.FetchUrlTool
 import com.katya.app.tools.HeartbeatTools
 import com.katya.app.tools.InfraredTool
+import com.katya.app.tools.NotesTool
 import com.katya.app.tools.NotificationHelper
 import com.katya.app.tools.NotificationPermissionController
 import com.katya.app.tools.NotificationResult
@@ -47,8 +49,6 @@ import com.katya.app.tools.NotificationTools
 import com.katya.app.tools.OpenFileTool
 import com.katya.app.tools.ProcessManagerTool
 import com.katya.app.tools.RootCommandTool
-import com.katya.app.tools.NotesTool
-import com.katya.app.data.NotesStore
 import com.katya.app.tools.SchedulingTools
 import com.katya.app.tools.ShellCommandTool
 import com.katya.app.tools.SmsTools
@@ -194,29 +194,92 @@ actual fun getAppFilesDirectory(): String {
 // secure settings store API keys, email passwords, and conversation encryption keys.
 actual fun createSecureSettings(): Settings {
     val context: Context by inject(Context::class.java)
+    migrateLegacySecurePrefs(context)
     return try {
         SharedPreferencesSettings(createEncryptedPrefs(context))
     } catch (_: Exception) {
         // AEADBadTagException occurs when Android Auto Backup restores the encrypted
         // prefs file but the Keystore key is hardware-bound and doesn't transfer.
         // Delete the corrupted file and recreate fresh encrypted prefs.
-        context.deleteSharedPreferences("kai_secure_prefs")
+        context.deleteSharedPreferences("katya_secure_prefs")
         SharedPreferencesSettings(createEncryptedPrefs(context))
     }
 }
 
-private fun createEncryptedPrefs(context: Context): android.content.SharedPreferences {
-    val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-    return EncryptedSharedPreferences.create(
-        context,
-        "kai_secure_prefs",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-    )
+private fun migrateLegacySecurePrefs(context: Context) {
+    // Backward compatibility: older builds stored encrypted settings under the
+    // legacy `kai_secure_prefs` file. Both files use the same EncryptedSharedPreferences
+    // master key (the key alias is filename-independent), so values remain readable
+    // regardless of filename. Copy any legacy entries into the current file once,
+    // then mark the migration complete so it never runs again.
+    val legacyRaw = context.getSharedPreferences("kai_secure_prefs", Context.MODE_PRIVATE)
+    if (!legacyRaw.contains("__legacy_kai_present__") && legacyRaw.all.isEmpty()) return
+    val current = context.getSharedPreferences("katya_secure_prefs", Context.MODE_PRIVATE)
+    if (current.getBoolean("katya_migrated", false)) return
+
+    val created = runCatching { createEncryptedPrefs(context) }.getOrNull() ?: return
+    val legacy = runCatching {
+        EncryptedSharedPreferences.create(
+            context,
+            "kai_secure_prefs",
+            masterKey(context),
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+        ).all
+    }.getOrNull() ?: return
+
+    val editor = created.edit()
+    var copied = 0
+    legacy.forEach { (key, value) ->
+        when (value) {
+            is String -> {
+                editor.putString(key, value)
+                copied++
+            }
+
+            is Boolean -> {
+                editor.putBoolean(key, value)
+                copied++
+            }
+
+            is Int -> {
+                editor.putInt(key, value)
+                copied++
+            }
+
+            is Long -> {
+                editor.putLong(key, value)
+                copied++
+            }
+
+            is Float -> {
+                editor.putFloat(key, value)
+                copied++
+            }
+
+            else -> {}
+        }
+    }
+    if (copied > 0) {
+        editor.putBoolean("katya_migrated", true)
+        editor.commit()
+    }
+    // Drop the marker written by a legacy install so a future fresh setup isn't confused.
+    context.getSharedPreferences("kai_secure_prefs", Context.MODE_PRIVATE)
+        .edit().remove("__legacy_kai_present__").apply()
 }
+
+private fun masterKey(context: Context): MasterKey = MasterKey.Builder(context)
+    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+    .build()
+
+private fun createEncryptedPrefs(context: Context): android.content.SharedPreferences = EncryptedSharedPreferences.create(
+    context,
+    "katya_secure_prefs",
+    masterKey(context),
+    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+)
 
 actual fun createLegacySettings(): Settings? {
     val context: Context by inject(Context::class.java)
@@ -496,7 +559,7 @@ actual fun getAvailableTools(): List<Tool> {
                 add(SshConfigureHostTool)
             }
         }
-        
+
         val notesStore: com.katya.app.data.NotesStore by org.koin.java.KoinJavaComponent.inject(com.katya.app.data.NotesStore::class.java)
         add(com.katya.app.tools.NotesTool(notesStore))
         add(com.katya.app.tools.LocalNoteTool)
@@ -593,18 +656,26 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) {
     androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
 }
 
-actual suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String): Boolean {
-    return try {
-        val file = FileKit.openFileSaver(suggestedName = baseName, defaultExtension = extension)
-        if (file != null) {
-            file.write(bytes)
-            true
-        } else {
-            false
-        }
-    } catch (e: Exception) {
+actual suspend fun saveFileToDevice(bytes: ByteArray, baseName: String, extension: String): Boolean = try {
+    val file = FileKit.openFileSaver(suggestedName = baseName, defaultExtension = extension)
+    if (file != null) {
+        file.write(bytes)
+        true
+    } else {
         false
     }
+} catch (e: Exception) {
+    false
+}
+
+actual suspend fun saveLargeFileToDevice(srcFilePath: String, baseName: String, extension: String): Boolean = try {
+    val destination = FileKit.openFileSaver(suggestedName = baseName, defaultExtension = extension)
+        ?: return false
+    val source = io.github.vinceglb.filekit.PlatformFile(java.io.File(srcFilePath))
+    destination.write(source)
+    true
+} catch (e: Exception) {
+    false
 }
 
 actual fun showToast(message: String) {
@@ -619,6 +690,14 @@ actual fun openTtsSettings() {
     intent.flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
     val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
     context.startActivity(intent)
+}
+
+actual fun isAppInstalled(packageName: String): Boolean = try {
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+    context.packageManager.getPackageInfo(packageName, 0)
+    true
+} catch (_: Exception) {
+    false
 }
 
 actual fun openAssistantSettings() {
@@ -666,14 +745,22 @@ actual suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolea
     }
 
     if (includeModels) {
-        val voskDir = java.io.File(context.filesDir, "vosk")
-        if (voskDir.exists() && voskDir.isDirectory) {
-            voskDir.walkTopDown().forEach { file ->
-                if (file.isFile) {
-                    val relativePath = file.relativeTo(context.filesDir).path.replace('\\', '/')
-                    zos.putNextEntry(java.util.zip.ZipEntry(relativePath))
-                    file.inputStream().use { it.copyTo(zos) }
-                    zos.closeEntry()
+        // Lightweight on-device models go into the zip: Vosk (STT) and Piper voices.
+        // LiteRT brain models (litert_models/, multi-GB) are deliberately excluded —
+        // they would blow the in-memory zip; export them individually via settings.
+        val modelDirs = listOf(
+            java.io.File(context.filesDir, "vosk"),
+            java.io.File(context.filesDir, "models"),
+        )
+        modelDirs.forEach { modelDir ->
+            if (modelDir.exists() && modelDir.isDirectory) {
+                modelDir.walkTopDown().forEach { file ->
+                    if (file.isFile) {
+                        val relativePath = file.relativeTo(context.filesDir).path.replace('\\', '/')
+                        zos.putNextEntry(java.util.zip.ZipEntry(relativePath))
+                        file.inputStream().use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
                 }
             }
         }
@@ -695,6 +782,7 @@ actual suspend fun extractBackupZip(zipBytes: ByteArray): String? {
                 "config.json" -> {
                     jsonConfig = zis.readBytes().toString(Charsets.UTF_8)
                 }
+
                 "conversations.db" -> {
                     val dbFile = context.getDatabasePath("conversations.db")
                     dbFile.parentFile?.mkdirs()
@@ -702,18 +790,21 @@ actual suspend fun extractBackupZip(zipBytes: ByteArray): String? {
                     java.io.File(dbFile.path + "-wal").delete()
                     java.io.File(dbFile.path + "-shm").delete()
                 }
+
                 "conversations.db-wal" -> {
                     val dbFile = context.getDatabasePath("conversations.db-wal")
                     dbFile.parentFile?.mkdirs()
                     dbFile.outputStream().use { zis.copyTo(it) }
                 }
+
                 "conversations.db-shm" -> {
                     val dbFile = context.getDatabasePath("conversations.db-shm")
                     dbFile.parentFile?.mkdirs()
                     dbFile.outputStream().use { zis.copyTo(it) }
                 }
+
                 else -> {
-                    if (entry.name.startsWith("vosk/")) {
+                    if (entry.name.startsWith("vosk/") || entry.name.startsWith("models/")) {
                         val file = java.io.File(context.filesDir, entry.name)
                         file.parentFile?.mkdirs()
                         file.outputStream().use { zis.copyTo(it) }
@@ -747,8 +838,8 @@ actual fun createLocalNote(title: String, content: String): String {
             putExtra(android.content.Intent.EXTRA_TEXT, content)
             addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        val chooser = android.content.Intent.createChooser(fallbackIntent, "Create Note").apply { 
-            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) 
+        val chooser = android.content.Intent.createChooser(fallbackIntent, "Create Note").apply {
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(chooser)
         return "Share intent sent as fallback (please select notes app)."
@@ -770,4 +861,50 @@ actual fun getDirectoryPath(directory: Any?): String? {
         }
     }
     return uriString
+}
+
+actual suspend fun writeSkillFile(skillId: String, fileName: String, content: String): Boolean {
+    return try {
+        val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
+        if (sandboxManager.state.value != SandboxState.Ready) return false
+        val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
+        skillDir.mkdirs()
+        val targetFile = java.io.File(skillDir, fileName)
+        targetFile.parentFile?.mkdirs()
+        targetFile.writeText(content)
+        true
+    } catch (e: Exception) {
+        false
+    }
+}
+
+actual suspend fun deleteSkillDir(skillId: String): Boolean {
+    return try {
+        val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
+        val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
+        skillDir.deleteRecursively()
+    } catch (e: Exception) {
+        false
+    }
+}
+
+actual suspend fun readSandboxSkillFiles(): Map<String, String> {
+    val result = mutableMapOf<String, String>()
+    try {
+        val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
+        val skillsRoot = java.io.File(sandboxManager.homePath, "skills")
+        if (skillsRoot.isDirectory) {
+            skillsRoot.listFiles()?.forEach { skillDir ->
+                if (skillDir.isDirectory) {
+                    val skillMd = java.io.File(skillDir, "SKILL.md")
+                    if (skillMd.exists() && skillMd.isFile) {
+                        result[skillDir.name] = skillMd.readText()
+                    }
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // ignore
+    }
+    return result
 }

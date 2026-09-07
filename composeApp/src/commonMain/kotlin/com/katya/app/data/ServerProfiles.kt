@@ -11,12 +11,12 @@ data class LocalServerProfile(
     val user: String = "",
     val password: String = "",
     val localTunnelPort: Int = 11434,
-    val remoteTunnelPort: Int = 11434
+    val remoteTunnelPort: Int = 11434,
 )
 
 @Serializable
 data class VlessProxyProfile(
     val id: String,
     val name: String,
-    val uri: String
+    val uri: String,
 )

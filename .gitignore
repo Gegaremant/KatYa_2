@@ -49,3 +49,8 @@ recent_runs.json
 # OS generated files
 .DS_Store
 Thumbs.db
+
+trash/
+release_latest.json
+build_log.txt
+scris/

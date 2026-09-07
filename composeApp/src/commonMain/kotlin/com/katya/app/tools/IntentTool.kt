@@ -26,14 +26,14 @@ class IntentTool : Tool {
             "action" to ParameterSchema("string", "Intent action (например, android.intent.action.VIEW, android.intent.action.MAIN, android.intent.action.SEND)", true),
             "data_uri" to ParameterSchema("string", "URI данных (например, package:com.whatsapp или https://...)", false),
             "package_name" to ParameterSchema("string", "Имя пакета (например, io.github.muntashirakon.AppManager), если нужно отправить интент конкретному приложению.", false),
-            "extras" to ParameterSchema("string", "JSON строка с дополнительными параметрами (extras).", false)
-        )
+            "extras" to ParameterSchema("string", "JSON строка с дополнительными параметрами (extras).", false),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
         val action = args["action"]?.toString()
             ?: return mapOf("success" to false, "error" to "Параметр 'action' обязателен.")
-            
+
         val dataUri = args["data_uri"]?.toString()
         val packageName = args["package_name"]?.toString()
         val extrasJson = args["extras"]?.toString()
@@ -41,7 +41,7 @@ class IntentTool : Tool {
         val result = intentOps.sendIntent(action, dataUri, packageName, extrasJson)
         return mapOf(
             "success" to !result.startsWith("Error:"),
-            "result" to result
+            "result" to result,
         )
     }
 }

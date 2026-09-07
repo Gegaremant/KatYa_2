@@ -27,7 +27,7 @@ class BytesKatyaFile(
     private val bytes: ByteArray,
     override val name: String,
     override val extension: String,
-    private val mime: String?
+    private val mime: String?,
 ) : KatyaFile {
     override fun mimeType(): String? = mime
     override suspend fun readBytes(): ByteArray = bytes

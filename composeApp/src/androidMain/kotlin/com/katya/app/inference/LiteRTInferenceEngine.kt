@@ -21,6 +21,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -36,7 +37,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class LiteRTInferenceEngine : LocalInferenceEngine {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var downloadJob: Job? = null
+    private val downloadJobs = mutableMapOf<String, Job>()
     private var idleReleaseJob: Job? = null
 
     private var engine: Engine? = null
@@ -48,14 +49,14 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
     private val _engineState = MutableStateFlow(EngineState.UNINITIALIZED)
     override val engineState: StateFlow<EngineState> = _engineState
 
-    private val _downloadingModelId = MutableStateFlow<String?>(null)
-    override val downloadingModelId: StateFlow<String?> = _downloadingModelId
+    private val _downloadingModelIds = MutableStateFlow<Set<String>>(emptySet())
+    override val downloadingModelIds: StateFlow<Set<String>> = _downloadingModelIds
 
-    private val _downloadProgress = MutableStateFlow<Float?>(null)
-    override val downloadProgress: StateFlow<Float?> = _downloadProgress
+    private val _downloadProgresses = MutableStateFlow<Map<String, Float>>(emptyMap())
+    override val downloadProgresses: StateFlow<Map<String, Float>> = _downloadProgresses
 
-    private val _downloadError = MutableStateFlow<DownloadError?>(null)
-    override val downloadError: StateFlow<DownloadError?> = _downloadError
+    private val _downloadErrors = MutableStateFlow<Map<String, DownloadError>>(emptyMap())
+    override val downloadErrors: StateFlow<Map<String, DownloadError>> = _downloadErrors
 
     // Serializes initialization. The native load is not interruptible, so a cancelled
     // init keeps running on its IO thread; without the lock, a follow-up ask would see
@@ -117,15 +118,17 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     try {
                         initWithBackend(Backend.GPU(), requestedTokens)
                     } catch (e: Exception) {
+                        AppLogger.w("LiteRT", "GPU init failed, falling back to CPU: ${e.message}\n${e.stackTraceToString()}")
                         initWithBackend(Backend.CPU(), requestedTokens)
                     }
                 } catch (e: Exception) {
                     // Context size not supported — retry with model default
-                    AppLogger.e("LiteRT", "init failed with maxNumTokens=$requestedTokens, falling back to default: ${e.message}")
+                    AppLogger.e("LiteRT", "init failed with maxNumTokens=$requestedTokens, falling back to default: ${e.message}\n${e.stackTraceToString()}")
                     if (requestedTokens != null) {
                         try {
                             initWithBackend(Backend.GPU(), null)
                         } catch (e2: Exception) {
+                            AppLogger.e("LiteRT", "GPU init failed (fallback needed): ${e2.message}\n${e2.stackTraceToString()}")
                             initWithBackend(Backend.CPU(), null)
                         }
                     } else {
@@ -146,6 +149,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                 _engineState.value = if (engine != null) EngineState.READY else EngineState.UNINITIALIZED
                 throw e
             } catch (e: Exception) {
+                AppLogger.e("LiteRT", "Engine init failed for model ${model.id}: ${e.message}\n${e.stackTraceToString()}")
                 _engineState.value = EngineState.ERROR
                 throw e
             }
@@ -248,25 +252,32 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
         private const val MIN_MEMORY_HEADROOM_BYTES = 512L * 1024 * 1024 // 512 MB
         private const val DOWNLOAD_SPACE_BUFFER_BYTES = 500L * 1024 * 1024 // 500 MB
         private const val GPU_DRAIN_DELAY_MS = 750L
+        private const val MIN_MODEL_FILE_BYTES = 1L * 1024 * 1024 // 1 MB
     }
 
     override fun getDownloadedModels(): List<DownloadedModel> {
         val modelsDir = File(getModelStorageDirectory())
         if (!modelsDir.exists()) return emptyList()
-        return MODEL_CATALOG.mapNotNull { catalogModel ->
-            val modelDir = File(modelsDir, catalogModel.id)
-            val modelFile = File(modelDir, catalogModel.fileName)
-            if (modelFile.exists()) {
+        val catalogByDirectory = MODEL_CATALOG.associateBy { it.id }
+        return modelsDir.listFiles()
+            ?.filter { it.isDirectory }
+            ?.mapNotNull { modelDir ->
+                val modelFile = modelDir.listFiles()
+                    ?.filter { it.isFile && !it.name.endsWith(".tmp") }
+                    ?.maxByOrNull { it.length() }
+                    ?: return@mapNotNull null
+                // A model directory must actually hold the model blob (multi-MB to GB);
+                // stray marker files must not be counted as installed models.
+                if (modelFile.length() < MIN_MODEL_FILE_BYTES) return@mapNotNull null
+                val catalogModel = catalogByDirectory[modelDir.name]
                 DownloadedModel(
-                    id = catalogModel.id,
-                    displayName = catalogModel.displayName,
+                    id = modelDir.name,
+                    displayName = catalogModel?.displayName ?: modelFile.nameWithoutExtension.replace('_', ' '),
                     filePath = modelFile.absolutePath,
                     sizeBytes = modelFile.length(),
                 )
-            } else {
-                null
             }
-        }
+            .orEmpty()
     }
 
     override fun getAvailableModels(): List<LocalModel> = MODEL_CATALOG
@@ -274,11 +285,11 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
     override fun getFreeSpaceBytes(): Long = getAvailableDiskSpaceBytes(getModelStorageDirectory())
 
     override fun startDownload(model: LocalModel) {
-        cancelDownload()
-        downloadJob = scope.launch {
-            _downloadingModelId.value = model.id
-            _downloadProgress.value = 0f
-            _downloadError.value = null
+        if (downloadJobs.containsKey(model.id)) return
+        downloadJobs[model.id] = scope.launch {
+            _downloadingModelIds.update { it + model.id }
+            _downloadProgresses.update { it + (model.id to 0f) }
+            _downloadErrors.update { it - model.id }
             var tempFile: File? = null
             var notificationStarted = false
 
@@ -292,7 +303,7 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
 
                 val freeSpace = getFreeSpaceBytes()
                 if (freeSpace < model.sizeBytes + DOWNLOAD_SPACE_BUFFER_BYTES) {
-                    _downloadError.value = DownloadError.NOT_ENOUGH_DISK_SPACE
+                    _downloadErrors.update { it + (model.id to DownloadError.NOT_ENOUGH_DISK_SPACE) }
                     return@launch
                 }
 
@@ -309,11 +320,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                     throw IOException("Download failed: HTTP $responseCode")
                 }
 
-                // Only start the foreground service once we have a live connection.
-                // Starting it earlier risks ForegroundServiceDidNotStartInTimeException if
-                // the connect() above fails fast (e.g. offline) before the service can run.
-                startDownloadNotificationService()
-                notificationStarted = true
+                if (_downloadingModelIds.value.size == 1) {
+                    startDownloadNotificationService()
+                    notificationStarted = true
+                }
 
                 val contentLength = connection.contentLengthLong.takeIf { it > 0 } ?: model.sizeBytes
                 val buffer = ByteArray(65536)
@@ -330,8 +340,10 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
                             val percent = (totalBytesRead * 100 / contentLength).toInt().coerceIn(1, 100)
                             if (percent != lastNotifiedPercent) {
                                 lastNotifiedPercent = percent
-                                _downloadProgress.value = percent / 100f
-                                updateDownloadNotificationProgress(percent)
+                                _downloadProgresses.update { it + (model.id to (percent / 100f)) }
+                                if (_downloadingModelIds.value.size == 1) {
+                                    updateDownloadNotificationProgress(percent)
+                                }
                             }
                         }
                     }
@@ -351,18 +363,38 @@ class LiteRTInferenceEngine : LocalInferenceEngine {
             } catch (e: Throwable) {
                 if (tempFile?.exists() == true) tempFile.delete()
                 if (e is CancellationException) throw e
-                _downloadError.value = DownloadError.NETWORK_ERROR
+                AppLogger.e(
+                    "LiteRT",
+                    "Failed to download model ${model.id} from ${model.downloadUrl}: ${e.message}\n${e.stackTraceToString()}",
+                )
+                val isIncomplete = e.message?.contains("Download incomplete") == true
+                _downloadErrors.update {
+                    it + (model.id to if (isIncomplete) DownloadError.DOWNLOAD_INCOMPLETE else DownloadError.NETWORK_ERROR)
+                }
             } finally {
-                _downloadingModelId.value = null
-                _downloadProgress.value = null
-                if (notificationStarted) stopDownloadNotificationService()
+                _downloadingModelIds.update { it - model.id }
+                _downloadProgresses.update { it - model.id }
+                downloadJobs.remove(model.id)
+                if (_downloadingModelIds.value.isEmpty()) {
+                    stopDownloadNotificationService()
+                }
             }
         }
     }
 
-    override fun cancelDownload() {
-        downloadJob?.cancel()
-        downloadJob = null
+    override fun cancelDownload(modelId: String) {
+        downloadJobs[modelId]?.cancel()
+        downloadJobs.remove(modelId)
+    }
+
+    override suspend fun importModel(model: LocalModel, fileBytes: ByteArray) {
+        withContext(Dispatchers.IO) {
+            val modelsDir = getModelStorageDirectory()
+            val modelDir = File(modelsDir, model.id)
+            modelDir.mkdirs()
+            val targetFile = File(modelDir, model.fileName)
+            targetFile.writeBytes(fileBytes)
+        }
     }
 
     override suspend fun deleteModel(modelId: String) {

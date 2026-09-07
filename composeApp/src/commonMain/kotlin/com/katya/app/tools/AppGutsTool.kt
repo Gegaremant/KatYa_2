@@ -11,8 +11,8 @@ class AppGutsTool : Tool {
         name = "analyze_app_guts",
         description = "Получает всю внутреннюю информацию ('кишки') об установленном приложении (permissions, activities, services, receivers, version) через root. Используйте для глубокого анализа трекеров или функций.",
         parameters = mapOf(
-            "package_name" to ParameterSchema("string", "Имя пакета приложения (например, com.whatsapp)", true)
-        )
+            "package_name" to ParameterSchema("string", "Имя пакета приложения (например, com.whatsapp)", true),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
@@ -24,7 +24,7 @@ class AppGutsTool : Tool {
         }
 
         val output = executor.executeCommand("dumpsys package $packageName", null, true)
-        
+
         if (output.isBlank() || output.contains("Unable to find package")) {
             return mapOf("success" to false, "error" to "Пакет $packageName не найден.")
         }
@@ -34,11 +34,11 @@ class AppGutsTool : Tool {
         val lines = output.lines()
         val filteredLines = mutableListOf<String>()
         var inRelevantSection = false
-        
+
         for (line in lines) {
             val trimmed = line.trim()
             if (trimmed.startsWith("Packages:")) break // Конец информации о пакете
-            
+
             if (trimmed.startsWith("versionCode=") || trimmed.startsWith("versionName=")) {
                 filteredLines.add(line)
             } else if (trimmed.startsWith("declared permissions:") || trimmed.startsWith("requested permissions:")) {
@@ -66,7 +66,7 @@ class AppGutsTool : Tool {
 
         return mapOf(
             "success" to true,
-            "output" to finalOutput
+            "output" to finalOutput,
         )
     }
 }

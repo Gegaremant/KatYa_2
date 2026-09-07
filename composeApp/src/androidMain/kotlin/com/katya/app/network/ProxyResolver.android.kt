@@ -12,7 +12,7 @@ object ProxyResolver {
      */
     fun resolveDirectProxy(uriString: String): Proxy? {
         if (uriString.isBlank()) return null
-        
+
         // Treat socks5:// or socks:// as direct SOCKS proxy
         if (uriString.startsWith("socks5://") || uriString.startsWith("socks://")) {
             try {
@@ -24,7 +24,7 @@ object ProxyResolver {
                 return null
             }
         }
-        
+
         // Treat http:// as HTTP proxy ONLY if there is no path (or path is /)
         // Subscription links typically have a longer path
         if (uriString.startsWith("http://")) {
@@ -33,7 +33,7 @@ object ProxyResolver {
                 val host = uri.host ?: return null
                 val port = if (uri.port > 0) uri.port else 80
                 val path = uri.path ?: ""
-                
+
                 // If it's a proxy link, usually the path is empty or just "/"
                 if (path.isEmpty() || path == "/") {
                     return Proxy(Proxy.Type.HTTP, InetSocketAddress(host, port))
@@ -42,7 +42,7 @@ object ProxyResolver {
                 return null
             }
         }
-        
+
         return null
     }
 }

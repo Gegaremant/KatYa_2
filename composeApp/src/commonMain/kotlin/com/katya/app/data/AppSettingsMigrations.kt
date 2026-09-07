@@ -1,11 +1,5 @@
 package com.katya.app.data
 
-import com.katya.app.data.AppSettings.Companion.KEY_APP_OPENS
-import com.katya.app.data.AppSettings.Companion.KEY_BASE_URL_V1_MIGRATION_COMPLETE
-import com.katya.app.data.AppSettings.Companion.KEY_CURRENT_SERVICE_ID
-import com.katya.app.data.AppSettings.Companion.KEY_INSTANCE_MIGRATION_COMPLETE
-import com.katya.app.data.AppSettings.Companion.KEY_MIGRATION_COMPLETE
-import com.katya.app.data.AppSettings.Companion.KEY_SERVICES_MIGRATION_COMPLETE
 import com.russhwolf.settings.Settings
 
 internal val versionPathRegex = Regex("/v\\d+$")
@@ -19,10 +13,10 @@ fun AppSettings.runMigrations(legacySettings: Settings?) {
 
 fun AppSettings.migrateFromLegacyIfNeeded(legacySettings: Settings?) {
     if (legacySettings == null) return
-    if (settings.getBoolean(KEY_MIGRATION_COMPLETE, false)) return
+    if (settings.getBoolean(AppSettingsKeys.KEY_MIGRATION_COMPLETE, false)) return
 
-    migrateString(legacySettings, KEY_CURRENT_SERVICE_ID)
-    migrateInt(legacySettings, KEY_APP_OPENS)
+    migrateString(legacySettings, AppSettingsKeys.KEY_CURRENT_SERVICE_ID)
+    migrateInt(legacySettings, AppSettingsKeys.KEY_APP_OPENS)
 
     for (service in Service.all) {
         if (service.settingsKeyPrefix.isNotEmpty()) {
@@ -32,7 +26,7 @@ fun AppSettings.migrateFromLegacyIfNeeded(legacySettings: Settings?) {
     }
     migrateString(legacySettings, Service.OpenAICompatible.baseUrlKey)
 
-    settings.putBoolean(KEY_MIGRATION_COMPLETE, true)
+    settings.putBoolean(AppSettingsKeys.KEY_MIGRATION_COMPLETE, true)
 }
 
 private fun AppSettings.migrateString(legacy: Settings, key: String) {
@@ -49,13 +43,13 @@ private fun AppSettings.migrateInt(legacy: Settings, key: String) {
 }
 
 fun AppSettings.migrateConfiguredServicesIfNeeded() {
-    if (settings.getBoolean(KEY_SERVICES_MIGRATION_COMPLETE, false)) return
+    if (settings.getBoolean(AppSettingsKeys.KEY_SERVICES_MIGRATION_COMPLETE, false)) return
 
     val existing = getConfiguredServiceInstances()
     val existingServiceIds = existing.map { it.serviceId }.toSet()
     val instances = existing.toMutableList()
 
-    val currentServiceId = settings.getString(KEY_CURRENT_SERVICE_ID, Service.Free.id)
+    val currentServiceId = settings.getString(AppSettingsKeys.KEY_CURRENT_SERVICE_ID, Service.Free.id)
     val currentService = Service.fromId(currentServiceId)
     if (currentService != Service.Free && currentService.id !in existingServiceIds) {
         instances.add(ServiceInstance(instanceId = currentService.id, serviceId = currentService.id))
@@ -75,7 +69,7 @@ fun AppSettings.migrateConfiguredServicesIfNeeded() {
         setConfiguredServiceInstances(instances)
     }
 
-    settings.putBoolean(KEY_SERVICES_MIGRATION_COMPLETE, true)
+    settings.putBoolean(AppSettingsKeys.KEY_SERVICES_MIGRATION_COMPLETE, true)
 }
 
 /**
@@ -84,7 +78,7 @@ fun AppSettings.migrateConfiguredServicesIfNeeded() {
  * legacy key prefix. This copies those values to the new instance_ keys.
  */
 fun AppSettings.migrateInstanceSettingsIfNeeded() {
-    if (settings.getBoolean(KEY_INSTANCE_MIGRATION_COMPLETE, false)) return
+    if (settings.getBoolean(AppSettingsKeys.KEY_INSTANCE_MIGRATION_COMPLETE, false)) return
 
     val instances = getConfiguredServiceInstances()
     for (instance in instances) {
@@ -106,7 +100,7 @@ fun AppSettings.migrateInstanceSettingsIfNeeded() {
         }
     }
 
-    settings.putBoolean(KEY_INSTANCE_MIGRATION_COMPLETE, true)
+    settings.putBoolean(AppSettingsKeys.KEY_INSTANCE_MIGRATION_COMPLETE, true)
 }
 
 /**
@@ -115,7 +109,7 @@ fun AppSettings.migrateInstanceSettingsIfNeeded() {
  * include it (following the OpenAI SDK convention).
  */
 fun AppSettings.migrateBaseUrlsToV1PathIfNeeded() {
-    if (settings.getBoolean(KEY_BASE_URL_V1_MIGRATION_COMPLETE, false)) return
+    if (settings.getBoolean(AppSettingsKeys.KEY_BASE_URL_V1_MIGRATION_COMPLETE, false)) return
 
     val instances = getConfiguredServiceInstances()
     for (instance in instances) {
@@ -132,7 +126,7 @@ fun AppSettings.migrateBaseUrlsToV1PathIfNeeded() {
         settings.putString(Service.OpenAICompatible.baseUrlKey, ensureBaseUrlHasVersionPath(legacyBaseUrl))
     }
 
-    settings.putBoolean(KEY_BASE_URL_V1_MIGRATION_COMPLETE, true)
+    settings.putBoolean(AppSettingsKeys.KEY_BASE_URL_V1_MIGRATION_COMPLETE, true)
 }
 
 internal fun ensureBaseUrlHasVersionPath(url: String): String {

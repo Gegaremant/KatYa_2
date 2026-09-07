@@ -16,9 +16,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -38,20 +38,22 @@ import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.svg.SvgDecoder
 import com.katya.app.data.AppSettings
 import com.katya.app.data.ThemeMode
+import com.katya.app.tools.BatteryOptimizationPermissionController
 import com.katya.app.tools.CalendarPermissionController
+import com.katya.app.tools.ExactAlarmPermissionController
 import com.katya.app.tools.LocalNetworkPermissionController
 import com.katya.app.tools.NotificationPermissionController
+import com.katya.app.tools.SetupBatteryOptimizationPermissionHandler
 import com.katya.app.tools.SetupCalendarPermissionHandler
+import com.katya.app.tools.SetupExactAlarmPermissionHandler
 import com.katya.app.tools.SetupLocalNetworkPermissionHandler
 import com.katya.app.tools.SetupNotificationPermissionHandler
 import com.katya.app.tools.SetupSmsPermissionHandler
 import com.katya.app.tools.SetupSmsSendPermissionHandler
 import com.katya.app.tools.SmsPermissionController
 import com.katya.app.tools.SmsSendPermissionController
-import com.katya.app.tools.SetupExactAlarmPermissionHandler
-import com.katya.app.tools.SetupBatteryOptimizationPermissionHandler
-import com.katya.app.tools.ExactAlarmPermissionController
-import com.katya.app.tools.BatteryOptimizationPermissionController
+import com.katya.app.tts.SpeechEngine
+import com.katya.app.tts.SystemTtsSpeechEngine
 import com.katya.app.ui.DarkColorScheme
 import com.katya.app.ui.LightColorScheme
 import com.katya.app.ui.Theme
@@ -59,15 +61,14 @@ import com.katya.app.ui.chat.ChatScreen
 import com.katya.app.ui.chat.ChatViewModel
 import com.katya.app.ui.components.FullScreenImageHost
 import com.katya.app.ui.handCursor
-
 import com.katya.app.ui.settings.SettingsScreen
 import com.katya.app.ui.withBlackBackground
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.tab_chat
 import katya.composeapp.generated.resources.tab_settings
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import nl.marc_apps.tts.TextToSpeechInstance
 import nl.marc_apps.tts.experimental.ExperimentalVoiceApi
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.KoinApplication
@@ -88,7 +89,7 @@ fun App(
     navController: NavHostController,
     lightColorScheme: ColorScheme = LightColorScheme,
     darkColorScheme: ColorScheme = DarkColorScheme,
-    textToSpeech: TextToSpeechInstance? = null,
+    speechEngine: SpeechEngine? = null,
     isKoinStarted: Boolean = false,
     onAppOpens: ((Int) -> Unit)? = null,
 ) {
@@ -104,14 +105,14 @@ fun App(
     // Reuse global Koin if already started (Android Application class),
     // otherwise create a new instance (iOS, Desktop, Wasm).
     if (isKoinStarted) {
-        AppContent(navController, lightColorScheme, darkColorScheme, textToSpeech, onAppOpens)
+        AppContent(navController, lightColorScheme, darkColorScheme, speechEngine, onAppOpens)
     } else {
         KoinApplication(
             configuration = koinConfiguration {
                 modules(appModule, com.katya.app.stt.sttModule, com.katya.app.audio.audioModule)
             },
         ) {
-            AppContent(navController, lightColorScheme, darkColorScheme, textToSpeech, onAppOpens)
+            AppContent(navController, lightColorScheme, darkColorScheme, speechEngine, onAppOpens)
         }
     }
 }
@@ -121,7 +122,7 @@ private fun AppContent(
     navController: NavHostController,
     lightColorScheme: ColorScheme,
     darkColorScheme: ColorScheme,
-    textToSpeech: TextToSpeechInstance?,
+    speechEngine: SpeechEngine?,
     onAppOpens: ((Int) -> Unit)?,
 ) {
     val appSettings = koinInject<AppSettings>()
@@ -155,15 +156,33 @@ private fun AppContent(
     val batteryOptimizationPermissionController = koinInject<BatteryOptimizationPermissionController>()
     SetupBatteryOptimizationPermissionHandler(batteryOptimizationPermissionController)
 
-    // Set TTS voice to match system language
+    // Set TTS voice to match system language (system/RHVoice backends only —
+    // cloud and on-device engines pick their own voice from settings).
+    //
+    // The voice list is populated asynchronously right after TTS init, so a
+    // one-shot lookup usually sees an empty list and silently keeps the engine's
+    // default (which often is a male voice). Retry a few times until voices are
+    // ready, then force a female voice — Katya's greeting must not sound male.
     @OptIn(ExperimentalVoiceApi::class)
-    LaunchedEffect(textToSpeech) {
-        val tts = textToSpeech ?: return@LaunchedEffect
+    LaunchedEffect(speechEngine) {
+        val instance = (speechEngine as? SystemTtsSpeechEngine)?.instance ?: return@LaunchedEffect
         val systemLanguage = Locale.current.language
-        val matchingVoice = tts.voices
-            .firstOrNull { it.languageTag.startsWith(systemLanguage) }
-        if (matchingVoice != null) {
-            tts.currentVoice = matchingVoice
+        repeat(10) {
+            val voices = runCatching { instance.voices.toList() }.getOrDefault(emptyList())
+            if (voices.isNotEmpty()) {
+                val matchingVoices = voices.filter { it.languageTag.startsWith(systemLanguage) }
+
+                // Katya default voice must be female
+                val femaleVoice = matchingVoices.firstOrNull { it.isFemaleVoice() }
+                    ?: voices.firstOrNull { it.isFemaleVoice() }
+                    ?: matchingVoices.firstOrNull()
+
+                if (femaleVoice != null) {
+                    instance.currentVoice = femaleVoice
+                }
+                return@LaunchedEffect
+            }
+            delay(300)
         }
     }
 
@@ -189,85 +208,100 @@ private fun AppContent(
             var isOnboardingCompleted by remember { mutableStateOf(appSettings.isOnboardingCompleted()) }
 
             if (!isOnboardingCompleted && currentPlatform is Platform.Mobile.Android) {
-                com.katya.app.ui.components.StartupPermissionFlow(textToSpeech = textToSpeech) {
+                com.katya.app.ui.components.StartupPermissionFlow(textToSpeech = speechEngine) {
                     isOnboardingCompleted = true
                 }
             } else {
                 FullScreenImageHost {
-                val chatViewModel: ChatViewModel = koinViewModel()
-                val showTabBar = currentPlatform !is Platform.Mobile
-                val currentBackStackEntry by navController.currentBackStackEntryAsState()
-                val isHome = currentBackStackEntry?.destination?.route == "home"
+                    val chatViewModel: ChatViewModel = koinViewModel()
+                    val showTabBar = currentPlatform !is Platform.Mobile
+                    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+                    val isHome = currentBackStackEntry?.destination?.route == "home"
 
-                val navigationTabBar: @Composable () -> Unit = {
-                    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-                    val count = 2
-                    SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(
-                            selected = isHome,
-                            onClick = {
-                                navController.navigate(Home) {
-                                    popUpTo(Home) { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = if (isRtl) count - 1 else 0, count = count),
-                            modifier = Modifier.handCursor(),
-                        ) {
-                            Text(stringResource(Res.string.tab_chat))
-                        }
-                        SegmentedButton(
-                            selected = !isHome,
-                            onClick = {
-                                navController.navigate(Settings) {
-                                    popUpTo(Home)
-                                    launchSingleTop = true
-                                }
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(index = if (isRtl) 0 else count - 1, count = count),
-                            modifier = Modifier.handCursor(),
-                        ) {
-                            Text(stringResource(Res.string.tab_settings))
-                        }
-                    }
-                }
-
-                NavHost(
-                    navController,
-                    startDestination = Home,
-                    modifier = Modifier.background(MaterialTheme.colorScheme.background),
-                ) {
-                    composable<Home> {
-                        ChatScreen(
-                            viewModel = chatViewModel,
-                            textToSpeech = textToSpeech,
-                            onNavigateToSettings = {
-                                navController.navigate(Settings)
-                            },
-                            isSandboxAvailable = currentPlatform is Platform.Mobile.Android,
-                            navigationTabBar = if (showTabBar) navigationTabBar else null,
-                        )
-                    }
-                    composable<Settings> {
-                        if (showTabBar) {
-                            DisposableEffect(Unit) {
-                                onDispose {
-                                    chatViewModel.refreshSettings()
-                                }
+                    val navigationTabBar: @Composable () -> Unit = {
+                        val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+                        val count = 2
+                        SingleChoiceSegmentedButtonRow {
+                            SegmentedButton(
+                                selected = isHome,
+                                onClick = {
+                                    navController.navigate(Home) {
+                                        popUpTo(Home) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index = if (isRtl) count - 1 else 0, count = count),
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Text(stringResource(Res.string.tab_chat))
+                            }
+                            SegmentedButton(
+                                selected = !isHome,
+                                onClick = {
+                                    navController.navigate(Settings) {
+                                        popUpTo(Home)
+                                        launchSingleTop = true
+                                    }
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index = if (isRtl) 0 else count - 1, count = count),
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Text(stringResource(Res.string.tab_settings))
                             }
                         }
-                        SettingsScreen(
-                            textToSpeech = textToSpeech,
-                            onNavigateBack = {
-                                chatViewModel.refreshSettings()
-                                navController.navigateUp()
-                            },
-                            navigationTabBar = if (showTabBar) navigationTabBar else null,
-                        )
                     }
-                }
+
+                    NavHost(
+                        navController,
+                        startDestination = Home,
+                        modifier = Modifier.background(MaterialTheme.colorScheme.background),
+                    ) {
+                        composable<Home> {
+                            ChatScreen(
+                                viewModel = chatViewModel,
+                                textToSpeech = speechEngine,
+                                onNavigateToSettings = {
+                                    navController.navigate(Settings)
+                                },
+                                isSandboxAvailable = currentPlatform is Platform.Mobile.Android,
+                                navigationTabBar = if (showTabBar) navigationTabBar else null,
+                            )
+                        }
+                        composable<Settings> {
+                            if (showTabBar) {
+                                DisposableEffect(Unit) {
+                                    onDispose {
+                                        chatViewModel.refreshSettings()
+                                    }
+                                }
+                            }
+                            SettingsScreen(
+                                textToSpeech = speechEngine,
+                                onNavigateBack = {
+                                    chatViewModel.refreshSettings()
+                                    navController.navigateUp()
+                                },
+                                navigationTabBar = if (showTabBar) navigationTabBar else null,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+@OptIn(ExperimentalVoiceApi::class)
+private fun nl.marc_apps.tts.Voice.isFemaleVoice(): Boolean {
+    val name = name.lowercase()
+    return name.contains("female") ||
+        name.contains("woman") ||
+        // RHVoice female voices (ru-ru): Elena (dfc), Alena (dfa), Arina (dfd), Natasha (dft)
+        name.contains("d-fc") || name.contains("d-fa") ||
+        name.contains("d-fd") || name.contains("d-ft") ||
+        // Common female voice names
+        name.contains("elena") || name.contains("alena") ||
+        name.contains("arina") || name.contains("milena") ||
+        name.contains("natasha") || name.contains("tanya") ||
+        name.contains("sonja") || name.contains("koroleva")
 }

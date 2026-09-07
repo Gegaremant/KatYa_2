@@ -5,5 +5,5 @@ import androidx.compose.runtime.Composable
 @Composable
 expect fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 )

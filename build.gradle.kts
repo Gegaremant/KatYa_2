@@ -14,7 +14,7 @@ configure<com.diffplug.gradle.spotless.SpotlessExtension> {
     kotlin {
         target("**/*.kt")
         targetExclude("**/build/**")
-        ktlint()
+        ktlint("1.7.1")
             .editorConfigOverride(
                 mapOf(
                     "ktlint_standard_no-wildcard-imports" to "disabled",

@@ -491,6 +491,21 @@ sealed class Service(
         apiKeyUrlDisplay = "platform.publicai.co",
     )
 
+    data object LegacyFree : Service(
+        id = "legacyfree",
+        displayName = "Legacy Free",
+        icon = Res.drawable.ic_service_free_fast,
+        requiresApiKey = false,
+        defaultModel = "fast",
+        settingsKeyPrefix = "legacyfree",
+        chatUrl = "https://api.kai9000.com/chat/completions",
+        defaultModels = listOf(
+            ModelDefinition("fast", "Free Fast"),
+            ModelDefinition("expert", "Free Expert"),
+        ),
+        supportsImages = false,
+    )
+
     /**
      * Сервис для подключения к локальным моделям (Ollama, LM Studio и др.),
      * работающим по API, совместимому с OpenAI. Мы переименовали его в "Local API AI"
@@ -498,7 +513,7 @@ sealed class Service(
      */
     data object OpenAICompatible : Service(
         id = "openai-compatible",
-        displayName = "Local API AI",
+        displayName = "Self Hosted",
         icon = Res.drawable.ic_service_openai_compatible,
         requiresApiKey = false,
         supportsOptionalApiKey = true,
@@ -520,7 +535,7 @@ sealed class Service(
     )
 
     companion object {
-        val all: List<Service> get() = listOf(Free, FreeDeepSeekProxy, AtlasCloud, Gemini, Anthropic, OpenAI, DeepSeek, Mistral, XAI, OpenRouter, Groq, Nvidia, Cerebras, OllamaCloud, LongCat, Together, HuggingFace, Venice, Moonshot, Zai, ZaiCodingPlan, Minimax, AiHubMix, DeepInfra, FireworksAI, OpenCode, PublicAI, OpenAICompatible, LiteRT)
+        val all: List<Service> get() = listOf(Free, LegacyFree, FreeDeepSeekProxy, AtlasCloud, Gemini, Anthropic, OpenAI, DeepSeek, Mistral, XAI, OpenRouter, Groq, Nvidia, Cerebras, OllamaCloud, LongCat, Together, HuggingFace, Venice, Moonshot, Zai, ZaiCodingPlan, Minimax, AiHubMix, DeepInfra, FireworksAI, OpenCode, PublicAI, OpenAICompatible, LiteRT)
 
         const val DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://localhost:11434/v1"
 

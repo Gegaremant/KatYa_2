@@ -72,10 +72,31 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
             val zipFile = File(context.cacheDir, "vosk_model.tmp.zip")
 
             try {
-                val connection = URL(currentModelUrl).openConnection() as HttpURLConnection
-                connection.connectTimeout = 30_000
-                connection.readTimeout = 60_000
-                connection.connect()
+                var urlStr = currentModelUrl
+                var connection: HttpURLConnection
+                var redirectCount = 0
+                while (true) {
+                    connection = URL(urlStr).openConnection() as HttpURLConnection
+                    connection.connectTimeout = 30_000
+                    connection.readTimeout = 60_000
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Android; Katya/3.0.8)")
+                    connection.instanceFollowRedirects = false
+                    connection.connect()
+
+                    val responseCode = connection.responseCode
+                    if (responseCode in 300..399) {
+                        val nextUrl = connection.getHeaderField("Location")
+                        if (nextUrl == null || redirectCount > 5) {
+                            connection.disconnect()
+                            throw IOException("Too many redirects or missing Location")
+                        }
+                        urlStr = nextUrl
+                        redirectCount++
+                        connection.disconnect()
+                    } else {
+                        break
+                    }
+                }
 
                 val responseCode = connection.responseCode
                 if (responseCode !in 200..299) {
@@ -140,6 +161,10 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
                 if (zipFile.exists()) zipFile.delete()
                 if (getModelDirectory(currentModelUrl).exists()) getModelDirectory(currentModelUrl).deleteRecursively()
                 if (e is CancellationException) throw e
+                com.katya.app.tools.AppLogger.e(
+                    "WakeWord",
+                    "Failed to download/extract Vosk model from $currentModelUrl: ${e.message}\n${e.stackTraceToString()}",
+                )
             } finally {
                 _isDownloading.value = false
                 _downloadProgress.value = null

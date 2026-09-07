@@ -19,8 +19,8 @@ class SftpTool : Tool {
             "password" to ParameterSchema("string", "Пароль", true),
             "action" to ParameterSchema("string", "Действие: 'upload' или 'download'", true),
             "local_path" to ParameterSchema("string", "Локальный путь (на Android)", true),
-            "remote_path" to ParameterSchema("string", "Удаленный путь (на сервере)", true)
-        )
+            "remote_path" to ParameterSchema("string", "Удаленный путь (на сервере)", true),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
@@ -46,10 +46,10 @@ class SftpTool : Tool {
             } else {
                 return@withContext mapOf("success" to false, "error" to "Неизвестное действие: $action")
             }
-            
+
             mapOf(
                 "success" to !output.startsWith("SFTP"),
-                "output" to output
+                "output" to output,
             )
         }
     }

@@ -61,7 +61,7 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
         category: MemoryCategory = MemoryCategory.GENERAL,
         source: String? = null,
     ): MemoryEntry = if (database != null) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val now = Clock.System.now().toEpochMilliseconds()
             val existing = database.memoryQueries.selectMemoryByKey(key).executeAsOneOrNull()
             if (existing != null) {
@@ -108,7 +108,7 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     }
 
     suspend fun updateContent(key: String, content: String): MemoryEntry? = if (database != null) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val now = Clock.System.now().toEpochMilliseconds()
             val existing = database.memoryQueries.selectMemoryByKey(key).executeAsOneOrNull() ?: return@withContext null
             database.memoryQueries.updateMemoryContent(content, now, key)
@@ -128,7 +128,7 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     }
 
     suspend fun reinforceMemory(key: String): MemoryEntry? = if (database != null) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val now = Clock.System.now().toEpochMilliseconds()
             val existing = database.memoryQueries.selectMemoryByKey(key).executeAsOneOrNull() ?: return@withContext null
             database.memoryQueries.reinforceMemory(now, key)
@@ -148,7 +148,7 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     }
 
     suspend fun getPromotionCandidates(minHits: Int = 5): List<MemoryEntry> = if (database != null) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             database.memoryQueries.selectPromotionCandidates(minHits.toLong()).executeAsList().map {
                 MemoryEntry(it.key, it.content, it.createdAt, it.updatedAt, MemoryCategory.valueOf(it.category), it.hitCount.toInt(), it.source)
             }
@@ -158,7 +158,7 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     }
 
     suspend fun forget(key: String): Boolean = if (database != null) {
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val existing = database.memoryQueries.selectMemoryByKey(key).executeAsOneOrNull()
             if (existing != null) {
                 database.memoryQueries.deleteMemory(key)

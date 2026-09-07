@@ -5,7 +5,9 @@ import android.os.Build
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.katya.app.SandboxSessions
 import com.katya.app.TerminalLine
+import com.katya.app.data.AppSettings
 import com.katya.app.data.ConversationStorage
+import com.katya.app.data.Distro
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import kotlinx.coroutines.CoroutineScope
@@ -25,6 +27,7 @@ private val TRANSCRIPT_SAVE_DEBOUNCE = 500.milliseconds
 class LinuxSandboxManager(
     private val context: Context,
     private val conversationStorage: ConversationStorage,
+    private val appSettings: AppSettings,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -79,10 +82,28 @@ class LinuxSandboxManager(
     private fun checkExistingInstallation() {
         val rootfs = File(sandboxDir, "rootfs")
         val proot = File(prootPath)
-        val bashExists = File(rootfs, "usr/bin/bash").exists()
-        if (rootfs.isDirectory && proot.exists() && proot.canExecute() && bashExists) {
+        if (!rootfs.isDirectory || !proot.exists() || !proot.canExecute()) return
+        val d = currentDistro()
+        val bashExists = when (d) {
+            Distro.TERMUX -> File(rootfs, "usr/bin/bash").exists()
+            Distro.DEBIAN -> File(rootfs, "bin/bash").exists() || File(rootfs, "usr/bin/bash").exists()
+        }
+        if (bashExists) {
             _state.value = SandboxState.Ready
         }
+    }
+
+    /** Determine the distro from a saved setting, or detect from an existing rootfs for backward compat. */
+    private fun currentDistro(): Distro {
+        if (_state.value == SandboxState.NotInstalled) return appSettings.getDistro()
+        val rootfs = File(sandboxDir, "rootfs")
+        return detectDistro(rootfs)
+    }
+
+    private fun detectDistro(rootfsDir: File): Distro {
+        if (File(rootfsDir, "data").isDirectory) return Distro.TERMUX
+        if (File(rootfsDir, "etc").isDirectory && (File(rootfsDir, "bin").isDirectory || File(rootfsDir, "usr/bin").isDirectory)) return Distro.DEBIAN
+        return appSettings.getDistro()
     }
 
     private fun getLinuxArch(): String {
@@ -123,6 +144,7 @@ class LinuxSandboxManager(
 
     private suspend fun setupInternal() {
         val arch = getLinuxArch()
+        val distro = appSettings.getDistro()
 
         val proot = File(prootPath)
         if (!proot.exists()) {
@@ -141,35 +163,43 @@ class LinuxSandboxManager(
 
         val rootfsDir = File(sandboxDir, "rootfs")
         if (!rootfsDir.isDirectory) {
-            val zipFile = File(sandboxDir, "rootfs.zip")
+            val archiveFile = File(sandboxDir, "rootfs-download")
             try {
                 _state.value = SandboxState.Downloading(0f)
-                downloader.download(arch, zipFile) { progress ->
+                downloader.download(arch, distro, archiveFile) { progress ->
                     _state.value = SandboxState.Downloading(progress)
                 }
 
                 _state.value = SandboxState.Extracting
-                downloader.extractZip(zipFile, rootfsDir)
+                downloader.extract(archiveFile, rootfsDir, distro)
             } finally {
-                zipFile.delete()
+                archiveFile.delete()
             }
         }
 
-        _state.value = SandboxState.Installing("Configuring Termux...")
+        _state.value = SandboxState.Installing("Configuring $distro...")
         downloader.makeWritable(rootfsDir)
 
-        val executor = createProotExecutor()
-        
+        val executor = createProotExecutor(distro)
+
         _state.value = SandboxState.Installing("Updating repositories...")
-        val updateResult = executor.execute("apt update", timeoutSeconds = 60)
+        val updateCmd = when (distro) {
+            Distro.DEBIAN -> "apt-get update"
+            Distro.TERMUX -> "apt update"
+        }
+        val updateResult = executor.execute(updateCmd, timeoutSeconds = 60)
         if (updateResult["success"] as? Boolean != true) {
-            throw IllegalStateException("apt update failed: ${updateResult["stderr"]}")
+            throw IllegalStateException("$updateCmd failed: ${updateResult["stderr"]}")
         }
 
         _state.value = SandboxState.Installing("Installing Python, SQLite, Curl...")
-        val installResult = executor.execute("apt install -y python sqlite curl", timeoutSeconds = 300)
+        val installCmd = when (distro) {
+            Distro.DEBIAN -> "apt-get install -y --no-install-recommends python3 python3-pip sqlite3 curl"
+            Distro.TERMUX -> "apt install -y python sqlite curl"
+        }
+        val installResult = executor.execute(installCmd, timeoutSeconds = 300)
         if (installResult["success"] as? Boolean != true) {
-            throw IllegalStateException("apt install failed: ${installResult["stderr"]}")
+            throw IllegalStateException("$installCmd failed: ${installResult["stderr"]}")
         }
 
         _state.value = SandboxState.Ready
@@ -199,12 +229,13 @@ class LinuxSandboxManager(
         }
     }
 
-    fun createProotExecutor(): ProotExecutor = ProotExecutor(
+    fun createProotExecutor(d: Distro? = null): ProotExecutor = ProotExecutor(
         prootPath = prootPath,
         libDir = sandboxDir.absolutePath,
         rootfsPath = rootfsPath,
         homePath = homePath,
         tmpPath = tmpPath,
+        distro = d ?: currentDistro(),
     )
 
     // One bash session per logical caller (chat conversation, terminal scratch,
@@ -291,18 +322,32 @@ class LinuxSandboxManager(
 
     fun installPackages() {
         if (currentJob?.isActive == true) return
-        val packages = listOf(
-            "bash", "curl", "wget", "git", "jq", "python3", "py3-pip", "nodejs",
-            "openssh-client", "lftp", "rsync", "xray-core",
-        )
+        val distro = currentDistro()
+        val packages = when (distro) {
+            Distro.TERMUX -> listOf(
+                "bash", "curl", "wget", "git", "jq", "python3", "py3-pip", "nodejs",
+                "openssh-client", "lftp", "rsync", "xray-core",
+            )
+
+            Distro.DEBIAN -> listOf(
+                "bash", "curl", "wget", "git", "jq", "python3", "python3-pip", "nodejs",
+                "openssh-client", "lftp", "rsync",
+            )
+        }
         currentJob = scope.launch {
             try {
-                val executor = createProotExecutor()
-                executor.execute("sh -c \"grep -q 'edge/testing' /etc/apk/repositories || echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories\"", timeoutSeconds = 30)
+                val executor = createProotExecutor(distro)
+                if (distro == Distro.TERMUX) {
+                    executor.execute("sh -c \"grep -q 'edge/testing' /etc/apk/repositories || echo 'http://dl-cdn.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories\"", timeoutSeconds = 30)
+                }
                 for (pkg in packages) {
                     ensureActive()
                     _state.value = SandboxState.Installing("Installing $pkg...")
-                    val result = executor.execute("apk add --no-cache $pkg", timeoutSeconds = 120)
+                    val cmd = when (distro) {
+                        Distro.TERMUX -> "apk add --no-cache $pkg"
+                        Distro.DEBIAN -> "apt-get install -y --no-install-recommends $pkg"
+                    }
+                    val result = executor.execute(cmd, timeoutSeconds = 120)
                     ensureActive()
                     val success = result["success"] as? Boolean ?: false
                     if (!success) {
@@ -316,11 +361,6 @@ class LinuxSandboxManager(
                         return@launch
                     }
                 }
-                // Seed ~/.ssh/config with ControlMaster + keepalive defaults so any
-                // manual `ssh user@host` from now on multiplexes. Idempotent —
-                // skips when the kai:defaults block is already present. Failures
-                // here are non-fatal: openssh works without the defaults, just
-                // without the held-connection optimization.
                 runCatching { SshConfigManager(java.io.File(homePath)).ensureDefaults() }
                     .onFailure { android.util.Log.w("LinuxSandbox", "ssh defaults seed failed: ${it.message}") }
                 _state.value = SandboxState.Ready
@@ -376,9 +416,6 @@ class LinuxSandboxManager(
 
     fun arePackagesInstalled(): Boolean {
         if (_state.value !is SandboxState.Ready) return false
-        // Both checks must pass: existing installs that predate the SSH bundle
-        // will report not-installed and re-prompt, picking up the new packages
-        // on the next install run (apk skips already-installed ones).
         return File(rootfsPath, "usr/bin/python3").exists() &&
             File(rootfsPath, "usr/bin/ssh").exists()
     }

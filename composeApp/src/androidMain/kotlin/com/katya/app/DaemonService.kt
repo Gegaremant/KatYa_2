@@ -40,11 +40,11 @@ class DaemonService : Service() {
             stopSelf()
             return
         }
-        
+
         val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
         wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Katya::DaemonWakeLock")
         wakeLock?.acquire()
-        
+
         // Setup MediaSession for watch integration
         mediaSession = android.media.session.MediaSession(this, "KatyaWatchSession").apply {
             setFlags(android.media.session.MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or android.media.session.MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
@@ -106,7 +106,7 @@ class DaemonService : Service() {
     override fun onDestroy() {
         mediaSession?.isActive = false
         mediaSession?.release()
-        
+
         wakeLock?.let {
             if (it.isHeld) it.release()
         }

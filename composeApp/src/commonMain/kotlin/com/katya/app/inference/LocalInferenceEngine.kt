@@ -85,9 +85,9 @@ enum class DownloadError {
 
 interface LocalInferenceEngine {
     val engineState: StateFlow<EngineState>
-    val downloadingModelId: StateFlow<String?>
-    val downloadProgress: StateFlow<Float?>
-    val downloadError: StateFlow<DownloadError?>
+    val downloadingModelIds: StateFlow<Set<String>>
+    val downloadProgresses: StateFlow<Map<String, Float>>
+    val downloadErrors: StateFlow<Map<String, DownloadError>>
 
     val currentModelId: String?
 
@@ -111,6 +111,7 @@ interface LocalInferenceEngine {
     fun getAvailableModels(): List<LocalModel>
     fun getFreeSpaceBytes(): Long
     fun startDownload(model: LocalModel)
-    fun cancelDownload()
+    fun cancelDownload(modelId: String)
+    suspend fun importModel(model: LocalModel, fileBytes: ByteArray)
     suspend fun deleteModel(modelId: String)
 }

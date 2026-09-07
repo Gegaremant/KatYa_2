@@ -15,23 +15,23 @@ object KeepAutomationTool : Tool {
             "title" to ParameterSchema(
                 type = "string",
                 description = "Заголовок заметки",
-                required = true
+                required = true,
             ),
             "content" to ParameterSchema(
                 type = "string",
                 description = "Содержимое заметки",
-                required = true
-            )
-        )
+                required = true,
+            ),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
         val title = args["title"] as? String ?: return "Error: No title provided"
         val content = args["content"] as? String ?: return "Error: No content provided"
-        
+
         val context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
-        
-        val service = KatyaAccessibilityService.instance 
+
+        val service = KatyaAccessibilityService.instance
         if (service == null) {
             val settingsIntent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
             settingsIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -40,7 +40,6 @@ object KeepAutomationTool : Tool {
         }
 
         try {
-            
             // 1. Launch Google Keep
             val intent = context.packageManager.getLaunchIntentForPackage("com.google.android.keep")
             if (intent == null) {
@@ -48,7 +47,7 @@ object KeepAutomationTool : Tool {
             }
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
-            
+
             // Wait for app to open and load
             delay(3000)
 
@@ -59,7 +58,7 @@ object KeepAutomationTool : Tool {
                 // fallback to content description (might vary by locale, typically "New text note")
                 clicked = service.clickNodeByContentDescription("New text note") || service.clickNodeByContentDescription("Новая текстовая заметка")
             }
-            
+
             if (!clicked) {
                 return "Error: Could not find or click the 'New Note' button."
             }
@@ -69,7 +68,7 @@ object KeepAutomationTool : Tool {
 
             // 3. Set Title
             val titleSet = service.setTextNodeById("com.google.android.keep:id/editable_title", title)
-            
+
             // 4. Set Content
             val contentSet = service.setTextNodeById("com.google.android.keep:id/edit_note_text", content)
 
@@ -83,7 +82,7 @@ object KeepAutomationTool : Tool {
             // 5. Press global BACK to save the note and exit the editor
             service.performGlobalBack()
             delay(500)
-            
+
             // Press BACK again to exit app or return to home
             service.performGlobalBack()
 

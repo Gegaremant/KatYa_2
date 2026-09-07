@@ -23,14 +23,16 @@ import com.katya.app.Platform
 import com.katya.app.currentPlatform
 import com.katya.app.data.AppSettings
 import com.katya.app.tools.*
+import com.katya.app.tts.SpeechEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
-import nl.marc_apps.tts.TextToSpeechInstance
 
 @Composable
 fun StartupPermissionFlow(
-    textToSpeech: TextToSpeechInstance? = null,
-    onComplete: () -> Unit
+    textToSpeech: SpeechEngine? = null,
+    onComplete: () -> Unit,
 ) {
     val appSettings = koinInject<AppSettings>()
 
@@ -78,55 +80,81 @@ fun StartupPermissionFlow(
     var hasExactAlarms by remember { mutableStateOf(exactAlarmController.hasPermission()) }
     var hasAccessibility by remember { mutableStateOf(accessibilityController.hasPermission()) }
     var hasNotificationListener by remember { mutableStateOf(notificationListenerController.isAccessGranted()) }
+    var hasDefaultAssistant by remember { mutableStateOf(systemRoleController.isDefaultAssistant()) }
     var hasGodModePack by remember {
         mutableStateOf(
             smsController.hasPermission() &&
-            smsSendController.hasPermission() &&
-            calendarController.hasPermission()
+                smsSendController.hasPermission() &&
+                calendarController.hasPermission(),
         )
     }
 
     // Perform initial checks
     LaunchedEffect(Unit) {
-        hasRoot = commandExecutor.isRootAvailable()
+        // No root probe here: spawning `su` on every launch triggers a Magisk
+        // grant prompt right at startup even for users who never enable
+        // GOD_MODE. Root is only requested when the user picks GOD_MODE or
+        // taps the "Root-права" permission item below.
         hasMicrophone = audioController.hasPermission()
         hasNotifications = notificationController.hasPermission()
         hasBatteryIgnore = batteryController.hasPermission()
         hasExactAlarms = exactAlarmController.hasPermission()
         hasAccessibility = accessibilityController.hasPermission()
         hasNotificationListener = notificationListenerController.isAccessGranted()
+        hasDefaultAssistant = systemRoleController.isDefaultAssistant()
         hasGodModePack = smsController.hasPermission() &&
-                smsSendController.hasPermission() &&
-                calendarController.hasPermission()
+            smsSendController.hasPermission() &&
+            calendarController.hasPermission()
+    }
+
+    // Re-check permission states every time the screen resumes: the user grants
+    // access in system settings and then returns to the app, at which point the
+    // previously-captured snapshot state would otherwise go stale and the
+    // checkboxes would stay unchecked.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                hasNotificationListener = notificationListenerController.isAccessGranted()
+                hasDefaultAssistant = systemRoleController.isDefaultAssistant()
+                hasNotifications = notificationController.hasPermission()
+                hasBatteryIgnore = batteryController.hasPermission()
+                hasExactAlarms = exactAlarmController.hasPermission()
+                hasAccessibility = accessibilityController.hasPermission()
+                hasGodModePack = smsController.hasPermission() &&
+                    smsSendController.hasPermission() &&
+                    calendarController.hasPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Voice Greeting
     LaunchedEffect(textToSpeech) {
         val tts = textToSpeech ?: return@LaunchedEffect
         try {
-            tts.say("Привет, я цифровой помощник Катя. Чтобы мне быть максимально полезной тебе, мне нужны следующие доступы")
+            tts.speak("Привет, я цифровой помощник Катя. Чтобы мне быть максимально полезной тебе, мне нужны следующие доступы")
         } catch (_: Exception) {
             // Ignore speech synthesis failures
         }
     }
 
-    
-
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color.Transparent
+        color = Color.Transparent,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .padding(24.dp)
+                .padding(24.dp),
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Spacer(Modifier.height(36.dp))
 
@@ -136,13 +164,13 @@ fun StartupPermissionFlow(
                         .size(90.dp)
                         .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), RoundedCornerShape(45.dp))
                         .border(1.5.dp, MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(45.dp)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(42.dp)
+                        modifier = Modifier.size(42.dp),
                     )
                 }
 
@@ -152,14 +180,14 @@ fun StartupPermissionFlow(
                     text = "Цифровой помощник Катя",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
 
                 Text(
                     text = "Первоначальная настройка и выбор режима",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -169,14 +197,14 @@ fun StartupPermissionFlow(
                     text = "Выберите режим работы:",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.align(Alignment.Start)
+                    modifier = Modifier.align(Alignment.Start),
                 )
 
                 Spacer(Modifier.height(8.dp))
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     // Sandbox Mode Button
                     ModeSelectorItem(
@@ -186,7 +214,7 @@ fun StartupPermissionFlow(
                         onClick = {
                             isSandbox = true
                             isGodMode = false
-                        }
+                        },
                     )
 
                     // Bare Android Mode Button
@@ -197,8 +225,31 @@ fun StartupPermissionFlow(
                         onClick = {
                             isSandbox = false
                             isGodMode = false
-                        }
+                        },
                     )
+
+                    var showNoRootDialog by remember { mutableStateOf(false) }
+
+                    if (showNoRootDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showNoRootDialog = false },
+                            confirmButton = {
+                                TextButton(onClick = { showNoRootDialog = false }) {
+                                    Text("Понятно")
+                                }
+                            },
+                            title = { Text("Отказ в доступе") },
+                            text = {
+                                Column {
+                                    Text("😭 \n 😇 🪽 К сожалению без root прав вам не стать богом... 🪽 😇")
+                                    Spacer(Modifier.height(16.dp))
+                                    Text("😈 Но выход есть всегда...")
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("🐈‍⬛ GitHub: https://github.com/Gegaremant/meizu_note21_m411h_root 😈")
+                                }
+                            },
+                        )
+                    }
 
                     // GOD_MODE Button
                     ModeSelectorItem(
@@ -207,9 +258,19 @@ fun StartupPermissionFlow(
                         selected = isSandbox && isGodMode,
                         accent = true,
                         onClick = {
-                            isSandbox = true
-                            isGodMode = true
-                        }
+                            coroutineScope.launch {
+                                val rootAvailable = withContext(Dispatchers.Default) {
+                                    commandExecutor.isRootAvailable()
+                                }
+                                if (rootAvailable) {
+                                    isSandbox = true
+                                    isGodMode = true
+                                    hasRoot = true
+                                } else {
+                                    showNoRootDialog = true
+                                }
+                            }
+                        },
                     )
                 }
 
@@ -219,7 +280,7 @@ fun StartupPermissionFlow(
                     text = "Необходимые разрешения:",
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.align(Alignment.Start)
+                    modifier = Modifier.align(Alignment.Start),
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -227,7 +288,7 @@ fun StartupPermissionFlow(
                 // Permissions List
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     // GOD_MODE Specific: Root Rights
                     if (isGodMode) {
@@ -239,7 +300,9 @@ fun StartupPermissionFlow(
                             onRequest = {
                                 coroutineScope.launch {
                                     isCheckingRoot = true
-                                    hasRoot = commandExecutor.isRootAvailable()
+                                    hasRoot = withContext(Dispatchers.Default) {
+                                        commandExecutor.isRootAvailable()
+                                    }
                                     if (hasRoot) {
                                         RootHelper.grantAllPermissions()
                                         // Update state immediately to show as granted
@@ -249,7 +312,7 @@ fun StartupPermissionFlow(
                                     }
                                     isCheckingRoot = false
                                 }
-                            }
+                            },
                         )
                     }
 
@@ -262,7 +325,7 @@ fun StartupPermissionFlow(
                             coroutineScope.launch {
                                 hasAccessibility = accessibilityController.requestPermission()
                             }
-                        }
+                        },
                     )
 
                     // Microphone (Common)
@@ -274,7 +337,7 @@ fun StartupPermissionFlow(
                             coroutineScope.launch {
                                 hasMicrophone = audioController.requestPermission()
                             }
-                        }
+                        },
                     )
 
                     // Notifications (Common)
@@ -286,7 +349,7 @@ fun StartupPermissionFlow(
                             coroutineScope.launch {
                                 hasNotifications = notificationController.requestPermission()
                             }
-                        }
+                        },
                     )
 
                     // Notification Listener (Common)
@@ -299,7 +362,7 @@ fun StartupPermissionFlow(
                                 notificationListenerController.openAccessSettings()
                                 // The user has to return to the app, so we can't reliably auto-update here
                                 // without a lifecycle observer, but they can click again if needed.
-                            }
+                            },
                         )
                     }
 
@@ -312,7 +375,7 @@ fun StartupPermissionFlow(
                             coroutineScope.launch {
                                 hasBatteryIgnore = batteryController.requestPermission()
                             }
-                        }
+                        },
                     )
 
                     // Exact alarms (Common)
@@ -324,7 +387,7 @@ fun StartupPermissionFlow(
                             coroutineScope.launch {
                                 hasExactAlarms = exactAlarmController.requestPermission()
                             }
-                        }
+                        },
                     )
 
                     // GOD_MODE Pack (SMS, Calendar, Storage)
@@ -339,37 +402,19 @@ fun StartupPermissionFlow(
                                     smsSendController.requestPermission()
                                     calendarController.requestPermission()
                                     hasGodModePack = smsController.hasPermission() &&
-                                            smsSendController.hasPermission() &&
-                                            calendarController.hasPermission()
+                                        smsSendController.hasPermission() &&
+                                        calendarController.hasPermission()
                                 }
-                            }
+                            },
                         )
 
                         PermissionItem(
                             title = "Помощник по умолчанию",
                             description = "Назначить Катю системным цифровым помощником.",
-                            isGranted = false, // Cannot easily check synchronously without context
+                            isGranted = hasDefaultAssistant,
                             onRequest = {
                                 systemRoleController.openDefaultAssistantSettings()
-                            }
-                        )
-
-                        PermissionItem(
-                            title = "Администратор устройства",
-                            description = "Расширенные права управления устройством.",
-                            isGranted = false,
-                            onRequest = {
-                                systemRoleController.openDeviceAdminSettings()
-                            }
-                        )
-
-                        PermissionItem(
-                            title = "Агент доверия",
-                            description = "Глубокая системная интеграция и обход блокировок.",
-                            isGranted = false,
-                            onRequest = {
-                                systemRoleController.openTrustAgentSettings()
-                            }
+                            },
                         )
                     }
                 }
@@ -386,14 +431,14 @@ fun StartupPermissionFlow(
                         .fillMaxWidth()
                         .height(54.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isGodMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary
+                        containerColor = if (isGodMode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
                     ),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
                 ) {
                     Text(
                         text = "Продолжить работу",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
@@ -409,7 +454,7 @@ private fun ModeSelectorItem(
     description: String,
     selected: Boolean,
     accent: Boolean = false,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val borderColor = when {
         selected && accent -> MaterialTheme.colorScheme.secondary
@@ -429,7 +474,7 @@ private fun ModeSelectorItem(
             .clickable { onClick() }
             .border(1.5.dp, borderColor, RoundedCornerShape(14.dp)),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(14.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -438,21 +483,21 @@ private fun ModeSelectorItem(
                     onClick = onClick,
                     colors = RadioButtonDefaults.colors(
                         selectedColor = if (accent) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                        unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                    )
+                        unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    ),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
             Text(
                 text = description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                modifier = Modifier.padding(start = 40.dp)
+                modifier = Modifier.padding(start = 40.dp),
             )
         }
     }
@@ -464,34 +509,34 @@ private fun PermissionItem(
     description: String,
     isGranted: Boolean,
     isLoading: Boolean = false,
-    onRequest: () -> Unit
+    onRequest: () -> Unit,
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+            containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(12.dp),
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
                 )
             }
             if (isGranted) {
@@ -499,28 +544,28 @@ private fun PermissionItem(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Предоставлено",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(28.dp),
                 )
             } else {
                 if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
                     )
                 } else {
                     Button(
                         onClick = onRequest,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
+                            containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                     ) {
                         Text(
                             text = "Разрешить",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }

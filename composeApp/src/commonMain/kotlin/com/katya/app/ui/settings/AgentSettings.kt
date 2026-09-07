@@ -2,6 +2,9 @@
 
 package com.katya.app.ui.settings
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,19 +15,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -41,16 +55,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.katya.app.RHVOICE_PACKAGE
 import com.katya.app.data.HeartbeatLogEntry
 import com.katya.app.data.MemoryEntry
 import com.katya.app.data.ScheduledTask
 import com.katya.app.data.TaskStatus
 import com.katya.app.data.TaskTrigger
+import com.katya.app.device.DeviceAdminManager
+import com.katya.app.formatFileSize
+import com.katya.app.isAppInstalled
+import com.katya.app.openTtsSettings
 import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.SettingsListItem
 import com.katya.app.ui.handCursor
-import com.katya.app.ui.katyaAdaptiveCardSurface
 import com.katya.app.ui.icons.Replay
+import com.katya.app.ui.katyaAdaptiveCardSurface
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.readBytes
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.default_soul
 import katya.composeapp.generated.resources.execution_log_status_fail
@@ -85,17 +108,105 @@ import katya.composeapp.generated.resources.settings_task_details_scheduled_for
 import katya.composeapp.generated.resources.settings_task_details_status
 import katya.composeapp.generated.resources.settings_task_details_trigger
 import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.offsetAt
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
-import kotlin.time.Instant
 import kotlin.time.Clock
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.RadioButton
+import kotlin.time.Instant
+
+@Composable
+private fun DeviceAdminSection(
+    isDeviceAdmin: Boolean,
+    onOpenSettings: () -> Unit,
+) {
+    val isActive = DeviceAdminManager.isDeviceAdminActive()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Администратор устройства",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Icon(
+                imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = if (isActive) "Активен" else "Неактивен",
+                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            )
+        }
+        Text(
+            text = if (isActive) {
+                "Приложение имеет права администратора."
+            } else {
+                "Права администратора не активны. Запросите их для управления устройством."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isActive) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+        )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = {
+                if (isActive) {
+                    DeviceAdminManager.openDeviceAdminSettings()
+                } else {
+                    DeviceAdminManager.requestDeviceAdmin()
+                }
+            },
+            modifier = Modifier.handCursor(),
+        ) {
+            Text(if (isActive) "Открыть настройки" else "Запросить права")
+        }
+    }
+}
+
+@Composable
+private fun TrustAgentSection(
+    onOpenSettings: () -> Unit,
+) {
+    val isActive = DeviceAdminManager.isTrustAgentEnabled()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Агенты доверия",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Icon(
+                imageVector = if (isActive) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = if (isActive) "Активен" else "Неактивен",
+                tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            )
+        }
+        Text(
+            text = if (isActive) {
+                "Приложение является агентом доверия."
+            } else {
+                "Агент доверия не активен. Настройте его в системных параметрах."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isActive) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+        )
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { DeviceAdminManager.openTrustAgentSettings() },
+            modifier = Modifier.handCursor(),
+        ) {
+            Text("Открыть настройки агентов доверия")
+        }
+    }
+}
 
 @Composable
 internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
@@ -117,13 +228,63 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         )
                     }
                     SettingsCard {
+                        DeviceAdminSection(
+                            isDeviceAdmin = uiState.isDeviceAdmin,
+                            onOpenSettings = actions.onOpenDeviceAdminSettings,
+                        )
+                    }
+                    SettingsCard {
+                        TrustAgentSection(
+                            onOpenSettings = actions.onOpenTrustAgentSettings,
+                        )
+                    }
+                    SettingsCard {
                         AudioEnginesCard(
                             sttEngine = uiState.sttEngine,
                             ttsEngine = uiState.ttsEngine,
+                            ttsEngineInstalled = uiState.ttsEngineInstalled,
+                            isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
+                            onToggleVoiceResponse = actions.onToggleVoiceResponse,
                             onChangeSttEngine = actions.onChangeSttEngine,
                             onChangeTtsEngine = actions.onChangeTtsEngine,
+                            cloudSttUrl = uiState.cloudSttUrl,
+                            cloudSttKey = uiState.cloudSttKey,
+                            cloudSttModel = uiState.cloudSttModel,
+                            cloudTtsUrl = uiState.cloudTtsUrl,
+                            cloudTtsKey = uiState.cloudTtsKey,
+                            cloudTtsModel = uiState.cloudTtsModel,
+                            cloudTtsVoice = uiState.cloudTtsVoice,
+                            onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
+                            onChangeCloudSttKey = actions.onChangeCloudSttKey,
+                            onChangeCloudSttModel = actions.onChangeCloudSttModel,
+                            onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
+                            onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
+                            onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
+                            onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
+                            piperInstalledVoices = uiState.piperInstalledVoices,
+                            piperSelectedVoice = uiState.piperSelectedVoice,
+                            piperVoiceUrl = uiState.piperVoiceUrl,
+                            piperDownloadingBase = uiState.piperDownloadingBase,
+                            piperDownloadProgress = uiState.piperDownloadProgress,
+                            piperDownloadError = uiState.piperDownloadError,
+                            onChangePiperVoiceUrl = actions.onChangePiperVoiceUrl,
+                            onDownloadPiperVoice = actions.onDownloadPiperVoice,
+                            onSelectPiperVoice = actions.onSelectPiperVoice,
+                            onImportPiperVoice = actions.onImportPiperVoice,
+                            onDeletePiperVoice = actions.onDeletePiperVoice,
+                            onExportPiperVoice = actions.onExportPiperVoice,
+                            isVoskReady = uiState.isVoskReady,
+                            isVoskDownloading = uiState.isVoskDownloading,
+                            voskDownloadProgress = uiState.voskDownloadProgress,
+                            onDownloadVosk = actions.onDownloadVosk,
+                        )
+
+                        SandboxDistroCard(
+                            distro = uiState.distro,
+                            onChangeDistro = actions.onChangeDistro,
                         )
                     }
+
                     SettingsCard {
                         ScheduledTaskList(
                             tasks = uiState.scheduledTasks,
@@ -231,8 +392,34 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                     AudioEnginesCard(
                         sttEngine = uiState.sttEngine,
                         ttsEngine = uiState.ttsEngine,
+                        ttsEngineInstalled = uiState.ttsEngineInstalled,
+                        isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
+                        onToggleVoiceResponse = actions.onToggleVoiceResponse,
                         onChangeSttEngine = actions.onChangeSttEngine,
                         onChangeTtsEngine = actions.onChangeTtsEngine,
+                        cloudSttUrl = uiState.cloudSttUrl,
+                        cloudSttKey = uiState.cloudSttKey,
+                        cloudSttModel = uiState.cloudSttModel,
+                        cloudTtsUrl = uiState.cloudTtsUrl,
+                        cloudTtsKey = uiState.cloudTtsKey,
+                        cloudTtsModel = uiState.cloudTtsModel,
+                        cloudTtsVoice = uiState.cloudTtsVoice,
+                        onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
+                        onChangeCloudSttKey = actions.onChangeCloudSttKey,
+                        onChangeCloudSttModel = actions.onChangeCloudSttModel,
+                        onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
+                        onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
+                        onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
+                        onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
+                        isVoskReady = uiState.isVoskReady,
+                        isVoskDownloading = uiState.isVoskDownloading,
+                        voskDownloadProgress = uiState.voskDownloadProgress,
+                        onDownloadVosk = actions.onDownloadVosk,
+                    )
+
+                    SandboxDistroCard(
+                        distro = uiState.distro,
+                        onChangeDistro = actions.onChangeDistro,
                     )
                 }
                 SettingsCard {
@@ -464,7 +651,7 @@ private fun MemoryList(
         if (isMemoryEnabled) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
             ) {
                 TextButton(
                     onClick = { showAddDialog = true },
@@ -514,7 +701,7 @@ private fun MemoryList(
             onSave = { k, c ->
                 onAddMemory(k, c)
                 showAddDialog = false
-            }
+            },
         )
     }
 
@@ -648,6 +835,8 @@ private fun ScheduledTaskList(
     var editingTask by remember { mutableStateOf<ScheduledTask?>(null) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
+        val pendingTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
+            .sortedBy { it.scheduledAtEpochMs }
         ToggleableHeadline(
             title = stringResource(Res.string.settings_scheduled_tasks),
             description = stringResource(Res.string.settings_scheduled_tasks_description),
@@ -660,8 +849,17 @@ private fun ScheduledTaskList(
         if (isSchedulingEnabled) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (pendingTasks.isNotEmpty()) {
+                    Text(
+                        text = "Ожидающих задач: ${pendingTasks.size}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 4.dp),
+                    )
+                }
                 TextButton(
                     onClick = { isAddingTask = true },
                     modifier = Modifier.handCursor(),
@@ -674,21 +872,20 @@ private fun ScheduledTaskList(
             Spacer(Modifier.height(8.dp))
 
             if (tasks.isNotEmpty()) {
-                val visibleTasks = tasks.filter { it.status != TaskStatus.COMPLETED }
-                if (visibleTasks.isEmpty()) {
+                if (pendingTasks.isEmpty()) {
                     Text(
                         text = "Нет активных задач",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp)
+                        modifier = Modifier.padding(vertical = 8.dp),
                     )
                 } else {
-                    visibleTasks.forEach { task ->
+                    pendingTasks.forEach { task ->
                         val subtitle = when (task.trigger) {
                             TaskTrigger.HEARTBEAT -> "${task.status} - $onEveryHeartbeat"
-        
+
                             TaskTrigger.CRON -> "${task.status} - ${task.cron?.let { describeCron(it) } ?: "cron"}"
-        
+
                             TaskTrigger.TIME -> {
                                 val instant = Instant.fromEpochMilliseconds(task.scheduledAtEpochMs)
                                 val zone = TimeZone.currentSystemDefault()
@@ -697,9 +894,13 @@ private fun ScheduledTaskList(
                                 "${task.status} - $scheduledTime $offset"
                             }
                         }
+                        val detail = task.lastResult
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { "\nРезультат: $it" }
+                            ?: ""
                         SettingsListItem(
                             title = task.description,
-                            subtitle = subtitle,
+                            subtitle = subtitle + detail,
                             onClick = { selectedTaskId = task.id },
                             onDelete = { onCancelTask(task.id) },
                             deleteContentDescription = stringResource(Res.string.settings_scheduled_tasks_cancel),
@@ -719,7 +920,7 @@ private fun ScheduledTaskList(
             onDismiss = { selectedTaskId = null },
             onEditClick = { taskToEdit ->
                 editingTask = taskToEdit
-            }
+            },
         )
     }
 
@@ -730,7 +931,7 @@ private fun ScheduledTaskList(
             onSave = { desc, pr, time, cron, trig ->
                 onAddScheduledTask(desc, pr, time, cron, trig)
                 isAddingTask = false
-            }
+            },
         )
     }
 
@@ -744,11 +945,11 @@ private fun ScheduledTaskList(
                     prompt = pr,
                     scheduledAtEpochMs = time,
                     cron = cron,
-                    trigger = trig
+                    trigger = trig,
                 )
                 onUpdateScheduledTask(updated)
                 editingTask = null
-            }
+            },
         )
     }
 }
@@ -773,20 +974,20 @@ private fun TaskDetailsSheet(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = task.description,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 TextButton(
                     onClick = {
                         onDismiss()
                         onEditClick(task)
                     },
-                    modifier = Modifier.handCursor()
+                    modifier = Modifier.handCursor(),
                 ) {
                     Text("Редактировать")
                 }
@@ -1023,19 +1224,22 @@ private fun AddMemorySheet(
     }
 }
 
-private fun parseLocalDateTime(str: String): Long? {
-    return try {
-        val parts = str.trim().split(' ')
-        val dateParts = parts[0].split('-').map { it.toInt() }
-        val timeParts = parts[1].split(':').map { it.toInt() }
-        val localDateTime = kotlinx.datetime.LocalDateTime(
-            dateParts[0], dateParts[1], dateParts[2],
-            timeParts[0], timeParts[1], 0, 0
-        )
-        localDateTime.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()
-    } catch (_: Exception) {
-        null
-    }
+private fun parseLocalDateTime(str: String): Long? = try {
+    val parts = str.trim().split(' ')
+    val dateParts = parts[0].split('-').map { it.toInt() }
+    val timeParts = parts[1].split(':').map { it.toInt() }
+    val localDateTime = kotlinx.datetime.LocalDateTime(
+        dateParts[0],
+        dateParts[1],
+        dateParts[2],
+        timeParts[0],
+        timeParts[1],
+        0,
+        0,
+    )
+    localDateTime.toInstant(TimeZone.currentSystemDefault()).toEpochMilliseconds()
+} catch (_: Exception) {
+    null
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1079,7 +1283,9 @@ private fun AddEditTaskSheet(
                 true
             }
         }
+
         TaskTrigger.CRON -> cronString.isNotBlank()
+
         TaskTrigger.HEARTBEAT -> true
     }
 
@@ -1133,14 +1339,14 @@ private fun AddEditTaskSheet(
                 listOf(
                     TaskTrigger.TIME to "Однократно",
                     TaskTrigger.CRON to "Расписание",
-                    TaskTrigger.HEARTBEAT to "Пульс"
+                    TaskTrigger.HEARTBEAT to "Пульс",
                 ).forEach { (tType, label) ->
                     val isSelected = trigger == tType
                     FilterChip(
                         selected = isSelected,
                         onClick = { trigger = tType },
                         label = { Text(label) },
-                        modifier = Modifier.handCursor()
+                        modifier = Modifier.handCursor(),
                     )
                 }
             }
@@ -1158,12 +1364,12 @@ private fun AddEditTaskSheet(
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(
                             selected = !useManualTime,
                             onClick = { useManualTime = false },
-                            modifier = Modifier.handCursor()
+                            modifier = Modifier.handCursor(),
                         )
                         Text("Через интервал")
 
@@ -1172,7 +1378,7 @@ private fun AddEditTaskSheet(
                         RadioButton(
                             selected = useManualTime,
                             onClick = { useManualTime = true },
-                            modifier = Modifier.handCursor()
+                            modifier = Modifier.handCursor(),
                         )
                         Text("Задать время")
                     }
@@ -1236,6 +1442,7 @@ private fun AddEditTaskSheet(
                         )
                     }
                 }
+
                 TaskTrigger.CRON -> {
                     Text(
                         text = "Расписание (Cron)",
@@ -1263,22 +1470,23 @@ private fun AddEditTaskSheet(
                             "*/5 * * * *" to "5 мин",
                             "0 * * * *" to "1 час",
                             "0 */12 * * *" to "12 час",
-                            "0 0 * * *" to "1 день"
+                            "0 0 * * *" to "1 день",
                         ).forEach { (presetCron, label) ->
                             FilterChip(
                                 selected = cronString == presetCron,
                                 onClick = { cronString = presetCron },
                                 label = { Text(label) },
-                                modifier = Modifier.handCursor()
+                                modifier = Modifier.handCursor(),
                             )
                         }
                     }
                 }
+
                 TaskTrigger.HEARTBEAT -> {
                     Text(
                         text = "Задача будет выполняться на каждом периодическом селф-чеке (heartbeat) приложения в фоновом режиме.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -1307,6 +1515,7 @@ private fun AddEditTaskSheet(
                                         Clock.System.now().toEpochMilliseconds() + delayMinutes * 60 * 1000L
                                     }
                                 }
+
                                 else -> 0L
                             }
                             val cronValue = if (trigger == TaskTrigger.CRON) cronString.trim() else null
@@ -1328,46 +1537,197 @@ private fun AddEditTaskSheet(
 private fun AudioEnginesCard(
     sttEngine: com.katya.app.data.SttEngine,
     ttsEngine: com.katya.app.data.TtsEngine,
+    ttsEngineInstalled: Boolean = true,
+    isVoiceResponseEnabled: Boolean,
+    onToggleVoiceResponse: (Boolean) -> Unit,
+    isVoiceRecognitionEnabled: Boolean,
+    onToggleVoiceRecognition: (Boolean) -> Unit,
     onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
     onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
+    cloudSttUrl: String = "",
+    cloudSttKey: String = "",
+    cloudSttModel: String = "",
+    cloudTtsUrl: String = "",
+    cloudTtsKey: String = "",
+    cloudTtsModel: String = "",
+    cloudTtsVoice: String = "",
+    onChangeCloudSttUrl: (String) -> Unit = {},
+    onChangeCloudSttKey: (String) -> Unit = {},
+    onChangeCloudSttModel: (String) -> Unit = {},
+    onChangeCloudTtsUrl: (String) -> Unit = {},
+    onChangeCloudTtsKey: (String) -> Unit = {},
+    onChangeCloudTtsModel: (String) -> Unit = {},
+    onChangeCloudTtsVoice: (String) -> Unit = {},
+    piperInstalledVoices: ImmutableList<com.katya.app.tts.PiperVoiceInfo> = persistentListOf(),
+    piperSelectedVoice: String? = null,
+    piperVoiceUrl: String = "",
+    piperDownloadingBase: String? = null,
+    piperDownloadProgress: Float? = null,
+    piperDownloadError: String? = null,
+    onChangePiperVoiceUrl: (String) -> Unit = {},
+    onDownloadPiperVoice: (String) -> Unit = {},
+    onSelectPiperVoice: (String) -> Unit = {},
+    onImportPiperVoice: (String, ByteArray) -> Unit = { _, _ -> },
+    onDeletePiperVoice: (String) -> Unit = {},
+    onExportPiperVoice: (String) -> Unit = {},
+    isVoskReady: Boolean = false,
+    isVoskDownloading: Boolean = false,
+    voskDownloadProgress: Float? = null,
+    onDownloadVosk: () -> Unit = {},
 ) {
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+    var cloudSttExpanded by remember { mutableStateOf(false) }
+    var cloudTtsExpanded by remember { mutableStateOf(false) }
+    var sttExpanded by remember { mutableStateOf(true) }
+    var ttsExpanded by remember { mutableStateOf(true) }
+    var piperSettingsExpanded by remember { mutableStateOf(true) }
     Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Слух и Речь (STT/TTS)",
+            text = "Слух и речь",
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
         )
-        
+
         Text(
             text = "Выберите движки для распознавания и синтеза речи. Локальные модели работают полностью без интернета, но требуют загрузки.",
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurface,
         )
 
         Column(
             modifier = Modifier.fillMaxWidth()
                 .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
-                .padding(12.dp)
+                .padding(12.dp),
         ) {
-            Text(
-                text = "Распознавание речи (Слух)",
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            ToggleableHeadline(
+                title = "Включить распознавание речи",
+                description = "Агент будет слушать вас и переводить речь в текст (состояние синхронизировано с кнопкой микрофона)",
+                checked = isVoiceRecognitionEnabled,
+                onCheckedChange = onToggleVoiceRecognition,
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            com.katya.app.data.SttEngine.entries.forEach { engine ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeSttEngine(engine) },
-                    verticalAlignment = Alignment.CenterVertically
+            
+            if (isVoiceRecognitionEnabled) {
+                SpoilerBlock(
+                    title = "Распознавание речи (Слух)",
+                    expanded = sttExpanded,
+                    onToggle = { sttExpanded = !sttExpanded },
                 ) {
-                    androidx.compose.material3.RadioButton(
-                        selected = sttEngine == engine,
-                        onClick = { onChangeSttEngine(engine) }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = engine.name, style = MaterialTheme.typography.bodyMedium)
+                    com.katya.app.data.SttEngine.entries.forEach { engine ->
+                    val name = when (engine) {
+                        com.katya.app.data.SttEngine.GKPSR -> "GKPSR (Google Keyboard Parsing Speech Recognizer)"
+                        com.katya.app.data.SttEngine.SYSTEM -> "Android STT"
+                        com.katya.app.data.SttEngine.LOCAL -> "Local (Vosk)"
+                        com.katya.app.data.SttEngine.CLOUD -> "Cloud API"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeSttEngine(engine) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = sttEngine == engine,
+                            onClick = { onChangeSttEngine(engine) },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    if (engine == com.katya.app.data.SttEngine.CLOUD) {
+                        CloudApiSpoiler(
+                            expanded = cloudSttExpanded,
+                            onToggle = { cloudSttExpanded = !cloudSttExpanded },
+                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                        ) {
+                            CloudSpeechFields(
+                                url = cloudSttUrl,
+                                apiKey = cloudSttKey,
+                                model = cloudSttModel,
+                                urlLabel = "STT endpoint (OpenAI-совместимый)",
+                                apiKeyLabel = "API-ключ",
+                                modelLabel = "Модель (например whisper-1)",
+                                onChangeUrl = onChangeCloudSttUrl,
+                                onChangeApiKey = onChangeCloudSttKey,
+                                onChangeModel = onChangeCloudSttModel,
+                            )
+                        }
+                    }
+
+                    if (engine == com.katya.app.data.SttEngine.LOCAL) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            when {
+                                isVoskReady -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Модель Vosk установлена — распознавание работает офлайн",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                }
+
+                                isVoskDownloading -> {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        LinearProgressIndicator(
+                                            progress = { voskDownloadProgress ?: 0f },
+                                            modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                        )
+                                        Text(
+                                            text = if (voskDownloadProgress != null) {
+                                                "${(voskDownloadProgress * 100).toInt()}%"
+                                            } else {
+                                                "0%"
+                                            },
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    }
+                                    Text(
+                                        text = "Скачивается модель распознавания...",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    )
+                                }
+
+                                else -> {
+                                    Text(
+                                        text = "Для локального распознавания нужна модель Vosk. Она скачается прямо в приложение и будет работать без интернета:",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    )
+                                    Text(
+                                        text = "Скачать модель Vosk",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .handCursor()
+                                            .clickable { onDownloadVosk() }
+                                            .padding(vertical = 4.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    }
                 }
             }
         }
@@ -1375,25 +1735,513 @@ private fun AudioEnginesCard(
         Column(
             modifier = Modifier.fillMaxWidth()
                 .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
-                .padding(12.dp)
+                .padding(12.dp),
+        ) {
+            ToggleableHeadline(
+                title = "Включить синтез речи",
+                description = "Агент будет озвучивать свои ответы (состояние синхронизировано с кнопкой динамика)",
+                checked = isVoiceResponseEnabled,
+                onCheckedChange = onToggleVoiceResponse,
+            )
+            
+            if (isVoiceResponseEnabled) {
+                SpoilerBlock(
+                    title = "Синтез речи (Голос)",
+                    expanded = ttsExpanded,
+                    onToggle = { ttsExpanded = !ttsExpanded },
+                ) {
+                    com.katya.app.data.TtsEngine.entries.forEach { engine ->
+                    val name = when (engine) {
+                        com.katya.app.data.TtsEngine.SYSTEM -> "По умолчанию (Android)"
+                        com.katya.app.data.TtsEngine.RHVOICE -> "RHVoice (рекомендуется для русского)"
+                        com.katya.app.data.TtsEngine.PIPER -> "Локальный Piper"
+                        com.katya.app.data.TtsEngine.CLOUD -> "Cloud API"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeTtsEngine(engine) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        androidx.compose.material3.RadioButton(
+                            selected = ttsEngine == engine,
+                            onClick = { onChangeTtsEngine(engine) },
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    }
+
+                    if (engine == com.katya.app.data.TtsEngine.RHVOICE) {
+                        if (ttsEngine == com.katya.app.data.TtsEngine.RHVOICE && !ttsEngineInstalled) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "Движок не установлен. Установите по ссылке:",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                )
+                            }
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                        ) {
+                            if (!isAppInstalled(RHVOICE_PACKAGE)) {
+                                Text(
+                                    text = "Скачать RHVoice",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .handCursor()
+                                        .clickable {
+                                            uriHandler.openUri("market://details?id=$RHVOICE_PACKAGE")
+                                        }
+                                        .padding(vertical = 4.dp),
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                            }
+                            Text(
+                                text = "Настройки TTS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .handCursor()
+                                    .clickable { openTtsSettings() }
+                                    .padding(vertical = 4.dp),
+                            )
+                        }
+                    }
+
+                    if (engine == com.katya.app.data.TtsEngine.CLOUD) {
+                        CloudApiSpoiler(
+                            expanded = cloudTtsExpanded,
+                            onToggle = { cloudTtsExpanded = !cloudTtsExpanded },
+                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                KaiOutlinedTextField(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = cloudTtsUrl,
+                                    onValueChange = onChangeCloudTtsUrl,
+                                    label = {
+                                        Text("TTS endpoint (OpenAI-совместимый)", color = MaterialTheme.colorScheme.onBackground)
+                                    },
+                                )
+                                KaiOutlinedTextField(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = cloudTtsKey,
+                                    onValueChange = onChangeCloudTtsKey,
+                                    label = {
+                                        Text("API-ключ", color = MaterialTheme.colorScheme.onBackground)
+                                    },
+                                )
+                                KaiOutlinedTextField(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = cloudTtsModel,
+                                    onValueChange = onChangeCloudTtsModel,
+                                    label = {
+                                        Text("Модель (например tts-1)", color = MaterialTheme.colorScheme.onBackground)
+                                    },
+                                )
+                                KaiOutlinedTextField(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    value = cloudTtsVoice,
+                                    onValueChange = onChangeCloudTtsVoice,
+                                    label = {
+                                        Text("Голос (например alloy)", color = MaterialTheme.colorScheme.onBackground)
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    if (engine == com.katya.app.data.TtsEngine.PIPER) {
+                        SpoilerBlock(
+                            title = "⚙ Настройки Piper",
+                            expanded = piperSettingsExpanded,
+                            onToggle = { piperSettingsExpanded = !piperSettingsExpanded },
+                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                        ) {
+                            PiperVoicesCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                voices = piperInstalledVoices,
+                                selectedVoice = piperSelectedVoice,
+                                voiceUrl = piperVoiceUrl,
+                                downloadingBase = piperDownloadingBase,
+                                downloadProgress = piperDownloadProgress,
+                                downloadError = piperDownloadError,
+                                onChangeVoiceUrl = onChangePiperVoiceUrl,
+                                onDownloadVoice = onDownloadPiperVoice,
+                                onSelectVoice = onSelectPiperVoice,
+                                onImportVoice = onImportPiperVoice,
+                                onDeleteVoice = onDeletePiperVoice,
+                                onExportVoice = onExportPiperVoice,
+                                onOpenHuggingFace = { uriHandler.openUri("https://huggingface.co/rhasspy/piper-voices/tree/main/ru/ru_RU") },
+                            )
+                        }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpoilerBlock(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .handCursor()
+                .clickable(onClick = onToggle)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Синтез речи (Голос)",
+                text = title,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            com.katya.app.data.TtsEngine.entries.forEach { engine ->
+            Text(
+                text = if (expanded) "▴" else "▾",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun CloudApiSpoiler(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .handCursor()
+                .clickable(onClick = onToggle)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "⚙ Настройки Cloud API",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = if (expanded) "▴" else "▾",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun CloudSpeechFields(
+    url: String,
+    apiKey: String,
+    model: String,
+    urlLabel: String,
+    apiKeyLabel: String,
+    modelLabel: String,
+    onChangeUrl: (String) -> Unit,
+    onChangeApiKey: (String) -> Unit,
+    onChangeModel: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(start = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        KaiOutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = url,
+            onValueChange = onChangeUrl,
+            label = {
+                Text(urlLabel, color = MaterialTheme.colorScheme.onBackground)
+            },
+        )
+        KaiOutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = apiKey,
+            onValueChange = onChangeApiKey,
+            label = {
+                Text(apiKeyLabel, color = MaterialTheme.colorScheme.onBackground)
+            },
+        )
+        KaiOutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = model,
+            onValueChange = onChangeModel,
+            label = {
+                Text(modelLabel, color = MaterialTheme.colorScheme.onBackground)
+            },
+        )
+    }
+}
+
+@Composable
+private fun SandboxDistroCard(
+    distro: com.katya.app.data.Distro,
+    onChangeDistro: (com.katya.app.data.Distro) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "Песочница (Linux)",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "Выберите дистрибутив Linux внутри песочницы. Существующая установка сохраняется, данные не удаляются.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
+                .padding(12.dp),
+        ) {
+            com.katya.app.data.Distro.entries.forEach { d ->
+                val name = when (d) {
+                    com.katya.app.data.Distro.DEBIAN -> "Debian (рекомендуется)"
+                    com.katya.app.data.Distro.TERMUX -> "Termux"
+                }
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeTtsEngine(engine) },
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeDistro(d) },
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     androidx.compose.material3.RadioButton(
-                        selected = ttsEngine == engine,
-                        onClick = { onChangeTtsEngine(engine) }
+                        selected = distro == d,
+                        onClick = { onChangeDistro(d) },
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = engine.name, style = MaterialTheme.typography.bodyMedium)
+                    Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
+            }
+        }
+        
+        PlatformExternalStorageButton()
+    }
+}
+
+@Composable
+private fun PiperVoicesCard(
+    modifier: Modifier = Modifier,
+    voices: ImmutableList<com.katya.app.tts.PiperVoiceInfo> = persistentListOf(),
+    selectedVoice: String? = null,
+    voiceUrl: String = "",
+    downloadingBase: String? = null,
+    downloadProgress: Float? = null,
+    downloadError: String? = null,
+    onChangeVoiceUrl: (String) -> Unit = {},
+    onDownloadVoice: (String) -> Unit = {},
+    onSelectVoice: (String) -> Unit = {},
+    onImportVoice: (String, ByteArray) -> Unit = { _, _ -> },
+    onDeleteVoice: (String) -> Unit = {},
+    onExportVoice: (String) -> Unit = {},
+    onOpenHuggingFace: () -> Unit = {},
+) {
+    val scope = rememberCoroutineScope()
+    val importPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(extensions = listOf("tflite", "json", "zip")),
+    ) { picked ->
+        if (picked != null) {
+            scope.launch {
+                runCatching {
+                    onImportVoice(picked.name, picked.readBytes())
+                }.onFailure {
+                    com.katya.app.showToast("Не удалось прочитать выбранный файл")
+                }
+            }
+        }
+    }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "Голоса Piper",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "Установленные голоса (движок синтеза речи на устройстве). " +
+                "Голос хранится как .tflite файл (с опциональным .json дескриптором) в папке моделей Кати.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (voices.isEmpty()) {
+            Text(
+                text = "Голоса не установлены. Скачайте .tflite голос по прямой ссылке или импортируйте файл.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                voices.forEach { voice ->
+                    val isSelected = voice.baseName == selectedVoice
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isSelected) { onSelectVoice(voice.baseName) }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(
+                            selected = isSelected,
+                            onClick = { onSelectVoice(voice.baseName) },
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = voice.baseName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = "${formatFileSize(voice.sizeBytes)} · ${voice.sampleRate / 1000} кГц${if (voice.hasConfigJson) " · c дескриптором" else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        if (downloadingBase == voice.baseName) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            IconButton(
+                                onClick = { onExportVoice(voice.baseName) },
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = "Сохранить голос на устройство",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                            IconButton(
+                                onClick = { onDeleteVoice(voice.baseName) },
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Удалить голос",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Download from a direct URL
+        KaiOutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = voiceUrl,
+            onValueChange = onChangeVoiceUrl,
+            placeholder = { Text("https://…/мой-голос.onnx.tflite") },
+            label = { Text("Прямая ссылка на .tflite голос", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            trailingIcon = {
+                OutlinedButton(
+                    onClick = { onDownloadVoice(voiceUrl) },
+                    enabled = voiceUrl.isNotBlank() && downloadingBase == null,
+                    modifier = Modifier.handCursor().padding(end = 4.dp),
+                ) {
+                    Text("Скачать")
+                }
+            },
+        )
+        if (downloadingBase != null) {
+            LinearProgressIndicator(
+                progress = { downloadProgress ?: 0f },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (downloadError != null) {
+            Text(
+                text = downloadError,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Text(
+            text = "Сначала найдите голос на HuggingFace, откройте файл .tflite (не .onnx) и скопируйте прямую ссылку. " +
+                "Например: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/…onx.tflite",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = "Русские голоса Piper",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .handCursor()
+                .clickable(onClick = onOpenHuggingFace)
+                .padding(vertical = 4.dp),
+        )
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { importPicker.launch() },
+                enabled = downloadingBase == null,
+                modifier = Modifier.handCursor(),
+            ) {
+                Text("Импортировать .tflite / .json / .zip")
             }
         }
     }

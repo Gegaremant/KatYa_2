@@ -2,10 +2,11 @@
 
 package com.katya.app.data
 
-import com.katya.app.data.AppSettings.Companion.KEY_CONFIGURED_SERVICES
-import com.katya.app.data.AppSettings.Companion.KEY_CURRENT_SERVICE_ID
-import com.katya.app.data.AppSettings.Companion.KEY_FREE_FALLBACK_ENABLED
-import com.katya.app.data.AppSettings.Companion.KEY_TOOL_PREFIX
+import com.katya.app.data.AppSettingsKeys.KEY_CONFIGURED_SERVICES
+import com.katya.app.data.AppSettingsKeys.KEY_CURRENT_SERVICE_ID
+import com.katya.app.data.AppSettingsKeys.KEY_FREE_FALLBACK_ENABLED
+import com.katya.app.data.AppSettingsKeys.KEY_TOOL_PREFIX
+import com.katya.app.data.EmailAccount
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -32,7 +33,7 @@ fun AppSettings.exportToJson(
         }
         map["current_service_id"] = JsonPrimitive(settings.getString(KEY_CURRENT_SERVICE_ID, Service.Free.id))
         map["free_fallback_enabled"] = JsonPrimitive(isFreeFallbackEnabled())
-        map["monitor_overlay_mode"] = JsonPrimitive(settings.getString(AppSettings.KEY_MONITOR_OVERLAY_MODE, MonitorOverlayMode.SHORT.name))
+        map["monitor_overlay_mode"] = JsonPrimitive(settings.getString(AppSettingsKeys.KEY_MONITOR_OVERLAY_MODE, MonitorOverlayMode.SHORT.name))
 
         val instances = getConfiguredServiceInstances()
         if (instances.isNotEmpty()) {
@@ -193,7 +194,7 @@ fun AppSettings.importFromJson(
             settings.putString(KEY_CONFIGURED_SERVICES, json["configured_services"]?.toString() ?: "")
             settings.putString(KEY_CURRENT_SERVICE_ID, json["current_service_id"]?.jsonPrimitive?.content ?: Service.Free.id)
             settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
-            
+
             json["monitor_overlay_mode"]?.jsonPrimitive?.content?.let {
                 try {
                     val mode = MonitorOverlayMode.valueOf(it)
@@ -285,9 +286,41 @@ fun AppSettings.importFromJson(
     if (ImportSection.EMAIL in sections) {
         try {
             setEmailEnabled(json["email_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
-            setEmailAccountsJson(json["email_accounts"]?.toString() ?: "")
-            json["email_passwords"]?.jsonObject?.forEach { (accountId, pw) ->
-                setEmailPassword(accountId, pw.jsonPrimitive.content)
+            val importedAccountsJson = json["email_accounts"]?.toString() ?: ""
+            if (replace) {
+                setEmailAccountsJson(importedAccountsJson)
+                json["email_passwords"]?.jsonObject?.forEach { (accountId, pw) ->
+                    setEmailPassword(accountId, pw.jsonPrimitive.content)
+                }
+            } else {
+                val currentAccountsJson = getEmailAccountsJson()
+                val currentAccounts = if (currentAccountsJson.isNotBlank()) {
+                    try {
+                        Json.decodeFromString<List<EmailAccount>>(currentAccountsJson)
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
+                val importedAccounts = if (importedAccountsJson.isNotBlank()) {
+                    try {
+                        Json.decodeFromString<List<EmailAccount>>(importedAccountsJson)
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
+                val existingIds = currentAccounts.map { it.id }.toSet()
+                val existingEmails = currentAccounts.map { it.email }.toSet()
+                val accountsToAdd = importedAccounts.filter { it.id !in existingIds && it.email !in existingEmails }
+                val mergedAccounts = currentAccounts + accountsToAdd
+                setEmailAccountsJson(Json.encodeToString(mergedAccounts))
+                val importedPasswords = json["email_passwords"]?.jsonObject ?: emptyMap()
+                accountsToAdd.forEach { account ->
+                    importedPasswords[account.id]?.jsonPrimitive?.content?.let { setEmailPassword(account.id, it) }
+                }
             }
             json["email_sync_states"]?.jsonObject?.forEach { (accountId, sync) ->
                 setEmailSyncStateJson(accountId, sync.toString())

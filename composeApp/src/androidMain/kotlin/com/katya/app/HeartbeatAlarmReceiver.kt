@@ -45,12 +45,12 @@ class HeartbeatAlarmReceiver : BroadcastReceiver() {
                 context,
                 1999, // Unique request code for heartbeat alarm
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 
             // Calculate next time
             val nextRunMs = System.currentTimeMillis() + (config.intervalMinutes * 60_000L)
-            
+
             try {
                 // Must have exact alarm permission on Android 12+
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
@@ -68,7 +68,7 @@ class HeartbeatAlarmReceiver : BroadcastReceiver() {
                 alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextRunMs, pendingIntent)
             }
         }
-        
+
         fun cancel(context: Context) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val intent = Intent(context, HeartbeatAlarmReceiver::class.java)
@@ -76,7 +76,7 @@ class HeartbeatAlarmReceiver : BroadcastReceiver() {
                 context,
                 1999,
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             alarmManager.cancel(pendingIntent)
         }

@@ -13,14 +13,14 @@ class ExecuteCommandTool : Tool {
         parameters = mapOf(
             "command" to ParameterSchema("string", "Команда для выполнения (например, 'ls -la /data/data/com.termux/files/home')", true),
             "use_root" to ParameterSchema("boolean", "Запустить команду от имени root (через su). Установите true для доступа к системным файлам или Termux.", false),
-            "work_dir" to ParameterSchema("string", "Рабочая директория (опционально).", false)
-        )
+            "work_dir" to ParameterSchema("string", "Рабочая директория (опционально).", false),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
         val command = args["command"]?.toString()
             ?: return mapOf("success" to false, "error" to "Параметр 'command' обязателен.")
-        
+
         val useRoot = args["use_root"] as? Boolean ?: false
         val workDir = args["work_dir"]?.toString()
 
@@ -29,10 +29,10 @@ class ExecuteCommandTool : Tool {
         }
 
         val output = executor.executeCommand(command, workDir, useRoot)
-        
+
         return mapOf(
             "success" to (!output.startsWith("Error:") && !output.startsWith("Execution error:")),
-            "output" to output
+            "output" to output,
         )
     }
 }

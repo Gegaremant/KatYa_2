@@ -31,7 +31,7 @@ actual class AccessibilityPermissionController actual constructor() {
         val expectedComponentName = ComponentName(context, KatyaAccessibilityService::class.java)
         val enabledServicesSetting = Settings.Secure.getString(
             context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
         ) ?: return false
         val colonSplitter = TextUtils.SimpleStringSplitter(':')
         colonSplitter.setString(enabledServicesSetting)

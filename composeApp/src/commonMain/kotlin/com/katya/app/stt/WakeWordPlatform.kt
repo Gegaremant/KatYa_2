@@ -16,8 +16,8 @@ interface WakeWordPlatform {
     fun isModelReady(modelUrl: String): Boolean
     fun startDownload(modelUrl: String)
     fun startListening(modelUrl: String, triggerWord: String)
-    
-    // Starts continuous speech recognition. If triggerWord is non-empty, it will ONLY look for wake word. 
+
+    // Starts continuous speech recognition. If triggerWord is non-empty, it will ONLY look for wake word.
     // If empty, it returns everything to finalSttResults.
     fun startSpeechRecognition(modelUrl: String)
     fun stopListening()

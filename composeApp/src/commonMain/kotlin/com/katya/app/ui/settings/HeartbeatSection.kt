@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -31,9 +32,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import com.katya.app.email.ServerAutoDetect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +40,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,10 +50,12 @@ import com.katya.app.data.EmailSyncState
 import com.katya.app.data.HeartbeatLogEntry
 import com.katya.app.data.ServiceEntry
 import com.katya.app.data.SmsSyncState
+import com.katya.app.email.ServerAutoDetect
 import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.KaiRangeSlider
 import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.components.RefreshIconButton
+import com.katya.app.ui.components.ResourceImage
 import com.katya.app.ui.components.SettingsListItem
 import com.katya.app.ui.handCursor
 import katya.composeapp.generated.resources.Res
@@ -384,12 +386,12 @@ internal fun HeartbeatSection(
             Button(
                 onClick = onRefresh,
                 modifier = Modifier.fillMaxWidth().handCursor(),
-                enabled = !isRefreshing
+                enabled = !isRefreshing,
             ) {
                 Icon(
                     imageVector = Icons.Default.Replay,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(if (isRefreshing) "Выполняется..." else "Запустить Heartbeat (Пинок)")
@@ -614,7 +616,7 @@ internal fun EmailSection(
         val finalUseStartTls = if (detectedConfig != null && !showAdvanced) detectedConfig.useStartTls else customUseStartTls
 
         val isFormValid = email.isNotBlank() && email.contains("@") && password.isNotBlank() &&
-                finalImapHost.isNotBlank() && finalSmtpHost.isNotBlank()
+            finalImapHost.isNotBlank() && finalSmtpHost.isNotBlank()
 
         AlertDialog(
             onDismissRequest = {
@@ -627,14 +629,39 @@ internal fun EmailSection(
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    // Quick presets for popular email providers (logo icons)
+                    val emailPresets = listOf(
+                        Triple("Gmail", "@gmail.com", "files/ic_email_gmail.png"),
+                        Triple("Outlook", "@outlook.com", "files/ic_email_outlook.png"),
+                        Triple("Yandex", "@yandex.ru", "files/ic_email_yandex.png"),
+                        Triple("Mail.ru", "@mail.ru", "files/ic_email_mailru.png"),
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        emailPresets.forEach { (name, domain, iconPath) ->
+                            androidx.compose.material3.AssistChip(
+                                onClick = { email = "user$domain" },
+                                label = {
+                                    ResourceImage(
+                                        filePath = iconPath,
+                                        contentDescription = name,
+                                        modifier = Modifier.size(22.dp),
+                                    )
+                                },
+                                modifier = Modifier.weight(1f).handCursor(),
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
                         label = { Text("Email") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
 
                     OutlinedTextField(
@@ -649,33 +676,38 @@ internal fun EmailSection(
                                 Icon(imageVector = image, contentDescription = null)
                             }
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
 
                     if (detectedConfig != null) {
+                        val displayNote = if (detectedConfig.note.contains("Requires", ignoreCase = true)) {
+                            "Настройки сервера определены автоматически"
+                        } else {
+                            detectedConfig.note.ifEmpty { "Настройки сервера определены автоматически" }
+                        }
                         Text(
-                            text = detectedConfig.note.ifEmpty { "Настройки сервера определены автоматически" },
+                            text = displayNote,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp),
                         )
                     } else if (email.contains("@") && email.substringAfter("@").contains(".")) {
                         Text(
                             text = "Настройки сервера не найдены. Введите их вручную.",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            modifier = Modifier.padding(horizontal = 4.dp),
                         )
                     }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Checkbox(
                             checked = showAdvanced || detectedConfig == null,
                             onCheckedChange = { showAdvanced = it },
-                            enabled = detectedConfig != null
+                            enabled = detectedConfig != null,
                         )
                         Spacer(Modifier.width(4.dp))
                         Text("Настройки серверов IMAP/SMTP", style = MaterialTheme.typography.bodyMedium)
@@ -687,25 +719,25 @@ internal fun EmailSection(
                             onValueChange = { customImapHost = it },
                             label = { Text("IMAP Сервер") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             OutlinedTextField(
                                 value = customImapPort,
                                 onValueChange = { customImapPort = it },
                                 label = { Text("Порт IMAP") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             OutlinedTextField(
                                 value = customSmtpPort,
                                 onValueChange = { customSmtpPort = it },
                                 label = { Text("Порт SMTP") },
                                 singleLine = true,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                         }
                         OutlinedTextField(
@@ -713,15 +745,15 @@ internal fun EmailSection(
                             onValueChange = { customSmtpHost = it },
                             label = { Text("SMTP Сервер") },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Switch(
                                 checked = customUseStartTls,
-                                onCheckedChange = { customUseStartTls = it }
+                                onCheckedChange = { customUseStartTls = it },
                             )
                             Spacer(Modifier.width(8.dp))
                             Text("Использовать STARTTLS", style = MaterialTheme.typography.bodyMedium)
@@ -741,7 +773,7 @@ internal fun EmailSection(
                                 smtpHost = finalSmtpHost.trim(),
                                 smtpPort = finalSmtpPort,
                                 username = email.trim(),
-                                useStartTls = finalUseStartTls
+                                useStartTls = finalUseStartTls,
                             )
                             onAddAccount(newAccount, password)
                             showAddDialog = false
@@ -960,7 +992,7 @@ internal fun NotificationsSection(
                             text = stringResource(Res.string.settings_notifications_queued, pendingCount),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         Spacer(Modifier.width(8.dp))
                         TextButton(onClick = onClearPending) {

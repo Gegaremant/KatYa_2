@@ -20,9 +20,9 @@ fun AppLogsScreen() {
             value = filterText,
             onValueChange = { filterText = it },
             label = { Text("Фильтр логов") },
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         )
-        
+
         androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxWidth().height(500.dp)) {
             val filteredLogs = logs.filter { it.contains(filterText, ignoreCase = true) }
             items(filteredLogs.takeLast(500).size) { index ->
@@ -31,15 +31,15 @@ fun AppLogsScreen() {
                     text = log,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(vertical = 2.dp),
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
         }
-        
+
         Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.End) {
             Button(
                 onClick = { clipboardManager.setText(AnnotatedString(logs.joinToString("\n"))) },
-                modifier = Modifier.padding(end = 8.dp)
+                modifier = Modifier.padding(end = 8.dp),
             ) {
                 Text("Копировать")
             }
@@ -49,4 +49,3 @@ fun AppLogsScreen() {
         }
     }
 }
-

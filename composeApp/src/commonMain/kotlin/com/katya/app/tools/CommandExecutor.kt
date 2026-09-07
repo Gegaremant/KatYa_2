@@ -8,7 +8,7 @@ expect class CommandExecutor() {
      * @param useRoot If true, tries to execute the command via `su -c`
      * @return The standard output and error output combined, or error message.
      */
-    fun executeCommand(command: String, workDir: String? = null, useRoot: Boolean = false): String
+    fun executeCommand(command: String, workDir: String? = null, useRoot: Boolean = false, isLogAction: Boolean = false): String
 
     /**
      * Checks if the device has root access available via the `su` binary.

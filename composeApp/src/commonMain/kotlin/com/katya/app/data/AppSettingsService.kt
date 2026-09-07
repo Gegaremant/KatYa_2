@@ -1,7 +1,5 @@
 package com.katya.app.data
 
-import com.katya.app.data.AppSettings.Companion.KEY_CONFIGURED_SERVICES
-import com.katya.app.data.AppSettings.Companion.KEY_CURRENT_SERVICE_ID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -10,11 +8,11 @@ import kotlinx.serialization.json.jsonPrimitive
 
 // Service selection
 fun AppSettings.selectService(service: Service) {
-    settings.putString(KEY_CURRENT_SERVICE_ID, service.id)
+    settings.putString(AppSettingsKeys.KEY_CURRENT_SERVICE_ID, service.id)
 }
 
 fun AppSettings.currentService(): Service {
-    val id = settings.getString(KEY_CURRENT_SERVICE_ID, Service.Free.id)
+    val id = settings.getString(AppSettingsKeys.KEY_CURRENT_SERVICE_ID, Service.Free.id)
     return Service.fromId(id)
 }
 
@@ -48,7 +46,7 @@ fun AppSettings.setBaseUrl(service: Service, baseUrl: String) {
 
 // Configured services (ordered list of service instances)
 fun AppSettings.getConfiguredServiceInstances(): List<ServiceInstance> {
-    val json = settings.getString(KEY_CONFIGURED_SERVICES, "")
+    val json = settings.getString(AppSettingsKeys.KEY_CONFIGURED_SERVICES, "")
     if (json.isBlank()) return emptyList()
     return try {
         val array = Json.parseToJsonElement(json).jsonArray
@@ -79,7 +77,7 @@ fun AppSettings.setConfiguredServiceInstances(instances: List<ServiceInstance>) 
             )
         },
     )
-    settings.putString(KEY_CONFIGURED_SERVICES, jsonArray.toString())
+    settings.putString(AppSettingsKeys.KEY_CONFIGURED_SERVICES, jsonArray.toString())
 }
 
 // Per-instance settings (API key, model, base URL)

@@ -28,8 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import kotlin.time.Clock
-import com.katya.app.tools.AppLogger
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -38,6 +36,7 @@ import com.katya.app.data.ImportSection
 import com.katya.app.data.SharedJson
 import com.katya.app.data.detectImportSections
 import com.katya.app.saveFileToDevice
+import com.katya.app.tools.AppLogger
 import com.katya.app.ui.components.VerticalScrollbarForScroll
 import com.katya.app.ui.handCursor
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -59,11 +58,11 @@ import katya.composeapp.generated.resources.settings_import_section_email
 import katya.composeapp.generated.resources.settings_import_section_heartbeat
 import katya.composeapp.generated.resources.settings_import_section_mcp
 import katya.composeapp.generated.resources.settings_import_section_memory
+import katya.composeapp.generated.resources.settings_import_section_models
 import katya.composeapp.generated.resources.settings_import_section_scheduling
 import katya.composeapp.generated.resources.settings_import_section_services
 import katya.composeapp.generated.resources.settings_import_section_soul
 import katya.composeapp.generated.resources.settings_import_section_tools
-import katya.composeapp.generated.resources.settings_import_section_models
 import katya.composeapp.generated.resources.settings_import_success
 import katya.composeapp.generated.resources.settings_mcp_cancel
 import katya.composeapp.generated.resources.settings_sms
@@ -76,6 +75,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.jsonObject
 import org.jetbrains.compose.resources.stringResource
+import kotlin.time.Clock
 
 @Composable
 internal fun ExportImportSection(
@@ -223,7 +223,7 @@ private fun ImportPreviewDialog(
     onConfirm: (Set<ImportSection>, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var replace by remember { mutableStateOf(true) }
+    var replace by remember { mutableStateOf(false) }
     var selectedSections by remember { mutableStateOf<Set<ImportSection>>(sectionDetails.keys) }
     val sortedEntries = remember(sectionDetails) { sectionDetails.entries.sortedBy { it.key } }
 

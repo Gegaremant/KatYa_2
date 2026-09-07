@@ -1,4 +1,4 @@
-﻿package com.katya.app.tools
+package com.katya.app.tools
 
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.flow.StateFlow

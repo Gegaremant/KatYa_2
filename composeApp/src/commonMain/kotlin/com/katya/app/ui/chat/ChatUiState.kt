@@ -7,6 +7,7 @@ import com.katya.app.data.Attachment
 import com.katya.app.data.FallbackStatus
 import com.katya.app.data.QuickAction
 import com.katya.app.data.ReasoningRequestMode
+import com.katya.app.data.ScheduledTask
 import com.katya.app.data.ServiceEntry
 import com.katya.app.data.SharedJson
 import com.katya.app.data.SmsDraft
@@ -97,6 +98,14 @@ data class ChatUiState(
     val isAgentVisibilityEnabled: Boolean = true,
     val isVlessEnabled: Boolean = false,
     val systemStatus: String? = null,
+    val deviceStatus: String? = null,
+    val connectionStatus: String? = null,
+    val showDeviceStatus: Boolean = false,
+    val showConnectionStatus: Boolean = false,
+    val isNetworkConnected: Boolean = false,
+    val voiceThoughtsEnabled: Boolean = false,
+    val triggerVoiceInput: Boolean = false,
+    val scheduledTasks: ImmutableList<ScheduledTask> = persistentListOf(),
 ) {
     val heartbeatConversationId: String?
         get() = savedConversations.firstOrNull { it.isHeartbeat }?.id

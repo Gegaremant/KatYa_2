@@ -21,8 +21,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.ui.draw.clip
-import org.jetbrains.compose.resources.painterResource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,10 +29,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.katya.app.data.ThemeMode
 import com.katya.app.ui.KaiOutlinedTextField
@@ -55,6 +53,8 @@ import katya.composeapp.generated.resources.settings_theme_system
 import katya.composeapp.generated.resources.settings_ui_scale
 import katya.composeapp.generated.resources.settings_voice_response
 import katya.composeapp.generated.resources.settings_voice_response_description
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 import kotlin.math.roundToInt
@@ -63,7 +63,7 @@ import kotlin.math.roundToInt
 internal fun GeneralContent(
     uiState: SettingsUiState,
     actions: SettingsActions,
-    textToSpeech: nl.marc_apps.tts.TextToSpeechInstance? = null,
+    textToSpeech: com.katya.app.tts.SpeechEngine? = null,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val useStaggered = maxWidth >= 600.dp
@@ -104,11 +104,6 @@ internal fun GeneralContent(
                         AgentVisibilityToggle(
                             isAgentVisibilityEnabled = uiState.isAgentVisibilityEnabled,
                             onToggleAgentVisibility = actions.onToggleAgentVisibility,
-                        )
-                        VoiceResponseToggle(
-                            isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
-                            onToggleVoiceResponse = actions.onToggleVoiceResponse,
-                            textToSpeech = textToSpeech,
                         )
                         WatchIntegrationToggle(
                             isWatchIntegrationEnabled = uiState.isWatchIntegrationEnabled,
@@ -169,11 +164,6 @@ internal fun GeneralContent(
                     AgentVisibilityToggle(
                         isAgentVisibilityEnabled = uiState.isAgentVisibilityEnabled,
                         onToggleAgentVisibility = actions.onToggleAgentVisibility,
-                    )
-                    VoiceResponseToggle(
-                        isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
-                        onToggleVoiceResponse = actions.onToggleVoiceResponse,
-                        textToSpeech = textToSpeech,
                     )
                     WatchIntegrationToggle(
                         isWatchIntegrationEnabled = uiState.isWatchIntegrationEnabled,
@@ -275,60 +265,6 @@ private fun AgentVisibilityToggle(
     }
 }
 
-@OptIn(nl.marc_apps.tts.experimental.ExperimentalVoiceApi::class)
-@Composable
-private fun VoiceResponseToggle(
-    isVoiceResponseEnabled: Boolean,
-    onToggleVoiceResponse: (Boolean) -> Unit,
-    textToSpeech: nl.marc_apps.tts.TextToSpeechInstance? = null,
-) {
-    var showVoiceDialog by remember { mutableStateOf(false) }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        ToggleableHeadline(
-            title = stringResource(Res.string.settings_voice_response),
-            description = stringResource(Res.string.settings_voice_response_description),
-            checked = isVoiceResponseEnabled,
-            onCheckedChange = { checked ->
-                if (checked) {
-                    showVoiceDialog = true
-                }
-                onToggleVoiceResponse(checked)
-            },
-        )
-
-        if (showVoiceDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showVoiceDialog = false },
-                title = { Text("Использование голоса") },
-                text = {
-                    Column {
-                        Text(
-                            "Сейчас я буду говорить системными голосами по умолчанию.\n\n" +
-                            "Для лучшего опыта (без акцента) рекомендуем установить и выбрать движок RHVoice в настройках системы.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showVoiceDialog = false
-                            com.katya.app.openTtsSettings()
-                        }
-                    ) {
-                        Text("Настройки системы")
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = { showVoiceDialog = false }) {
-                        Text("Отмена")
-                    }
-                }
-            )
-        }
-    }
-}
 
 @Composable
 private fun ThemeModePicker(
@@ -592,8 +528,6 @@ private fun QuickActionEditor(
     }
 }
 
-
-
 @Composable
 fun WatchIntegrationToggle(
     isWatchIntegrationEnabled: Boolean,
@@ -608,4 +542,3 @@ fun WatchIntegrationToggle(
         )
     }
 }
-

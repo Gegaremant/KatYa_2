@@ -105,9 +105,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.katya.app.AppVersion
 import com.katya.app.BackIcon
-
-import com.katya.app.Version
 import com.katya.app.data.EmailAccount
 import com.katya.app.data.HeartbeatLogEntry
 import com.katya.app.data.ImportSection
@@ -140,7 +139,6 @@ import com.katya.app.ui.icons.Replay
 import com.katya.app.ui.icons.Visibility
 import com.katya.app.ui.icons.VisibilityOff
 import com.katya.app.ui.katyaAdaptiveCardBorder
-import com.katya.app.ui.katyaAdaptiveCardColors
 import com.katya.app.ui.katyaAdaptiveCardColors
 import com.katya.app.ui.katyaAdaptiveCardSurface
 import io.github.vinceglb.filekit.dialogs.FileKitType
@@ -295,7 +293,7 @@ internal val StatusColorUnknown = Color(0xFF9E9E9E)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel = koinViewModel(),
-    textToSpeech: nl.marc_apps.tts.TextToSpeechInstance? = null,
+    textToSpeech: com.katya.app.tts.SpeechEngine? = null,
     onNavigateBack: () -> Unit,
     navigationTabBar: (@Composable () -> Unit)? = null,
 ) {
@@ -325,7 +323,7 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     uiState: SettingsUiState,
     actions: SettingsActions = SettingsActions.NoOp,
-    textToSpeech: nl.marc_apps.tts.TextToSpeechInstance? = null,
+    textToSpeech: com.katya.app.tts.SpeechEngine? = null,
     onNavigateBack: () -> Unit = {},
     navigationTabBar: (@Composable () -> Unit)? = null,
 ) {
@@ -588,7 +586,7 @@ private fun BottomInfo() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            stringResource(Res.string.settings_version, Version.appVersion),
+            stringResource(Res.string.settings_version, AppVersion.APP_VERSION),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )
@@ -641,6 +639,7 @@ internal fun ToggleableHeadline(
     description: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val switchInteractionSource = remember { MutableInteractionSource() }
@@ -648,6 +647,7 @@ internal fun ToggleableHeadline(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
+                enabled = enabled,
                 interactionSource = switchInteractionSource,
                 indication = null,
             ) { onCheckedChange(!checked) }
@@ -657,13 +657,14 @@ internal fun ToggleableHeadline(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.weight(1f),
+            color = if (enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
         )
         actions()
         Switch(
             checked = checked,
             onCheckedChange = null,
+            enabled = enabled,
             interactionSource = switchInteractionSource,
         )
     }

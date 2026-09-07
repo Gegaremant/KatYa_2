@@ -20,18 +20,18 @@ class AndroidAudioHelper(private val context: Context) : AudioHelper {
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build()
+                        .build(),
                 )
                 .setOnAudioFocusChangeListener { }
                 .build()
-            
+
             focusRequest?.let { audioManager.requestAudioFocus(it) }
         } else {
             @Suppress("DEPRECATION")
             audioManager.requestAudioFocus(
                 null,
                 AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE,
             )
         }
     }

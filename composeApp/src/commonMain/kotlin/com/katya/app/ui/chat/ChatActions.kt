@@ -28,4 +28,6 @@ data class ChatActions(
     val goBackInteractiveMode: () -> Unit,
     val sendSmsDraft: (String) -> Unit,
     val discardSmsDraft: (String) -> Unit,
+    val consumeVoiceInputTrigger: () -> Unit,
+    val cancelScheduledTask: (String) -> Unit = {},
 )

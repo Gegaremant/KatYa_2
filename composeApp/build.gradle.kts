@@ -73,8 +73,11 @@ kotlin {
             implementation(libs.material)
             implementation(libs.bouncycastle.provider)
             implementation(libs.litert.lm)
+            implementation(libs.tensorflow.lite)
             implementation(libs.sqldelight.android.driver)
             implementation(libs.jsch)
+            implementation(libs.commons.compress)
+            implementation(libs.xz)
             implementation("com.alphacephei:vosk-android:0.3.38@aar")
             implementation("net.java.dev.jna:jna:5.13.0@aar")
         }

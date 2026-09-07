@@ -6,8 +6,6 @@ import com.katya.app.network.tools.ToolInfo
 import com.katya.app.network.tools.ToolSchema
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
 
 object AndroidHostShellTool : Tool {
     override val schema = ToolSchema(
@@ -22,40 +20,23 @@ object AndroidHostShellTool : Tool {
         val command = args["command"]?.toString()
             ?: return@withContext mapOf("success" to false, "error" to "Command is required")
 
-        try {
-            // First try with root (su)
-            val process = try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-            } catch (e: Exception) {
-                // Fallback to standard sh if su is not found
-                Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-            }
-
-            val reader = BufferedReader(InputStreamReader(process.inputStream))
-            val errorReader = BufferedReader(InputStreamReader(process.errorStream))
-
-            val output = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                output.append(line).append("\n")
-            }
-
-            val errorOutput = StringBuilder()
-            while (errorReader.readLine().also { line = it } != null) {
-                errorOutput.append(line).append("\n")
-            }
-
-            val exitCode = process.waitFor()
-
-            mapOf(
-                "success" to (exitCode == 0),
-                "exit_code" to exitCode,
-                "stdout" to output.toString().trim(),
-                "stderr" to errorOutput.toString().trim(),
-            )
-        } catch (e: Exception) {
-            mapOf("success" to false, "error" to "Execution failed: ${e.message}")
+        // Try root first; fall back to plain sh when the `su` binary is missing
+        // (for example on unrooted devices, `su` does not exist at all).
+        var result = ShellExecutor.execute(command, useRoot = true)
+        if (!result.isSuccess && (
+                result.output.contains("Cannot run program \"su\"") ||
+                    result.output.contains("not found") || result.output.contains("Permission denied")
+                )
+        ) {
+            result = ShellExecutor.execute(command, useRoot = false)
         }
+
+        mapOf(
+            "success" to result.isSuccess,
+            "exit_code" to result.exitCode,
+            "stdout" to result.output,
+            "stderr" to "",
+        )
     }
     val toolInfo = ToolInfo(
         id = "host_shell_command",

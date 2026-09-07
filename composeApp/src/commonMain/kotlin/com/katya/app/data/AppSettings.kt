@@ -47,15 +47,22 @@ enum class MonitorOverlayMode {
 }
 
 enum class SttEngine {
+    GKPSR,
     SYSTEM,
     LOCAL,
-    CLOUD
+    CLOUD,
 }
 
 enum class TtsEngine {
     SYSTEM,
+    RHVOICE,
     PIPER,
-    CLOUD
+    CLOUD,
+}
+
+enum class Distro {
+    DEBIAN,
+    TERMUX,
 }
 
 enum class VoiceUiMode {
@@ -211,56 +218,68 @@ data class ServiceInstance(
 )
 
 class AppSettings(internal val settings: Settings) {
+    companion object {
+        private const val KEY_LOG_FILE_PATH = "log_file_path"
+    }
+
+    fun getLogFilePath(): String? = settings.getStringOrNull(KEY_LOG_FILE_PATH)
+    fun setLogFilePath(path: String?) {
+        if (path != null) {
+            settings.putString(KEY_LOG_FILE_PATH, path)
+        } else {
+            settings.remove(KEY_LOG_FILE_PATH)
+        }
+    }
 
     // App open tracking
     fun trackAppOpen(): Int {
-        val currentCount = settings.getInt(KEY_APP_OPENS, 0)
+        val currentCount = settings.getInt(AppSettingsKeys.KEY_APP_OPENS, 0)
         val newCount = currentCount + 1
-        settings.putInt(KEY_APP_OPENS, newCount)
+        settings.putInt(AppSettingsKeys.KEY_APP_OPENS, newCount)
         return newCount
     }
 
     // Tool enable/disable settings
-    fun isToolEnabled(toolId: String, defaultEnabled: Boolean = true): Boolean = settings.getBoolean("$KEY_TOOL_PREFIX$toolId", defaultEnabled)
+    fun isToolEnabled(toolId: String, defaultEnabled: Boolean = true): Boolean = settings.getBoolean("$AppSettingsKeys.KEY_TOOL_PREFIX$toolId", defaultEnabled)
 
     fun setToolEnabled(toolId: String, enabled: Boolean) {
-        settings.putBoolean("$KEY_TOOL_PREFIX$toolId", enabled)
+        settings.putBoolean("$AppSettingsKeys.KEY_TOOL_PREFIX$toolId", enabled)
     }
 
-    fun getConversationsJson(): String? = settings.getStringOrNull(KEY_CONVERSATIONS)
+    fun getConversationsJson(): String? = settings.getStringOrNull(AppSettingsKeys.KEY_CONVERSATIONS)
 
     fun setConversationsJson(json: String) {
-        settings.putString(KEY_CONVERSATIONS, json)
+        settings.putString(AppSettingsKeys.KEY_CONVERSATIONS, json)
     }
 
     fun removeConversationsJson() {
-        settings.remove(KEY_CONVERSATIONS)
+        settings.remove(AppSettingsKeys.KEY_CONVERSATIONS)
     }
 
-    fun getCurrentConversationId(): String? = settings.getStringOrNull(KEY_CURRENT_CONVERSATION_ID)
+    fun getCurrentConversationId(): String? = settings.getStringOrNull(AppSettingsKeys.KEY_CURRENT_CONVERSATION_ID)
 
     fun setCurrentConversationId(id: String?) {
         if (id == null) {
-            settings.remove(KEY_CURRENT_CONVERSATION_ID)
+            settings.remove(AppSettingsKeys.KEY_CURRENT_CONVERSATION_ID)
         } else {
-            settings.putString(KEY_CURRENT_CONVERSATION_ID, id)
+            settings.putString(AppSettingsKeys.KEY_CURRENT_CONVERSATION_ID, id)
         }
     }
 
-    fun getCurrentInteractiveMode(): Boolean = settings.getBoolean(KEY_CURRENT_INTERACTIVE_MODE, false)
+    fun getCurrentInteractiveMode(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_CURRENT_INTERACTIVE_MODE, false)
 
     fun setCurrentInteractiveMode(enabled: Boolean) {
-        settings.putBoolean(KEY_CURRENT_INTERACTIVE_MODE, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_CURRENT_INTERACTIVE_MODE, enabled)
     }
 
-    fun isCurrentConversationMigrated(): Boolean = settings.getBoolean(KEY_CURRENT_CONVERSATION_MIGRATED, false)
+    fun isCurrentConversationMigrated(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_CURRENT_CONVERSATION_MIGRATED, false)
 
     fun markCurrentConversationMigrated() {
-        settings.putBoolean(KEY_CURRENT_CONVERSATION_MIGRATED, true)
+        settings.putBoolean(AppSettingsKeys.KEY_CURRENT_CONVERSATION_MIGRATED, true)
     }
 
     fun getEncryptionKey(): ByteArray? {
-        val encoded = settings.getStringOrNull(KEY_ENCRYPTION_KEY) ?: return null
+        val encoded = settings.getStringOrNull(AppSettingsKeys.KEY_ENCRYPTION_KEY) ?: return null
         return try {
             @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
             kotlin.io.encoding.Base64.decode(encoded)
@@ -270,22 +289,22 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Free fallback
-    fun isFreeFallbackEnabled(): Boolean = settings.getBoolean(KEY_FREE_FALLBACK_ENABLED, true)
+    fun isFreeFallbackEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_FREE_FALLBACK_ENABLED, true)
 
     fun setFreeFallbackEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_FREE_FALLBACK_ENABLED, enabled)
     }
 
     fun getFreeMode(): FreeMode {
-        val stored = settings.getStringOrNull(KEY_FREE_MODE) ?: return FreeMode.FAST
+        val stored = settings.getStringOrNull(AppSettingsKeys.KEY_FREE_MODE) ?: return FreeMode.FAST
         return FreeMode.entries.find { it.name == stored } ?: FreeMode.FAST
     }
 
     fun setFreeMode(mode: FreeMode) {
-        settings.putString(KEY_FREE_MODE, mode.name)
+        settings.putString(AppSettingsKeys.KEY_FREE_MODE, mode.name)
     }
 
-    fun isFreeServicePrimary(): Boolean = settings.getBoolean(KEY_FREE_SERVICE_PRIMARY, false)
+    fun isFreeServicePrimary(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_FREE_SERVICE_PRIMARY, false)
 
     // Server Monitoring
     fun getLocalServerProfilesJson(): String = settings.getString("local_server_profiles", "[]")
@@ -298,14 +317,14 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Legacy fallback
-    fun getServerIp(): String = settings.getString(KEY_SERVER_IP, "")
+    fun getServerIp(): String = settings.getString(AppSettingsKeys.KEY_SERVER_IP, "")
     fun setServerIp(ip: String) {
-        settings.putString(KEY_SERVER_IP, ip)
+        settings.putString(AppSettingsKeys.KEY_SERVER_IP, ip)
     }
 
-    fun getServerPort(): Int = settings.getInt(KEY_SERVER_PORT, 22)
+    fun getServerPort(): Int = settings.getInt(AppSettingsKeys.KEY_SERVER_PORT, 22)
     fun setServerPort(port: Int) {
-        settings.putInt(KEY_SERVER_PORT, port)
+        settings.putInt(AppSettingsKeys.KEY_SERVER_PORT, port)
     }
 
     fun getAutoBackupDirectory(): String = settings.getString("auto_backup_directory", "")
@@ -313,64 +332,67 @@ class AppSettings(internal val settings: Settings) {
         settings.putString("auto_backup_directory", path)
     }
 
-    fun getServerUser(): String = settings.getString(KEY_SERVER_USER, "")
+    fun getServerUser(): String = settings.getString(AppSettingsKeys.KEY_SERVER_USER, "")
     fun setServerUser(user: String) {
-        settings.putString(KEY_SERVER_USER, user)
+        settings.putString(AppSettingsKeys.KEY_SERVER_USER, user)
     }
 
-    fun getServerPassword(): String = settings.getString(KEY_SERVER_PASSWORD, "")
+    fun getServerPassword(): String = settings.getString(AppSettingsKeys.KEY_SERVER_PASSWORD, "")
     fun setServerPassword(password: String) {
-        settings.putString(KEY_SERVER_PASSWORD, password)
+        settings.putString(AppSettingsKeys.KEY_SERVER_PASSWORD, password)
     }
 
-    fun isTunnelPersistentReconnectEnabled(): Boolean = settings.getBoolean(KEY_TUNNEL_PERSISTENT_RECONNECT, false)
+    fun isTunnelPersistentReconnectEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_TUNNEL_PERSISTENT_RECONNECT, false)
     fun setTunnelPersistentReconnectEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_TUNNEL_PERSISTENT_RECONNECT, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_TUNNEL_PERSISTENT_RECONNECT, enabled)
     }
 
-    fun getWakeWord(): String = settings.getString(KEY_WAKE_WORD, "привет катя")
+    fun getWakeWord(): String = settings.getString(AppSettingsKeys.KEY_WAKE_WORD, "привет катя")
     fun setWakeWord(word: String) {
-        settings.putString(KEY_WAKE_WORD, word)
+        settings.putString(AppSettingsKeys.KEY_WAKE_WORD, word)
     }
 
-    fun isVoiceResponseEnabled(): Boolean = settings.getBoolean(KEY_VOICE_RESPONSE_ENABLED, true)
+    fun isVoiceResponseEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_VOICE_RESPONSE_ENABLED, true)
 
     fun setWakeWordEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_WAKE_WORD_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_WAKE_WORD_ENABLED, enabled)
     }
 
-    fun isWakeWordEnabled(): Boolean = settings.getBoolean(KEY_WAKE_WORD_ENABLED, false)
+    fun isWakeWordEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_WAKE_WORD_ENABLED, false)
 
     fun setWakeWordModelLang(lang: String) {
-        settings.putString(KEY_WAKE_WORD_MODEL_LANG, lang)
+        settings.putString(AppSettingsKeys.KEY_WAKE_WORD_MODEL_LANG, lang)
     }
 
-    fun getWakeWordModelLang(): String = settings.getString(KEY_WAKE_WORD_MODEL_LANG, "ru")
+    fun getWakeWordModelLang(): String = settings.getString(AppSettingsKeys.KEY_WAKE_WORD_MODEL_LANG, "ru")
 
     fun setWakeWordTrigger(trigger: String) {
-        settings.putString(KEY_WAKE_WORD_TRIGGER, trigger)
+        settings.putString(AppSettingsKeys.KEY_WAKE_WORD_TRIGGER, trigger)
     }
 
-    fun getWakeWordTrigger(): String = settings.getString(KEY_WAKE_WORD_TRIGGER, "Привет Катя")
+    fun getWakeWordTrigger(): String = settings.getString(AppSettingsKeys.KEY_WAKE_WORD_TRIGGER, "Привет Катя")
 
     fun setWakeWordVibration(enabled: Boolean) {
-        settings.putBoolean(KEY_WAKE_WORD_VIBRATION, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_WAKE_WORD_VIBRATION, enabled)
     }
 
-    fun isWakeWordVibrationEnabled(): Boolean = settings.getBoolean(KEY_WAKE_WORD_VIBRATION, true)
+    fun isWakeWordVibrationEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_WAKE_WORD_VIBRATION, true)
 
     fun setWakeWordSound(enabled: Boolean) {
-        settings.putBoolean(KEY_WAKE_WORD_SOUND, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_WAKE_WORD_SOUND, enabled)
     }
 
-    fun isWakeWordSoundEnabled(): Boolean = settings.getBoolean(KEY_WAKE_WORD_SOUND, true)
-    fun setVoiceResponseEnabled(enabled: Boolean) = settings.putBoolean(KEY_VOICE_RESPONSE_ENABLED, enabled)
+    fun isWakeWordSoundEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_WAKE_WORD_SOUND, true)
+    fun setVoiceResponseEnabled(enabled: Boolean) = settings.putBoolean(AppSettingsKeys.KEY_VOICE_RESPONSE_ENABLED, enabled)
+    
+    fun isVoiceRecognitionEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_VOICE_RECOGNITION_ENABLED, true)
+    fun setVoiceRecognitionEnabled(enabled: Boolean) = settings.putBoolean(AppSettingsKeys.KEY_VOICE_RECOGNITION_ENABLED, enabled)
 
-    fun isWatchIntegrationEnabled(): Boolean = settings.getBoolean(KEY_WATCH_INTEGRATION_ENABLED, false)
-    fun setWatchIntegrationEnabled(enabled: Boolean) = settings.putBoolean(KEY_WATCH_INTEGRATION_ENABLED, enabled)
+    fun isWatchIntegrationEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_WATCH_INTEGRATION_ENABLED, false)
+    fun setWatchIntegrationEnabled(enabled: Boolean) = settings.putBoolean(AppSettingsKeys.KEY_WATCH_INTEGRATION_ENABLED, enabled)
 
     fun setFreeServicePrimary(primary: Boolean) {
-        settings.putBoolean(KEY_FREE_SERVICE_PRIMARY, primary)
+        settings.putBoolean(AppSettingsKeys.KEY_FREE_SERVICE_PRIMARY, primary)
     }
 
     // Soul (system prompt)
@@ -378,51 +400,113 @@ class AppSettings(internal val settings: Settings) {
     fun setAudioTheme(theme: String) = settings.putString("audio_theme", theme)
 
     fun getSttEngine(): SttEngine {
-        val name = settings.getString("stt_engine", SttEngine.SYSTEM.name)
-        return try { SttEngine.valueOf(name) } catch (e: Exception) { SttEngine.SYSTEM }
+        val name = settings.getString("stt_engine", SttEngine.GKPSR.name)
+        return try {
+            SttEngine.valueOf(name)
+        } catch (e: Exception) {
+            SttEngine.GKPSR
+        }
     }
-    fun setSttEngine(engine: SttEngine) = settings.putString("stt_engine", engine.name)
+    fun setSttEngine(engine: SttEngine) {
+        settings.putString("stt_engine", engine.name)
+        _sttEngineFlow.value = engine
+    }
+
+    private val _sttEngineFlow = MutableStateFlow(getSttEngine())
+    val sttEngineFlow: StateFlow<SttEngine> = _sttEngineFlow
 
     fun getTtsEngine(): TtsEngine {
         val name = settings.getString("tts_engine", TtsEngine.SYSTEM.name)
-        return try { TtsEngine.valueOf(name) } catch (e: Exception) { TtsEngine.SYSTEM }
+        return try {
+            TtsEngine.valueOf(name)
+        } catch (e: Exception) {
+            TtsEngine.SYSTEM
+        }
     }
-    fun setTtsEngine(engine: TtsEngine) = settings.putString("tts_engine", engine.name)
+    fun setTtsEngine(engine: TtsEngine) {
+        settings.putString("tts_engine", engine.name)
+        _ttsEngineFlow.value = engine
+    }
 
-    fun getSoulText(): String = settings.getString(KEY_SOUL, "")
+    private val _ttsEngineFlow = MutableStateFlow(getTtsEngine())
+    val ttsEngineFlow: StateFlow<TtsEngine> = _ttsEngineFlow
+
+    // OpenAI-compatible cloud speech settings (STT = /audio/transcriptions, TTS = /audio/speech)
+    fun getCloudSttUrl(): String = settings.getString("cloud_stt_url", DEFAULTS.CLOUD_STT_URL)
+    fun setCloudSttUrl(url: String) = settings.putString("cloud_stt_url", url)
+    fun getCloudSttKey(): String = settings.getString("cloud_stt_key", "")
+    fun setCloudSttKey(key: String) = settings.putString("cloud_stt_key", key)
+    fun getCloudSttModel(): String = settings.getString("cloud_stt_model", DEFAULTS.CLOUD_STT_MODEL)
+    fun setCloudSttModel(model: String) = settings.putString("cloud_stt_model", model)
+    fun getCloudTtsUrl(): String = settings.getString("cloud_tts_url", DEFAULTS.CLOUD_TTS_URL)
+    fun setCloudTtsUrl(url: String) = settings.putString("cloud_tts_url", url)
+    fun getCloudTtsKey(): String = settings.getString("cloud_tts_key", "")
+    fun setCloudTtsKey(key: String) = settings.putString("cloud_tts_key", key)
+    fun getCloudTtsModel(): String = settings.getString("cloud_tts_model", DEFAULTS.CLOUD_TTS_MODEL)
+    fun setCloudTtsModel(model: String) = settings.putString("cloud_tts_model", model)
+    fun getCloudTtsVoice(): String = settings.getString("cloud_tts_voice", DEFAULTS.CLOUD_TTS_VOICE)
+    fun setCloudTtsVoice(voice: String) = settings.putString("cloud_tts_voice", voice)
+
+    // Piper on-device voice selection (base name of the installed *.tflite voice)
+    fun getPiperSelectedVoice(): String? = settings.getStringOrNull("piper_selected_voice")
+    fun setPiperSelectedVoice(baseName: String?) {
+        if (baseName == null) settings.remove("piper_selected_voice") else settings.putString("piper_selected_voice", baseName)
+    }
+
+    // region Speech defaults
+    private object DEFAULTS {
+        const val CLOUD_STT_URL = "https://api.openai.com/v1/audio/transcriptions"
+        const val CLOUD_STT_MODEL = "whisper-1"
+        const val CLOUD_TTS_URL = "https://api.openai.com/v1/audio/speech"
+        const val CLOUD_TTS_MODEL = "tts-1"
+        const val CLOUD_TTS_VOICE = "alloy"
+    }
+    // endregion
+
+    fun getDistro(): Distro {
+        val name = settings.getString("sandbox_distro", Distro.DEBIAN.name)
+        return try {
+            Distro.valueOf(name)
+        } catch (e: Exception) {
+            Distro.DEBIAN
+        }
+    }
+    fun setDistro(distro: Distro) = settings.putString("sandbox_distro", distro.name)
+
+    fun getSoulText(): String = settings.getString(AppSettingsKeys.KEY_SOUL, "")
 
     fun setSoulText(text: String) {
-        settings.putString(KEY_SOUL, text)
+        settings.putString(AppSettingsKeys.KEY_SOUL, text)
     }
 
     // Memory
-    fun isMemoryEnabled(): Boolean = settings.getBoolean(KEY_MEMORY_ENABLED, true)
+    fun isMemoryEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_MEMORY_ENABLED, true)
 
     fun setMemoryEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_MEMORY_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_MEMORY_ENABLED, enabled)
     }
 
-    fun getMemoryInstructions(): String = settings.getString(KEY_MEMORY_INSTRUCTIONS, DEFAULT_MEMORY_INSTRUCTIONS)
+    fun getMemoryInstructions(): String = settings.getString(AppSettingsKeys.KEY_MEMORY_INSTRUCTIONS, AppSettingsKeys.DEFAULT_MEMORY_INSTRUCTIONS)
 
     // Agent memories
-    fun getMemoriesJson(): String = settings.getString(KEY_AGENT_MEMORIES, "[]")
+    fun getMemoriesJson(): String = settings.getString(AppSettingsKeys.KEY_AGENT_MEMORIES, "[]")
 
     fun setMemoriesJson(json: String) {
-        settings.putString(KEY_AGENT_MEMORIES, json)
+        settings.putString(AppSettingsKeys.KEY_AGENT_MEMORIES, json)
     }
 
     // Scheduling
-    fun isSchedulingEnabled(): Boolean = settings.getBoolean(KEY_SCHEDULING_ENABLED, true)
+    fun isSchedulingEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_SCHEDULING_ENABLED, true)
 
     fun setSchedulingEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_SCHEDULING_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_SCHEDULING_ENABLED, enabled)
     }
 
     // Dynamic UI
-    fun isDynamicUiEnabled(): Boolean = settings.getBoolean(KEY_DYNAMIC_UI_ENABLED, true)
+    fun isDynamicUiEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_DYNAMIC_UI_ENABLED, true)
 
     fun setDynamicUiEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_DYNAMIC_UI_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_DYNAMIC_UI_ENABLED, enabled)
     }
 
     private val _themeModeFlow = MutableStateFlow(loadInitialThemeMode())
@@ -431,7 +515,7 @@ class AppSettings(internal val settings: Settings) {
     fun getThemeMode(): ThemeMode = _themeModeFlow.value
 
     fun setThemeMode(mode: ThemeMode) {
-        settings.putString(KEY_THEME_MODE, mode.name)
+        settings.putString(AppSettingsKeys.KEY_THEME_MODE, mode.name)
         _themeModeFlow.value = mode
     }
 
@@ -466,12 +550,12 @@ class AppSettings(internal val settings: Settings) {
     fun getMonitorOverlayMode(): MonitorOverlayMode = _monitorOverlayModeFlow.value
 
     fun setMonitorOverlayMode(mode: MonitorOverlayMode) {
-        settings.putString(KEY_MONITOR_OVERLAY_MODE, mode.name)
+        settings.putString(AppSettingsKeys.KEY_MONITOR_OVERLAY_MODE, mode.name)
         _monitorOverlayModeFlow.value = mode
     }
 
     private fun loadInitialMonitorOverlayMode(): MonitorOverlayMode {
-        val raw = settings.getString(KEY_MONITOR_OVERLAY_MODE, "")
+        val raw = settings.getString(AppSettingsKeys.KEY_MONITOR_OVERLAY_MODE, "")
         if (raw.isNotEmpty()) {
             return try {
                 MonitorOverlayMode.valueOf(raw)
@@ -483,7 +567,7 @@ class AppSettings(internal val settings: Settings) {
     }
 
     private fun loadInitialThemeMode(): ThemeMode {
-        val raw = settings.getString(KEY_THEME_MODE, "")
+        val raw = settings.getString(AppSettingsKeys.KEY_THEME_MODE, "")
         if (raw.isNotEmpty()) {
             return try {
                 ThemeMode.valueOf(raw)
@@ -492,49 +576,46 @@ class AppSettings(internal val settings: Settings) {
             }
         }
         // Migrate the legacy boolean OLED toggle: true → OledBlack, false → System.
-        return if (settings.getBoolean(KEY_OLED_MODE_ENABLED, false)) ThemeMode.OledBlack else ThemeMode.System
+        return if (settings.getBoolean(AppSettingsKeys.KEY_OLED_MODE_ENABLED, false)) ThemeMode.OledBlack else ThemeMode.System
     }
 
     // Daemon mode
-    fun isDaemonEnabled(): Boolean = settings.getBoolean(KEY_DAEMON_ENABLED, false)
+    fun isDaemonEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_DAEMON_ENABLED, false)
 
     fun setDaemonEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_DAEMON_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_DAEMON_ENABLED, enabled)
     }
 
     // Root access dialog
-    fun hasRequestedRoot(): Boolean = settings.getBoolean(KEY_HAS_REQUESTED_ROOT, false)
+    fun hasRequestedRoot(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_HAS_REQUESTED_ROOT, false)
 
     fun setRequestedRoot(requested: Boolean) {
-        settings.putBoolean(KEY_HAS_REQUESTED_ROOT, requested)
+        settings.putBoolean(AppSettingsKeys.KEY_HAS_REQUESTED_ROOT, requested)
     }
 
     // Linux Sandbox
-    fun isSandboxEnabled(): Boolean = settings.getBoolean(KEY_SANDBOX_ENABLED, true)
+    fun isSandboxEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_SANDBOX_ENABLED, true)
 
     fun setSandboxEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_SANDBOX_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_SANDBOX_ENABLED, enabled)
     }
 
     // GOD_MODE
-    fun isGodModeEnabled(): Boolean = settings.getBoolean(KEY_GOD_MODE_ENABLED, true)
-
-    fun setGodModeEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_GOD_MODE_ENABLED, enabled)
-    }
+    fun isGodModeEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_GOD_MODE_ENABLED, false)
+    fun setGodModeEnabled(enabled: Boolean) = settings.putBoolean(AppSettingsKeys.KEY_GOD_MODE_ENABLED, enabled)
 
     // Onboarding
-    fun isOnboardingCompleted(): Boolean = settings.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+    fun isOnboardingCompleted(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_ONBOARDING_COMPLETED, false)
 
     fun setOnboardingCompleted(completed: Boolean) {
-        settings.putBoolean(KEY_ONBOARDING_COMPLETED, completed)
+        settings.putBoolean(AppSettingsKeys.KEY_ONBOARDING_COMPLETED, completed)
     }
 
     // Agent Visibility (showing operations in UI)
-    fun isAgentVisibilityEnabled(): Boolean = settings.getBoolean(KEY_AGENT_VISIBILITY_ENABLED, true)
+    fun isAgentVisibilityEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_AGENT_VISIBILITY_ENABLED, true)
 
     fun setAgentVisibilityEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_AGENT_VISIBILITY_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_AGENT_VISIBILITY_ENABLED, enabled)
     }
 
     // VLESS Proxy
@@ -546,7 +627,7 @@ class AppSettings(internal val settings: Settings) {
     fun setActiveVlessProxyId(id: String) {
         settings.putString("active_vless_proxy_id", id)
     }
-    
+
     // active connection mode: "VLESS", "LOCAL", "NONE"
     fun getActiveConnectionMode(): String = settings.getString("active_connection_mode", "NONE")
     fun setActiveConnectionMode(mode: String) {
@@ -579,16 +660,16 @@ class AppSettings(internal val settings: Settings) {
     }
 
     // Legacy fallback
-    fun isVlessEnabled(): Boolean = settings.getBoolean(KEY_VLESS_ENABLED, false)
+    fun isVlessEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_VLESS_ENABLED, false)
 
     fun setVlessEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_VLESS_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_VLESS_ENABLED, enabled)
     }
 
-    fun getVlessUri(): String = settings.getString(KEY_VLESS_URI, "")
+    fun getVlessUri(): String = settings.getString(AppSettingsKeys.KEY_VLESS_URI, "")
 
     fun setVlessUri(uri: String) {
-        settings.putString(KEY_VLESS_URI, uri)
+        settings.putString(AppSettingsKeys.KEY_VLESS_URI, uri)
     }
 
     private val _isVlessConnectedFlow = MutableStateFlow(false)
@@ -600,315 +681,213 @@ class AppSettings(internal val settings: Settings) {
         _isVlessConnectedFlow.value = connected
     }
 
-    fun getScheduledTasksJson(): String = settings.getString(KEY_SCHEDULED_TASKS, "[]")
+    fun getScheduledTasksJson(): String = settings.getString(AppSettingsKeys.KEY_SCHEDULED_TASKS, "[]")
 
     fun setScheduledTasksJson(json: String) {
-        settings.putString(KEY_SCHEDULED_TASKS, json)
+        settings.putString(AppSettingsKeys.KEY_SCHEDULED_TASKS, json)
     }
 
     // Heartbeat config
-    fun getHeartbeatConfigJson(): String = settings.getString(KEY_HEARTBEAT_CONFIG, "")
+    fun getHeartbeatConfigJson(): String = settings.getString(AppSettingsKeys.KEY_HEARTBEAT_CONFIG, "")
 
     fun setHeartbeatConfigJson(json: String) {
-        settings.putString(KEY_HEARTBEAT_CONFIG, json)
+        settings.putString(AppSettingsKeys.KEY_HEARTBEAT_CONFIG, json)
     }
 
     // Heartbeat log
-    fun getHeartbeatLogJson(): String = settings.getString(KEY_HEARTBEAT_LOG, "")
+    fun getHeartbeatLogJson(): String = settings.getString(AppSettingsKeys.KEY_HEARTBEAT_LOG, "")
 
     fun setHeartbeatLogJson(json: String) {
-        settings.putString(KEY_HEARTBEAT_LOG, json)
+        settings.putString(AppSettingsKeys.KEY_HEARTBEAT_LOG, json)
     }
 
     // Heartbeat prompt
-    fun getHeartbeatPrompt(): String = settings.getString(KEY_HEARTBEAT_PROMPT, "")
+    fun getHeartbeatPrompt(): String = settings.getString(AppSettingsKeys.KEY_HEARTBEAT_PROMPT, "")
 
     fun setHeartbeatPrompt(text: String) {
-        settings.putString(KEY_HEARTBEAT_PROMPT, text)
+        settings.putString(AppSettingsKeys.KEY_HEARTBEAT_PROMPT, text)
     }
 
     // MCP Servers
-    fun getMcpServersJson(): String = settings.getString(KEY_MCP_SERVERS, "")
+    fun getMcpServersJson(): String = settings.getString(AppSettingsKeys.KEY_MCP_SERVERS, "")
 
     fun setMcpServersJson(json: String) {
-        settings.putString(KEY_MCP_SERVERS, json)
+        settings.putString(AppSettingsKeys.KEY_MCP_SERVERS, json)
     }
 
     // UI Scale
-    private val _uiScaleFlow = MutableStateFlow(settings.getFloat(KEY_UI_SCALE, defaultUiScale))
+    private val _uiScaleFlow = MutableStateFlow(settings.getFloat(AppSettingsKeys.KEY_UI_SCALE, defaultUiScale))
     val uiScaleFlow: StateFlow<Float> = _uiScaleFlow
 
     fun getUiScale(): Float = _uiScaleFlow.value
 
     fun setUiScale(scale: Float) {
-        settings.putFloat(KEY_UI_SCALE, scale)
+        settings.putFloat(AppSettingsKeys.KEY_UI_SCALE, scale)
         _uiScaleFlow.value = scale
     }
 
     // Email
-    fun isEmailEnabled(): Boolean = settings.getBoolean(KEY_EMAIL_ENABLED, true)
+    fun isEmailEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_EMAIL_ENABLED, true)
 
     fun setEmailEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_EMAIL_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_EMAIL_ENABLED, enabled)
     }
 
-    fun getEmailAccountsJson(): String = settings.getString(KEY_EMAIL_ACCOUNTS, "")
+    fun getEmailAccountsJson(): String = settings.getString(AppSettingsKeys.KEY_EMAIL_ACCOUNTS, "")
 
     fun setEmailAccountsJson(json: String) {
-        settings.putString(KEY_EMAIL_ACCOUNTS, json)
+        settings.putString(AppSettingsKeys.KEY_EMAIL_ACCOUNTS, json)
     }
 
-    fun getEmailPassword(accountId: String): String = settings.getString("${KEY_EMAIL_PASSWORD_PREFIX}$accountId", "")
+    fun getEmailPassword(accountId: String): String = settings.getString("${AppSettingsKeys.KEY_EMAIL_PASSWORD_PREFIX}$accountId", "")
 
     fun setEmailPassword(accountId: String, password: String) {
-        settings.putString("${KEY_EMAIL_PASSWORD_PREFIX}$accountId", password)
+        settings.putString("${AppSettingsKeys.KEY_EMAIL_PASSWORD_PREFIX}$accountId", password)
     }
 
     fun removeEmailPassword(accountId: String) {
-        settings.remove("${KEY_EMAIL_PASSWORD_PREFIX}$accountId")
+        settings.remove("${AppSettingsKeys.KEY_EMAIL_PASSWORD_PREFIX}$accountId")
     }
 
-    fun getEmailSyncStateJson(accountId: String): String = settings.getString("${KEY_EMAIL_SYNC_PREFIX}$accountId", "")
+    fun getEmailSyncStateJson(accountId: String): String = settings.getString("${AppSettingsKeys.KEY_EMAIL_SYNC_PREFIX}$accountId", "")
 
     fun setEmailSyncStateJson(accountId: String, json: String) {
-        settings.putString("${KEY_EMAIL_SYNC_PREFIX}$accountId", json)
+        settings.putString("${AppSettingsKeys.KEY_EMAIL_SYNC_PREFIX}$accountId", json)
     }
 
-    fun getEmailPollIntervalMinutes(): Int = settings.getInt(KEY_EMAIL_POLL_INTERVAL, 15)
+    fun getEmailPollIntervalMinutes(): Int = settings.getInt(AppSettingsKeys.KEY_EMAIL_POLL_INTERVAL, 15)
 
     fun setEmailPollIntervalMinutes(minutes: Int) {
-        settings.putInt(KEY_EMAIL_POLL_INTERVAL, minutes)
+        settings.putInt(AppSettingsKeys.KEY_EMAIL_POLL_INTERVAL, minutes)
     }
 
-    fun getEmailPendingJson(): String = settings.getString(KEY_EMAIL_PENDING, "")
+    fun getEmailPendingJson(): String = settings.getString(AppSettingsKeys.KEY_EMAIL_PENDING, "")
 
     fun setEmailPendingJson(json: String) {
-        settings.putString(KEY_EMAIL_PENDING, json)
+        settings.putString(AppSettingsKeys.KEY_EMAIL_PENDING, json)
     }
 
     // SMS (FOSS-only, Android-only — settings layer is platform-agnostic, feature gate
     // is enforced by the READ_SMS permission being declared only in foss/AndroidManifest.xml)
-    fun isSmsEnabled(): Boolean = settings.getBoolean(KEY_SMS_ENABLED, false)
+    fun isSmsEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_SMS_ENABLED, false)
 
     fun setSmsEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_SMS_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_SMS_ENABLED, enabled)
     }
 
-    fun getSmsPollIntervalMinutes(): Int = settings.getInt(KEY_SMS_POLL_INTERVAL, 15)
+    fun getSmsPollIntervalMinutes(): Int = settings.getInt(AppSettingsKeys.KEY_SMS_POLL_INTERVAL, 15)
 
     fun setSmsPollIntervalMinutes(minutes: Int) {
-        settings.putInt(KEY_SMS_POLL_INTERVAL, minutes)
+        settings.putInt(AppSettingsKeys.KEY_SMS_POLL_INTERVAL, minutes)
     }
 
-    fun getSmsPendingJson(): String = settings.getString(KEY_SMS_PENDING, "")
+    fun getSmsPendingJson(): String = settings.getString(AppSettingsKeys.KEY_SMS_PENDING, "")
 
     fun setSmsPendingJson(json: String) {
-        settings.putString(KEY_SMS_PENDING, json)
+        settings.putString(AppSettingsKeys.KEY_SMS_PENDING, json)
     }
 
-    fun getSmsSyncStateJson(): String = settings.getString(KEY_SMS_SYNC_STATE, "")
+    fun getSmsSyncStateJson(): String = settings.getString(AppSettingsKeys.KEY_SMS_SYNC_STATE, "")
 
     fun setSmsSyncStateJson(json: String) {
-        settings.putString(KEY_SMS_SYNC_STATE, json)
+        settings.putString(AppSettingsKeys.KEY_SMS_SYNC_STATE, json)
     }
 
-    fun isSmsSendEnabled(): Boolean = settings.getBoolean(KEY_SMS_SEND_ENABLED, false)
+    fun isSmsSendEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_SMS_SEND_ENABLED, false)
 
     fun setSmsSendEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_SMS_SEND_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_SMS_SEND_ENABLED, enabled)
     }
 
-    fun getSmsDraftsJson(): String = settings.getString(KEY_SMS_DRAFTS, "")
+    fun getSmsDraftsJson(): String = settings.getString(AppSettingsKeys.KEY_SMS_DRAFTS, "")
 
     fun setSmsDraftsJson(json: String) {
-        settings.putString(KEY_SMS_DRAFTS, json)
+        settings.putString(AppSettingsKeys.KEY_SMS_DRAFTS, json)
     }
 
     // Notifications (FOSS-only, Android-only — settings layer is platform-agnostic, feature
     // gate is enforced by the listener service being declared only in foss/AndroidManifest.xml)
-    fun isNotificationsEnabled(): Boolean = settings.getBoolean(KEY_NOTIFICATIONS_ENABLED, false)
+    fun isNotificationsEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_NOTIFICATIONS_ENABLED, false)
 
     fun setNotificationsEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_NOTIFICATIONS_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_NOTIFICATIONS_ENABLED, enabled)
     }
 
-    fun getNotificationsPendingJson(): String = settings.getString(KEY_NOTIFICATIONS_PENDING, "")
+    fun getNotificationsPendingJson(): String = settings.getString(AppSettingsKeys.KEY_NOTIFICATIONS_PENDING, "")
 
     fun setNotificationsPendingJson(json: String) {
-        settings.putString(KEY_NOTIFICATIONS_PENDING, json)
+        settings.putString(AppSettingsKeys.KEY_NOTIFICATIONS_PENDING, json)
     }
 
-    fun getNotificationsStoreJson(): String = settings.getString(KEY_NOTIFICATIONS_STORE, "")
+    fun getNotificationsStoreJson(): String = settings.getString(AppSettingsKeys.KEY_NOTIFICATIONS_STORE, "")
 
     fun setNotificationsStoreJson(json: String) {
-        settings.putString(KEY_NOTIFICATIONS_STORE, json)
+        settings.putString(AppSettingsKeys.KEY_NOTIFICATIONS_STORE, json)
     }
 
-    fun getNotificationsSyncStateJson(): String = settings.getString(KEY_NOTIFICATIONS_SYNC_STATE, "")
+    fun getNotificationsSyncStateJson(): String = settings.getString(AppSettingsKeys.KEY_NOTIFICATIONS_SYNC_STATE, "")
 
     fun setNotificationsSyncStateJson(json: String) {
-        settings.putString(KEY_NOTIFICATIONS_SYNC_STATE, json)
+        settings.putString(AppSettingsKeys.KEY_NOTIFICATIONS_SYNC_STATE, json)
     }
 
     // Local model context size
-    fun getModelContextTokens(modelId: String): Int = settings.getInt("$KEY_MODEL_CONTEXT_PREFIX$modelId", 0)
+    fun getModelContextTokens(modelId: String): Int = settings.getInt("${AppSettingsKeys.KEY_MODEL_CONTEXT_PREFIX}$modelId", 0)
 
     fun setModelContextTokens(modelId: String, contextTokens: Int) {
-        settings.putInt("$KEY_MODEL_CONTEXT_PREFIX$modelId", contextTokens)
+        settings.putInt("${AppSettingsKeys.KEY_MODEL_CONTEXT_PREFIX}$modelId", contextTokens)
     }
 
     // Splinterlands
-    fun isSplinterlandsEnabled(): Boolean = settings.getBoolean(KEY_SPLINTERLANDS_ENABLED, false)
+    fun isSplinterlandsEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_SPLINTERLANDS_ENABLED, false)
 
     fun setSplinterlandsEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_SPLINTERLANDS_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_SPLINTERLANDS_ENABLED, enabled)
     }
 
-    fun getSplinterlandsAccountJson(): String = settings.getString(KEY_SPLINTERLANDS_ACCOUNT, "")
+    fun getSplinterlandsAccountJson(): String = settings.getString(AppSettingsKeys.KEY_SPLINTERLANDS_ACCOUNT, "")
 
     fun setSplinterlandsAccountJson(json: String) {
-        settings.putString(KEY_SPLINTERLANDS_ACCOUNT, json)
+        settings.putString(AppSettingsKeys.KEY_SPLINTERLANDS_ACCOUNT, json)
     }
 
-    fun getSplinterlandsPostingKey(): String = settings.getString(KEY_SPLINTERLANDS_POSTING_KEY, "")
+    fun getSplinterlandsPostingKey(): String = settings.getString(AppSettingsKeys.KEY_SPLINTERLANDS_POSTING_KEY, "")
 
-    fun getSplinterlandsPostingKey(accountId: String): String = settings.getString("${KEY_SPLINTERLANDS_POSTING_KEY}_$accountId", "")
+    fun getSplinterlandsPostingKey(accountId: String): String = settings.getString("${AppSettingsKeys.KEY_SPLINTERLANDS_POSTING_KEY}_$accountId", "")
         .ifEmpty { getSplinterlandsPostingKey() } // fallback to legacy key
 
     fun setSplinterlandsPostingKey(accountId: String, key: String) {
-        settings.putString("${KEY_SPLINTERLANDS_POSTING_KEY}_$accountId", key)
+        settings.putString("${AppSettingsKeys.KEY_SPLINTERLANDS_POSTING_KEY}_$accountId", key)
     }
 
-    fun getSplinterlandsInstanceId(): String = settings.getString(KEY_SPLINTERLANDS_INSTANCE_ID, "")
+    fun getSplinterlandsInstanceId(): String = settings.getString(AppSettingsKeys.KEY_SPLINTERLANDS_INSTANCE_ID, "")
 
     fun setSplinterlandsInstanceId(instanceId: String) {
-        settings.putString(KEY_SPLINTERLANDS_INSTANCE_ID, instanceId)
+        settings.putString(AppSettingsKeys.KEY_SPLINTERLANDS_INSTANCE_ID, instanceId)
     }
 
-    fun getSplinterlandsInstanceIdsJson(): String = settings.getString(KEY_SPLINTERLANDS_INSTANCE_IDS, "")
+    fun getSplinterlandsInstanceIdsJson(): String = settings.getString(AppSettingsKeys.KEY_SPLINTERLANDS_INSTANCE_IDS, "")
 
     fun setSplinterlandsInstanceIdsJson(json: String) {
-        settings.putString(KEY_SPLINTERLANDS_INSTANCE_IDS, json)
+        settings.putString(AppSettingsKeys.KEY_SPLINTERLANDS_INSTANCE_IDS, json)
     }
 
-    fun getSplinterlandsBattleLogJson(): String = settings.getString(KEY_SPLINTERLANDS_BATTLE_LOG, "")
+    fun getSplinterlandsBattleLogJson(): String = settings.getString(AppSettingsKeys.KEY_SPLINTERLANDS_BATTLE_LOG, "")
 
     fun setSplinterlandsBattleLogJson(json: String) {
-        settings.putString(KEY_SPLINTERLANDS_BATTLE_LOG, json)
+        settings.putString(AppSettingsKeys.KEY_SPLINTERLANDS_BATTLE_LOG, json)
     }
 
     // Logging
-    fun isLoggingEnabled(): Boolean = settings.getBoolean(KEY_LOGGING_ENABLED, false)
+    fun isLoggingEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_LOGGING_ENABLED, false)
 
     fun setLoggingEnabled(enabled: Boolean) {
-        settings.putBoolean(KEY_LOGGING_ENABLED, enabled)
+        settings.putBoolean(AppSettingsKeys.KEY_LOGGING_ENABLED, enabled)
     }
 
-    fun getQuickActionsJson(): String = settings.getString(KEY_QUICK_ACTIONS, "[]")
+    fun getQuickActionsJson(): String = settings.getString(AppSettingsKeys.KEY_QUICK_ACTIONS, "[]")
 
     fun setQuickActionsJson(json: String) {
-        settings.putString(KEY_QUICK_ACTIONS, json)
-    }
-
-    companion object {
-        const val KEY_CURRENT_SERVICE_ID = "current_service_id"
-        const val KEY_APP_OPENS = "app_opens"
-
-        const val KEY_CONVERSATIONS = "conversations_json"
-        const val KEY_CURRENT_CONVERSATION_ID = "current_conversation_id"
-        const val KEY_CURRENT_INTERACTIVE_MODE = "current_interactive_mode"
-        const val KEY_CURRENT_CONVERSATION_MIGRATED = "current_conversation_migrated"
-        const val KEY_ENCRYPTION_KEY = "encryption_key"
-        const val KEY_MIGRATION_COMPLETE = "migration_complete_v1"
-        const val KEY_TOOL_PREFIX = "tool_enabled_"
-        const val KEY_SOUL = "soul_text"
-        const val KEY_MEMORY_ENABLED = "memory_enabled"
-        const val KEY_MEMORY_INSTRUCTIONS = "memory_instructions"
-        const val KEY_AGENT_MEMORIES = "agent_memories"
-        const val KEY_SCHEDULED_TASKS = "scheduled_tasks"
-        const val KEY_SCHEDULING_ENABLED = "scheduling_enabled"
-        const val KEY_DYNAMIC_UI_ENABLED = "dynamic_ui_enabled"
-        const val KEY_OLED_MODE_ENABLED = "oled_mode_enabled"
-        const val KEY_THEME_MODE = "theme_mode"
-        const val KEY_DAEMON_ENABLED = "daemon_enabled"
-        const val KEY_HAS_REQUESTED_ROOT = "has_requested_root"
-        const val KEY_HEARTBEAT_CONFIG = "heartbeat_config"
-        const val KEY_HEARTBEAT_PROMPT = "heartbeat_prompt"
-        const val KEY_HEARTBEAT_LOG = "heartbeat_log"
-
-        const val KEY_EMAIL_ENABLED = "email_enabled"
-        const val KEY_EMAIL_ACCOUNTS = "email_accounts"
-        const val KEY_EMAIL_PASSWORD_PREFIX = "email_password_"
-        const val KEY_EMAIL_SYNC_PREFIX = "email_sync_"
-        const val KEY_EMAIL_POLL_INTERVAL = "email_poll_interval"
-        const val KEY_EMAIL_PENDING = "email_pending"
-
-        const val KEY_SMS_ENABLED = "sms_enabled"
-        const val KEY_SMS_POLL_INTERVAL = "sms_poll_interval"
-        const val KEY_SMS_PENDING = "sms_pending"
-        const val KEY_SMS_SYNC_STATE = "sms_sync_state"
-        const val KEY_SMS_SEND_ENABLED = "sms_send_enabled"
-        const val KEY_SMS_DRAFTS = "sms_drafts"
-
-        const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
-        const val KEY_NOTIFICATIONS_PENDING = "notifications_pending"
-        const val KEY_NOTIFICATIONS_STORE = "notifications_store"
-        const val KEY_NOTIFICATIONS_SYNC_STATE = "notifications_sync_state"
-        const val KEY_CONFIGURED_SERVICES = "configured_services"
-        internal const val KEY_FREE_FALLBACK_ENABLED = "freeFallbackEnabled"
-        internal const val KEY_QUICK_ACTIONS = "quickActions"
-        const val KEY_FREE_MODE = "free_mode"
-        const val KEY_FREE_SERVICE_PRIMARY = "free_service_primary"
-        const val KEY_SERVICES_MIGRATION_COMPLETE = "services_migration_complete_v1"
-        const val KEY_UI_SCALE = "ui_scale"
-        const val KEY_MCP_SERVERS = "mcp_servers"
-        const val KEY_INSTANCE_MIGRATION_COMPLETE = "instance_migration_complete_v1"
-        const val KEY_BASE_URL_V1_MIGRATION_COMPLETE = "base_url_v1_migration_complete"
-
-        const val KEY_SPLINTERLANDS_ENABLED = "splinterlands_enabled"
-        const val KEY_SPLINTERLANDS_ACCOUNT = "splinterlands_account"
-        const val KEY_SPLINTERLANDS_POSTING_KEY = "splinterlands_posting_key"
-        const val KEY_SPLINTERLANDS_BATTLE_LOG = "splinterlands_battle_log"
-        const val KEY_SPLINTERLANDS_INSTANCE_ID = "splinterlands_instance_id"
-        const val KEY_SPLINTERLANDS_INSTANCE_IDS = "splinterlands_instance_ids"
-
-        const val KEY_MODEL_CONTEXT_PREFIX = "model_context_"
-
-        const val KEY_SANDBOX_ENABLED = "sandbox_enabled"
-        const val KEY_GOD_MODE_ENABLED = "god_mode_enabled"
-        const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
-        const val KEY_AGENT_VISIBILITY_ENABLED = "agent_visibility_enabled"
-        const val KEY_VLESS_ENABLED = "vless_enabled"
-        const val KEY_VLESS_URI = "vless_uri"
-
-        const val KEY_SERVER_IP = "server_ip"
-        const val KEY_SERVER_PORT = "server_port"
-        const val KEY_SERVER_USER = "server_user"
-        const val KEY_SERVER_PASSWORD = "server_password"
-        const val KEY_TUNNEL_PERSISTENT_RECONNECT = "tunnel_persistent_reconnect"
-
-        const val KEY_LOGGING_ENABLED = "logging_enabled"
-
-        const val KEY_WAKE_WORD = "wake_word"
-        const val KEY_WAKE_WORD_ENABLED = "wake_word_enabled"
-        const val KEY_WAKE_WORD_SOUND = "wake_word_sound_enabled"
-        const val KEY_VOICE_RESPONSE_ENABLED = "voice_response_enabled"
-        const val KEY_WATCH_INTEGRATION_ENABLED = "watch_integration_enabled"
-        private const val KEY_WAKE_WORD_MODEL_LANG = "wake_word_model_lang"
-        private const val KEY_WAKE_WORD_TRIGGER = "wake_word_trigger"
-        private const val KEY_WAKE_WORD_VIBRATION = "wake_word_vibration"
-
-        const val KEY_MONITOR_OVERLAY_MODE = "monitor_overlay_mode"
-
-        // Basic memory guidance shared by every chat variant. The advanced `## Structured
-        // Learning` block lives in `ChatSystemPromptBuilder.DEFAULT_STRUCTURED_LEARNING_SECTION`
-        // and is composed in only for the remote variant.
-        const val DEFAULT_MEMORY_INSTRUCTIONS =
-            "You have persistent memory across conversations. " +
-                "All your stored memories are listed in the system prompt grouped by category.\n\n" +
-                "When you learn important information about the user (name, preferences, projects, goals, etc.), " +
-                "proactively use the memory_store tool to save it.\n" +
-                "Use the memory_forget tool to remove outdated or incorrect memories.\n" +
-                "Do not store trivial or transient information."
+        settings.putString(AppSettingsKeys.KEY_QUICK_ACTIONS, json)
     }
 }

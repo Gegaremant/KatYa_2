@@ -13,8 +13,8 @@ class DownloadFileTool : Tool {
         parameters = mapOf(
             "url" to ParameterSchema("string", "Прямая ссылка на файл", true),
             "destination_path" to ParameterSchema("string", "Абсолютный путь, куда сохранить файл", true),
-            "use_root" to ParameterSchema("boolean", "Использовать права root (su) для сохранения файла в системные папки (например, в Termux).", false)
-        )
+            "use_root" to ParameterSchema("boolean", "Использовать права root (su) для сохранения файла в системные папки (например, в Termux).", false),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
@@ -25,10 +25,10 @@ class DownloadFileTool : Tool {
         val useRoot = args["use_root"] as? Boolean ?: false
 
         val result = downloader.download(url, dest, useRoot)
-        
+
         return mapOf(
             "success" to !result.startsWith("Error:"),
-            "message" to result
+            "message" to result,
         )
     }
 }

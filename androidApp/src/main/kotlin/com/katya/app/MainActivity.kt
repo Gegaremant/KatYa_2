@@ -17,6 +17,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -80,16 +81,59 @@ class MainActivity : ComponentActivity() {
             // Defer TTS initialization until after the first frame
             var ttsReady by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { ttsReady = true }
+            val koinRepo: com.katya.app.data.DataRepository? = remember {
+                try {
+                    org.koin.core.context.GlobalContext.get().get()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            // React to live changes of the TTS engine setting so switching the engine
+            // applies immediately without restarting the app.
+            val ttsEngineSetting: com.katya.app.data.TtsEngine =
+                if (koinRepo != null) {
+                    val engine by koinRepo.ttsEngineFlow.collectAsStateWithLifecycle()
+                    engine
+                } else {
+                    remember { mutableStateOf(com.katya.app.data.TtsEngine.SYSTEM) }.value
+                }
+            val ttsEngineSpec = when (ttsEngineSetting) {
+                com.katya.app.data.TtsEngine.RHVOICE -> TextToSpeechEngine.Custom(RHVOICE_PACKAGE)
+                else -> TextToSpeechEngine.SystemDefault
+            }
+            // key() on the engine discards the previous instance and rebuilds the
+            // TextToSpeech when the user switches engines in Settings.
             val textToSpeech = if (ttsReady) {
-                rememberTextToSpeechOrNull(TextToSpeechEngine.SystemDefault)
+                key(ttsEngineSetting) { rememberTextToSpeechOrNull(ttsEngineSpec) }
             } else {
                 null
+            }
+            // Unify all voice backends behind SpeechEngine so cloud TTS (and later
+            // Piper) speak through the same entry point as the system TTS stack.
+            val cloudTts: com.katya.app.tts.CloudTtsSpeechEngine? = remember {
+                try {
+                    org.koin.core.context.GlobalContext.get().get()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            val piperTts: com.katya.app.tts.PiperTtsSpeechEngine? = remember {
+                try {
+                    org.koin.core.context.GlobalContext.get().get()
+                } catch (_: Exception) {
+                    null
+                }
+            }
+            val speechEngine: com.katya.app.tts.SpeechEngine? = when (ttsEngineSetting) {
+                com.katya.app.data.TtsEngine.CLOUD -> cloudTts
+                com.katya.app.data.TtsEngine.PIPER -> piperTts
+                else -> textToSpeech?.let { com.katya.app.tts.SystemTtsSpeechEngine(it) }
             }
             App(
                 navController = navController,
                 lightColorScheme = lightScheme,
                 darkColorScheme = darkScheme,
-                textToSpeech = textToSpeech,
+                speechEngine = speechEngine,
                 isKoinStarted = true,
                 onAppOpens = { appOpens ->
                     if (appOpens % 5 == 0) {
@@ -147,6 +191,17 @@ class MainActivity : ComponentActivity() {
                 dataRepository.setWakeWordModelLang(url)
                 dataRepository.setWakeWordEnabled(true)
                 wakeWordPlatform.startDownload(url)
+            }
+        }
+        if (intent?.action == Intent.ACTION_SEND) {
+            val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
+            if (!sharedText.isNullOrBlank()) {
+                val dataRepository: DataRepository = get()
+                dataRepository.requestSharedText(sharedText)
+                // Drop the extra/action so a configuration change (screen rotation)
+                // doesn't re-trigger sending the share after it's been consumed.
+                intent.removeExtra(Intent.EXTRA_TEXT)
+                intent.action = null
             }
         }
     }

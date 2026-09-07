@@ -88,12 +88,32 @@ interface DataRepository {
     fun getSoulText(): String
     fun setSoulText(text: String)
     suspend fun getActiveSystemPrompt(variant: SystemPromptVariant = SystemPromptVariant.CHAT_REMOTE): String?
-    
+
     // Audio Engines
     fun getSttEngine(): SttEngine
     fun setSttEngine(engine: SttEngine)
+    val sttEngineFlow: StateFlow<SttEngine>
     fun getTtsEngine(): TtsEngine
     fun setTtsEngine(engine: TtsEngine)
+    val ttsEngineFlow: StateFlow<TtsEngine>
+    fun getCloudSttUrl(): String
+    fun setCloudSttUrl(url: String)
+    fun getCloudSttKey(): String
+    fun setCloudSttKey(key: String)
+    fun getCloudSttModel(): String
+    fun setCloudSttModel(model: String)
+    fun getCloudTtsUrl(): String
+    fun setCloudTtsUrl(url: String)
+    fun getCloudTtsKey(): String
+    fun setCloudTtsKey(key: String)
+    fun getCloudTtsModel(): String
+    fun setCloudTtsModel(model: String)
+    fun getCloudTtsVoice(): String
+    fun setCloudTtsVoice(voice: String)
+
+    // Sandbox distro
+    fun getDistro(): Distro
+    fun setDistro(distro: Distro)
 
     // Memory management
     fun isMemoryEnabled(): Boolean
@@ -107,6 +127,7 @@ interface DataRepository {
     fun isSchedulingEnabled(): Boolean
     fun setSchedulingEnabled(enabled: Boolean)
     fun getScheduledTasks(): List<ScheduledTask>
+    val scheduledTasksFlow: StateFlow<List<ScheduledTask>>
     suspend fun addScheduledTask(description: String, prompt: String, scheduledAtEpochMs: Long, cron: String?, trigger: TaskTrigger): ScheduledTask
     suspend fun updateScheduledTask(task: ScheduledTask): ScheduledTask
     suspend fun cancelScheduledTask(id: String)
@@ -132,6 +153,8 @@ interface DataRepository {
     fun setWakeWordSound(enabled: Boolean)
     fun isWakeWordSoundEnabled(): Boolean
     fun setVoiceResponseEnabled(enabled: Boolean)
+    fun isVoiceRecognitionEnabled(): Boolean
+    fun setVoiceRecognitionEnabled(enabled: Boolean)
     fun isWatchIntegrationEnabled(): Boolean
     fun setWatchIntegrationEnabled(enabled: Boolean)
 
@@ -271,6 +294,15 @@ interface DataRepository {
     fun requestOpenAssist()
     fun consumeOpenAssistRequest()
 
+    /**
+     * Text received from the Android share sheet (`ACTION_SEND`). A non-null value
+     * means "send this text to the active chat, then call [consumeSharedTextRequest]".
+     * Collected by `ChatViewModel` in its init block.
+     */
+    val sharedTextRequested: StateFlow<String?>
+    fun requestSharedText(text: String)
+    fun consumeSharedTextRequest()
+
     // On-device inference (LiteRT)
     fun isLocalInferenceAvailable(): Boolean
     fun getLocalEngineState(): StateFlow<EngineState>?
@@ -281,10 +313,24 @@ interface DataRepository {
     fun getModelContextTokens(modelId: String): Int
     fun setModelContextTokens(modelId: String, contextTokens: Int)
     suspend fun releaseLocalEngine()
-    fun getLocalDownloadingModelId(): StateFlow<String?>?
-    fun getLocalDownloadProgress(): StateFlow<Float?>?
-    fun getLocalDownloadError(): StateFlow<DownloadError?>?
+    fun getLocalDownloadingModelIds(): StateFlow<Set<String>>?
+    fun getLocalDownloadProgresses(): StateFlow<Map<String, Float>>?
+    fun getLocalDownloadErrors(): StateFlow<Map<String, DownloadError>>?
     fun startLocalModelDownload(model: LocalModel)
-    fun cancelLocalModelDownload()
+    fun cancelLocalModelDownload(modelId: String)
+    suspend fun importLocalModel(model: LocalModel, fileBytes: ByteArray)
     suspend fun deleteLocalModel(modelId: String)
+    suspend fun saveLocalModelToDevice(modelId: String): Boolean
+
+    // Piper conversational voices
+    fun getPiperInstalledVoices(): List<com.katya.app.tts.PiperVoiceInfo>
+    fun getPiperSelectedVoice(): String?
+    fun setPiperSelectedVoice(baseName: String)
+    fun getPiperDownloadingBaseName(): StateFlow<String?>?
+    fun getPiperDownloadProgress(): StateFlow<Float?>?
+    fun getPiperDownloadError(): StateFlow<String?>?
+    fun startPiperVoiceDownload(modelUrl: String)
+    suspend fun importPiperVoice(fileName: String, fileBytes: ByteArray)
+    suspend fun deletePiperVoice(baseName: String)
+    suspend fun exportPiperVoice(baseName: String): Boolean
 }

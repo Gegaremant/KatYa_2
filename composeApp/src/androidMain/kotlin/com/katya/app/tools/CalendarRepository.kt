@@ -82,7 +82,7 @@ class CalendarRepository(
             CalendarContract.Events.DESCRIPTION,
             CalendarContract.Events.DTSTART,
             CalendarContract.Events.DTEND,
-            CalendarContract.Events.ALL_DAY
+            CalendarContract.Events.ALL_DAY,
         )
 
         val selection = "${CalendarContract.Events.DTSTART} >= ? AND ${CalendarContract.Events.DTSTART} <= ?"
@@ -94,7 +94,7 @@ class CalendarRepository(
             projection,
             selection,
             selectionArgs,
-            "${CalendarContract.Events.DTSTART} ASC"
+            "${CalendarContract.Events.DTSTART} ASC",
         )?.use { cursor ->
             val idIndex = cursor.getColumnIndex(CalendarContract.Events._ID)
             val titleIndex = cursor.getColumnIndex(CalendarContract.Events.TITLE)
@@ -108,7 +108,7 @@ class CalendarRepository(
                 if (idIndex >= 0) event["id"] = cursor.getLong(idIndex)
                 if (titleIndex >= 0) event["title"] = cursor.getString(titleIndex) ?: ""
                 if (descIndex >= 0) event["description"] = cursor.getString(descIndex) ?: ""
-                
+
                 if (startIndex >= 0) {
                     val start = cursor.getLong(startIndex)
                     event["start_time_iso"] = formatForDisplay(start)
@@ -118,7 +118,7 @@ class CalendarRepository(
                     if (end > 0) event["end_time_iso"] = formatForDisplay(end)
                 }
                 if (allDayIndex >= 0) event["all_day"] = cursor.getInt(allDayIndex) == 1
-                
+
                 events.add(event)
             }
         }

@@ -12,6 +12,7 @@ import com.katya.app.data.Service
 import com.katya.app.data.TaskScheduler
 import com.katya.app.data.ThemeMode
 import com.katya.app.data.supportsAgenticFlows
+import com.katya.app.device.DeviceAdminManager
 import com.katya.app.getBackgroundDispatcher
 import com.katya.app.httpClient
 import com.katya.app.inference.LocalModel
@@ -42,9 +43,14 @@ import io.ktor.serialization.kotlinx.json.json
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.error_unknown
 import katya.composeapp.generated.resources.error_unrecognized_github_repo
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
+import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.collections.immutable.toPersistentSet
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -79,11 +85,13 @@ class SettingsViewModel(
     private val taskScheduler: TaskScheduler,
     private val backgroundDispatcher: CoroutineContext = getBackgroundDispatcher(),
     private val localNetworkPermissionController: LocalNetworkPermissionController = LocalNetworkPermissionController(),
+    private val systemRoleController: com.katya.app.tools.SystemRoleController = com.katya.app.tools.SystemRoleController(),
 ) : ViewModel() {
 
     private var connectionCheckJobs: MutableMap<String, Job> = mutableMapOf()
     private var hasCheckedInitialConnection = false
     private var pendingDeleteJob: Job? = null
+    private var piperVoiceUrlText = ""
 
     private fun buildFullState(): SettingsUiState = SettingsUiState(
         configuredServices = buildConfiguredServiceEntries().toImmutableList(),
@@ -92,9 +100,19 @@ class SettingsViewModel(
         soulText = dataRepository.getSoulText(),
         sttEngine = dataRepository.getSttEngine(),
         ttsEngine = dataRepository.getTtsEngine(),
+        ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()),
+        cloudSttUrl = dataRepository.getCloudSttUrl(),
+        cloudSttKey = dataRepository.getCloudSttKey(),
+        cloudSttModel = dataRepository.getCloudSttModel(),
+        cloudTtsUrl = dataRepository.getCloudTtsUrl(),
+        cloudTtsKey = dataRepository.getCloudTtsKey(),
+        cloudTtsModel = dataRepository.getCloudTtsModel(),
+        cloudTtsVoice = dataRepository.getCloudTtsVoice(),
+        distro = dataRepository.getDistro(),
         isDynamicUiEnabled = dataRepository.isDynamicUiEnabled(),
         isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
         isVoiceResponseEnabled = dataRepository.isVoiceResponseEnabled(),
+        isVoiceRecognitionEnabled = dataRepository.isVoiceRecognitionEnabled(),
         isWatchIntegrationEnabled = dataRepository.isWatchIntegrationEnabled(),
         isWakeWordEnabled = dataRepository.isWakeWordEnabled(),
         wakeWordModelLang = dataRepository.getWakeWordModelLang(),
@@ -153,9 +171,16 @@ class SettingsViewModel(
         localAvailableModels = dataRepository.getLocalAvailableModels().toImmutableList(),
         totalDeviceMemoryBytes = dataRepository.getTotalDeviceMemoryBytes(),
         localFreeSpaceBytes = dataRepository.getLocalFreeSpaceBytes(),
-        localDownloadingModelId = dataRepository.getLocalDownloadingModelId()?.value,
-        localDownloadProgress = dataRepository.getLocalDownloadProgress()?.value,
+        localDownloadingModelIds = dataRepository.getLocalDownloadingModelIds()?.value?.toImmutableSet() ?: persistentSetOf(),
+        localDownloadProgresses = dataRepository.getLocalDownloadProgresses()?.value?.toImmutableMap() ?: persistentMapOf(),
+        localDownloadErrors = dataRepository.getLocalDownloadErrors()?.value?.toImmutableMap() ?: persistentMapOf(),
         modelContextTokens = buildModelContextTokensMap(),
+        piperInstalledVoices = dataRepository.getPiperInstalledVoices().toImmutableList(),
+        piperSelectedVoice = dataRepository.getPiperSelectedVoice(),
+        piperVoiceUrl = piperVoiceUrlText,
+        piperDownloadingBase = dataRepository.getPiperDownloadingBaseName()?.value,
+        piperDownloadProgress = dataRepository.getPiperDownloadProgress()?.value,
+        piperDownloadError = dataRepository.getPiperDownloadError()?.value,
     )
 
     // Bound once so downstream Compose skipping works — a new SettingsActions
@@ -173,9 +198,18 @@ class SettingsViewModel(
         onSaveSoul = ::onSaveSoul,
         onChangeSttEngine = ::onChangeSttEngine,
         onChangeTtsEngine = ::onChangeTtsEngine,
+        onChangeCloudSttUrl = ::onChangeCloudSttUrl,
+        onChangeCloudSttKey = ::onChangeCloudSttKey,
+        onChangeCloudSttModel = ::onChangeCloudSttModel,
+        onChangeCloudTtsUrl = ::onChangeCloudTtsUrl,
+        onChangeCloudTtsKey = ::onChangeCloudTtsKey,
+        onChangeCloudTtsModel = ::onChangeCloudTtsModel,
+        onChangeCloudTtsVoice = ::onChangeCloudTtsVoice,
+        onChangeDistro = ::onChangeDistro,
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleAgentVisibility = ::onToggleAgentVisibility,
         onToggleVoiceResponse = ::onToggleVoiceResponse,
+        onToggleVoiceRecognition = ::onToggleVoiceRecognition,
         onToggleWakeWord = ::onToggleWakeWord,
         onChangeWakeWordTrigger = ::onChangeWakeWordTrigger,
         onSelectWakeWordModelLang = ::onChangeWakeWordModelLang,
@@ -190,6 +224,8 @@ class SettingsViewModel(
         onDeleteMemory = ::onDeleteMemory,
         onUpdateMemory = ::onUpdateMemory,
         onAddMemory = ::onAddMemory,
+        onOpenDeviceAdminSettings = ::onOpenDeviceAdminSettings,
+        onOpenTrustAgentSettings = ::onOpenTrustAgentSettings,
         onToggleScheduling = ::onToggleScheduling,
         onAddScheduledTask = ::onAddScheduledTask,
         onUpdateScheduledTask = ::onUpdateScheduledTask,
@@ -233,7 +269,9 @@ class SettingsViewModel(
         onInstallBrowsedSkill = ::onInstallBrowsedSkill,
         onDownloadLocalModel = ::onDownloadLocalModel,
         onCancelLocalModelDownload = ::onCancelLocalModelDownload,
+        onImportLocalModel = ::onImportLocalModel,
         onDeleteLocalModel = ::onDeleteLocalModel,
+        onSaveLocalModelToDevice = ::onSaveLocalModelToDevice,
         onChangeModelContextTokens = ::onChangeModelContextTokens,
         onExportSettings = ::onExportSettings,
         onPrepareExport = ::onPrepareExport,
@@ -242,6 +280,12 @@ class SettingsViewModel(
         onUndoDelete = ::onUndoDelete,
         onChangeHfRepoUrl = ::onChangeHfRepoUrl,
         onFetchHfModels = ::onFetchHfModels,
+        onChangePiperVoiceUrl = ::onChangePiperVoiceUrl,
+        onDownloadPiperVoice = ::onDownloadPiperVoice,
+        onSelectPiperVoice = ::onSelectPiperVoice,
+        onImportPiperVoice = ::onImportPiperVoice,
+        onDeletePiperVoice = ::onDeletePiperVoice,
+        onExportPiperVoice = ::onExportPiperVoice,
     )
 
     private val _state = MutableStateFlow(buildFullState())
@@ -256,6 +300,15 @@ class SettingsViewModel(
         viewModelScope.launch {
             dataRepository.isVlessConnectedFlow.collect { connected ->
                 _state.update { it.copy(isVlessConnected = connected) }
+            }
+        }
+
+        // Keep the scheduled-tasks list live: the scheduler completes/cancels tasks
+        // in the background, and previously the UI only refreshed on manual actions,
+        // so a task that fired never disappeared from Settings until app restart.
+        viewModelScope.launch {
+            dataRepository.scheduledTasksFlow.collect { tasks ->
+                _state.update { it.copy(scheduledTasks = tasks.toImmutableList()) }
             }
         }
 
@@ -285,29 +338,44 @@ class SettingsViewModel(
         }
 
         // Observe download state from the engine singleton (survives activity recreation)
-        val downloadingFlow = dataRepository.getLocalDownloadingModelId() ?: flowOf(null)
-        val progressFlow = dataRepository.getLocalDownloadProgress() ?: flowOf(null)
-        val errorFlow = dataRepository.getLocalDownloadError() ?: flowOf(null)
+        val downloadingFlow = dataRepository.getLocalDownloadingModelIds() ?: flowOf(emptySet())
+        val progressFlow = dataRepository.getLocalDownloadProgresses() ?: flowOf(emptyMap())
+        val errorFlow = dataRepository.getLocalDownloadErrors() ?: flowOf(emptyMap())
         viewModelScope.launch {
-            combine(downloadingFlow, progressFlow, errorFlow) { modelId, progress, error ->
-                Triple(modelId, progress, error)
-            }.collect { (modelId, progress, error) ->
-                val wasDownloading = _state.value.localDownloadingModelId != null
+            combine(downloadingFlow, progressFlow, errorFlow) { modelIds, progresses, errors ->
+                Triple(modelIds, progresses, errors)
+            }.collect { (modelIds, progresses, errors) ->
+                val prevModelIds = _state.value.localDownloadingModelIds
                 _state.update {
                     it.copy(
-                        localDownloadingModelId = modelId,
-                        localDownloadProgress = progress,
-                        localDownloadError = error,
+                        localDownloadingModelIds = modelIds.toImmutableSet(),
+                        localDownloadProgresses = progresses.toImmutableMap(),
+                        localDownloadErrors = errors.toImmutableMap(),
                     )
                 }
-                if (modelId == null && wasDownloading) {
-                    // Download finished or cancelled — refresh
+                if (prevModelIds.size > modelIds.size) {
+                    // A download finished or cancelled — refresh
                     _state.update { it.copy(localFreeSpaceBytes = dataRepository.getLocalFreeSpaceBytes()) }
                     refreshServiceList()
                     _state.value.configuredServices
                         .filter { it.service.isOnDevice }
                         .forEach { checkConnection(it.instanceId, it.service) }
                 }
+            }
+        }
+
+        // Keep Piper voice download state live: when a download ends, re-list voices.
+        viewModelScope.launch {
+            combine(
+                dataRepository.getPiperDownloadingBaseName() ?: flowOf(null),
+                dataRepository.getPiperDownloadProgress() ?: flowOf(null),
+                dataRepository.getPiperDownloadError() ?: flowOf(null),
+            ) { base, progress, error ->
+                Triple(base, progress, error)
+            }.collect { (base, progress, error) ->
+                val prevBase = _state.value.piperDownloadingBase
+                _state.update { it.copy(piperDownloadingBase = base, piperDownloadProgress = progress, piperDownloadError = error) }
+                if (prevBase != null && base == null) refreshPiperVoices()
             }
         }
     }
@@ -329,6 +397,23 @@ class SettingsViewModel(
                     notificationPendingCount = dataRepository.getPendingNotificationCount(),
                 )
             }
+        }
+        // Re-read SMS permissions the same way: the user may have granted/revoked
+        // them in the OS dialog or app settings, so the section must reflect the
+        // real state right away instead of waiting for a refresh or app restart.
+        if (isSmsSupported) {
+            _state.update {
+                it.copy(
+                    smsPermissionGranted = dataRepository.hasSmsPermission(),
+                    smsSendPermissionGranted = dataRepository.hasSmsSendPermission(),
+                )
+            }
+        }
+        // Re-check whether the selected TTS engine (e.g. RHVoice) is installed:
+        // the user may have installed it via the market link in Settings and
+        // returned to the app without restarting.
+        _state.update {
+            it.copy(ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()))
         }
     }
 
@@ -375,7 +460,6 @@ class SettingsViewModel(
         // provider, then sort the rest alphabetically
         // Hide on-device services on platforms that don't support them
         return Service.all
-            .filter { it != Service.Free }
             .filter { !it.isOnDevice || dataRepository.isLocalInferenceAvailable() }
             .sortedWith(
                 compareBy<Service> {
@@ -512,7 +596,52 @@ class SettingsViewModel(
 
     private fun onChangeTtsEngine(engine: com.katya.app.data.TtsEngine) {
         dataRepository.setTtsEngine(engine)
-        _state.update { it.copy(ttsEngine = engine) }
+        _state.update { it.copy(ttsEngine = engine, ttsEngineInstalled = isTtsEngineInstalled(engine)) }
+    }
+
+    private fun onChangeCloudSttUrl(url: String) {
+        dataRepository.setCloudSttUrl(url)
+        _state.update { it.copy(cloudSttUrl = url) }
+    }
+
+    private fun onChangeCloudSttKey(key: String) {
+        dataRepository.setCloudSttKey(key)
+        _state.update { it.copy(cloudSttKey = key) }
+    }
+
+    private fun onChangeCloudSttModel(model: String) {
+        dataRepository.setCloudSttModel(model)
+        _state.update { it.copy(cloudSttModel = model) }
+    }
+
+    private fun onChangeCloudTtsUrl(url: String) {
+        dataRepository.setCloudTtsUrl(url)
+        _state.update { it.copy(cloudTtsUrl = url) }
+    }
+
+    private fun onChangeCloudTtsKey(key: String) {
+        dataRepository.setCloudTtsKey(key)
+        _state.update { it.copy(cloudTtsKey = key) }
+    }
+
+    private fun onChangeCloudTtsModel(model: String) {
+        dataRepository.setCloudTtsModel(model)
+        _state.update { it.copy(cloudTtsModel = model) }
+    }
+
+    private fun onChangeCloudTtsVoice(voice: String) {
+        dataRepository.setCloudTtsVoice(voice)
+        _state.update { it.copy(cloudTtsVoice = voice) }
+    }
+
+    private fun isTtsEngineInstalled(engine: com.katya.app.data.TtsEngine): Boolean = when (engine) {
+        com.katya.app.data.TtsEngine.RHVOICE -> com.katya.app.isAppInstalled(com.katya.app.RHVOICE_PACKAGE)
+        else -> true
+    }
+
+    private fun onChangeDistro(distro: com.katya.app.data.Distro) {
+        dataRepository.setDistro(distro)
+        _state.update { it.copy(distro = distro) }
     }
 
     private fun onToggleDynamicUi(enabled: Boolean) {
@@ -530,11 +659,15 @@ class SettingsViewModel(
         _state.update { it.copy(isVoiceResponseEnabled = enabled) }
     }
 
+    private fun onToggleVoiceRecognition(enabled: Boolean) {
+        dataRepository.setVoiceRecognitionEnabled(enabled)
+        _state.update { it.copy(isVoiceRecognitionEnabled = enabled) }
+    }
+
     private fun onToggleWatchIntegration(enabled: Boolean) {
         dataRepository.setWatchIntegrationEnabled(enabled)
         _state.update { it.copy(isWatchIntegrationEnabled = enabled) }
     }
-
 
     private fun onAddQuickAction(action: com.katya.app.data.QuickAction) {
         val actions = dataRepository.getQuickActions().toMutableList()
@@ -614,7 +747,7 @@ class SettingsViewModel(
         prompt: String,
         scheduledAtEpochMs: Long,
         cron: String?,
-        trigger: com.katya.app.data.TaskTrigger
+        trigger: com.katya.app.data.TaskTrigger,
     ) {
         viewModelScope.launch(backgroundDispatcher) {
             dataRepository.addScheduledTask(description, prompt, scheduledAtEpochMs, cron, trigger)
@@ -900,6 +1033,57 @@ class SettingsViewModel(
         _state.update { it.copy(hfRepoUrl = url, hfError = null) }
     }
 
+    private fun onChangePiperVoiceUrl(url: String) {
+        piperVoiceUrlText = url
+        _state.update { it.copy(piperVoiceUrl = url, piperDownloadError = null) }
+    }
+
+    private fun onDownloadPiperVoice(url: String) {
+        if (url.trim().isBlank()) return
+        dataRepository.startPiperVoiceDownload(url.trim())
+    }
+
+    private fun onSelectPiperVoice(baseName: String) {
+        dataRepository.setPiperSelectedVoice(baseName)
+        _state.update { it.copy(piperSelectedVoice = baseName) }
+    }
+
+    private fun onImportPiperVoice(fileName: String, fileBytes: ByteArray) {
+        viewModelScope.launch(backgroundDispatcher) {
+            try {
+                dataRepository.importPiperVoice(fileName, fileBytes)
+                com.katya.app.showToast("Голос импортирован")
+                refreshPiperVoices()
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                com.katya.app.showToast("Не удалось импортировать голос: ${(t.message ?: t::class.simpleName)?.take(120)}")
+            }
+        }
+    }
+
+    private fun onDeletePiperVoice(baseName: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            dataRepository.deletePiperVoice(baseName)
+            refreshPiperVoices()
+        }
+    }
+
+    private fun onExportPiperVoice(baseName: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            val ok = dataRepository.exportPiperVoice(baseName)
+            com.katya.app.showToast(if (ok) "Голос сохранён на устройстве" else "Не удалось сохранить голос")
+        }
+    }
+
+    private fun refreshPiperVoices() {
+        _state.update {
+            it.copy(
+                piperInstalledVoices = dataRepository.getPiperInstalledVoices().toImmutableList(),
+                piperSelectedVoice = dataRepository.getPiperSelectedVoice(),
+            )
+        }
+    }
+
     private fun onFetchHfModels() {
         val url = _state.value.hfRepoUrl.trim()
         if (url.isBlank()) return
@@ -921,32 +1105,43 @@ class SettingsViewModel(
                     }
                 }
                 val apiUrl = "https://huggingface.co/api/models/$user/$repo/tree/main"
+                com.katya.app.tools.AppLogger.d("HfFetch", "Fetching external model listing: $apiUrl")
                 val response = client.get(apiUrl)
                 if (response.status.isSuccess()) {
                     val entries = response.body<List<HuggingFaceTreeEntry>>()
                     val models = entries.filter { it.type == "file" && (it.path.endsWith(".gguf") || it.path.endsWith(".litertlm")) }
-                        .map {
+                        .map { entry ->
+                            val baseName = entry.path.substringAfterLast('/')
+                            // On-device storage is one dir per model under litert_models/,
+                            // so the id must be a plain directory name (no slashes).
+                            val id = baseName
+                                .removeSuffix(".litertlm")
+                                .removeSuffix(".gguf")
+                                .removeSuffix(".tflite")
                             LocalModel(
-                                id = it.path,
-                                displayName = it.path,
-                                fileName = it.path,
-                                sizeBytes = it.size,
-                                downloadUrl = "https://huggingface.co/$user/$repo/resolve/main/${it.path}",
-                                gpuMemoryMb = (it.size / (1024 * 1024)).toInt() + 500,
+                                id = id,
+                                displayName = baseName,
+                                fileName = baseName,
+                                sizeBytes = entry.size,
+                                downloadUrl = "https://huggingface.co/$user/$repo/resolve/main/${entry.path}",
+                                gpuMemoryMb = (entry.size / (1024 * 1024)).toInt() + 500,
                                 defaultContextTokens = 4096,
                                 maxContextTokens = 8192,
                                 kvPerTokenBytes = 65000,
                             )
                         }
+                    com.katya.app.tools.AppLogger.d("HfFetch", "Found ${models.size} model files in $user/$repo")
                     if (models.isEmpty()) {
                         _state.update { it.copy(isFetchingHfModels = false, hfError = "No .gguf or .litertlm files found") }
                     } else {
                         _state.update { it.copy(isFetchingHfModels = false, hfModels = models.toImmutableList()) }
                     }
                 } else {
+                    com.katya.app.tools.AppLogger.w("HfFetch", "HTTP ${response.status.value} fetching $apiUrl")
                     _state.update { it.copy(isFetchingHfModels = false, hfError = "Failed to fetch repository") }
                 }
             } catch (e: Exception) {
+                com.katya.app.tools.AppLogger.e("HfFetch", "Failed to fetch external models: ${e.message}\n${e.stackTraceToString()}")
                 _state.update { it.copy(isFetchingHfModels = false, hfError = e.message ?: "Network error") }
             }
         }
@@ -975,12 +1170,37 @@ class SettingsViewModel(
         _state.update { it.copy(isFreeFallbackEnabled = enabled) }
     }
 
+    private fun onOpenDeviceAdminSettings() {
+        DeviceAdminManager.openDeviceAdminSettings()
+    }
+
+    private fun onOpenTrustAgentSettings() {
+        DeviceAdminManager.openTrustAgentSettings()
+    }
+
     private fun onDownloadLocalModel(model: LocalModel) {
         dataRepository.startLocalModelDownload(model)
     }
 
-    private fun onCancelLocalModelDownload() {
-        dataRepository.cancelLocalModelDownload()
+    private fun onCancelLocalModelDownload(modelId: String) {
+        dataRepository.cancelLocalModelDownload(modelId)
+    }
+
+    private fun onImportLocalModel(model: LocalModel, fileBytes: ByteArray) {
+        viewModelScope.launch(backgroundDispatcher) {
+            try {
+                dataRepository.importLocalModel(model, fileBytes)
+                _state.update { it.copy(localFreeSpaceBytes = dataRepository.getLocalFreeSpaceBytes()) }
+                refreshServiceList()
+                _state.value.configuredServices
+                    .filter { it.service.isOnDevice }
+                    .forEach { checkConnection(it.instanceId, it.service) }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                com.katya.app.tools.AppLogger.e("ModelImport", "Failed to import local model ${model.id}: $t\n${t.stackTraceToString()}")
+                com.katya.app.showToast("Не удалось импортировать модель: ${t.message ?: t::class.simpleName}")
+            }
+        }
     }
 
     private fun onChangeModelContextTokens(modelId: String, contextTokens: Int) {
@@ -1002,12 +1222,31 @@ class SettingsViewModel(
 
     private fun onDeleteLocalModel(modelId: String) {
         viewModelScope.launch(backgroundDispatcher) {
-            dataRepository.deleteLocalModel(modelId)
-            _state.update { it.copy(localFreeSpaceBytes = dataRepository.getLocalFreeSpaceBytes()) }
-            refreshServiceList()
-            _state.value.configuredServices
-                .filter { it.service.isOnDevice }
-                .forEach { checkConnection(it.instanceId, it.service) }
+            try {
+                dataRepository.deleteLocalModel(modelId)
+                _state.update { it.copy(localFreeSpaceBytes = dataRepository.getLocalFreeSpaceBytes()) }
+                refreshServiceList()
+                _state.value.configuredServices
+                    .filter { it.service.isOnDevice }
+                    .forEach { checkConnection(it.instanceId, it.service) }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                com.katya.app.tools.AppLogger.e("ModelDelete", "Failed to delete local model $modelId: $t\n${t.stackTraceToString()}")
+                com.katya.app.showToast("Не удалось удалить модель: ${t.message ?: t::class.simpleName}")
+            }
+        }
+    }
+
+    private fun onSaveLocalModelToDevice(modelId: String) {
+        viewModelScope.launch(backgroundDispatcher) {
+            val ok = dataRepository.saveLocalModelToDevice(modelId)
+            com.katya.app.showToast(
+                if (ok) {
+                    "Модель сохранена в выбранное место"
+                } else {
+                    "Не удалось сохранить модель"
+                },
+            )
         }
     }
 
@@ -1298,7 +1537,12 @@ class SettingsViewModel(
                     }
                     if (!hasOtherOnDevice) {
                         dataRepository.getLocalDownloadedModels().forEach {
-                            dataRepository.deleteLocalModel(it.id)
+                            try {
+                                dataRepository.deleteLocalModel(it.id)
+                            } catch (t: Throwable) {
+                                if (t is kotlinx.coroutines.CancellationException) throw t
+                                com.katya.app.tools.AppLogger.e("ModelDelete", "Failed to delete model ${it.id} while removing service: $t\n${t.stackTraceToString()}")
+                            }
                         }
                         _state.update { it.copy(localFreeSpaceBytes = dataRepository.getLocalFreeSpaceBytes()) }
                     }

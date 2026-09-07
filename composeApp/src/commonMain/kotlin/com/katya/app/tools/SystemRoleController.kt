@@ -4,4 +4,6 @@ expect class SystemRoleController() {
     fun openDeviceAdminSettings()
     fun openDefaultAssistantSettings()
     fun openTrustAgentSettings()
+    fun isDeviceAdmin(): Boolean
+    fun isDefaultAssistant(): Boolean
 }

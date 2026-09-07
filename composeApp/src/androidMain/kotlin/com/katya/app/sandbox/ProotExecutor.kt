@@ -1,5 +1,6 @@
 package com.katya.app.sandbox
 
+import com.katya.app.data.Distro
 import com.katya.app.smartTruncate
 import java.io.BufferedReader
 import java.io.File
@@ -55,6 +56,7 @@ class ProotExecutor(
     private val rootfsPath: String,
     private val homePath: String,
     private val tmpPath: String,
+    private val distro: Distro = Distro.TERMUX,
 ) {
 
     fun execute(
@@ -130,35 +132,70 @@ class ProotExecutor(
         return ProotHandle(process, cancelled, listOf(stdoutFuture, stderrFuture))
     }
 
-    private fun buildProcessArgs(command: String, workingDir: String): Array<String> = arrayOf(
-        prootPath,
-        "--bind=$rootfsPath:/data/data/com.termux/files/usr",
-        "--bind=$homePath:/data/data/com.termux/files/home",
-        "--bind=$tmpPath:/data/data/com.termux/files/usr/tmp",
-        "--bind=/dev",
-        "--bind=/proc",
-        "--bind=/sys",
-        "--bind=/sdcard",
-        "--bind=/storage",
-        "-0",
-        "-w", workingDir,
-        "/data/data/com.termux/files/usr/bin/sh", "-c", command,
-    )
+    private fun buildProcessArgs(command: String, workingDir: String): Array<String> {
+        val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
+        return when (distro) {
+            Distro.TERMUX -> arrayOf(
+                prootPath,
+                "--bind=$rootfsPath:/data/data/com.termux/files/usr",
+                "--bind=$homePath:/data/data/com.termux/files/home",
+                "--bind=$tmpPath:/data/data/com.termux/files/usr/tmp",
+                "--bind=/dev",
+                "--bind=/proc",
+                "--bind=/sys",
+                "--bind=/sdcard",
+                "--bind=/storage",
+                "-0",
+                "-w", workingDir,
+                "/data/data/com.termux/files/usr/bin/sh", "-c", command,
+            )
+
+            Distro.DEBIAN -> arrayOf(
+                prootPath,
+                "--bind=$rootfsPath:/",
+                "--bind=$homePath:/root",
+                "--bind=$tmpPath:/tmp",
+                "--bind=/dev",
+                "--bind=/proc",
+                "--bind=/sys",
+                "--bind=/sdcard",
+                "--bind=/storage",
+                "-0",
+                "-w", workingDir,
+                "/bin/bash", "-c", command,
+            )
+        }
+    }
 
     private fun buildEnvVars(extraEnv: Map<String, String>): Array<String> {
         val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
-        val baseEnv = arrayOf(
-            "PREFIX=/data/data/com.termux/files/usr",
-            "HOME=/data/data/com.termux/files/home",
-            "PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets",
-            "TMPDIR=/data/data/com.termux/files/usr/tmp",
-            "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib",
-            "TERM=xterm-256color",
-            "LANG=C.UTF-8",
-            "LD_LIBRARY_PATH=$libDir",
-            "PROOT_TMP_DIR=$tmpPath",
-            "PROOT_LOADER=$loaderPath",
-        )
+        val baseEnv = when (distro) {
+            Distro.TERMUX -> arrayOf(
+                "PREFIX=/data/data/com.termux/files/usr",
+                "HOME=/data/data/com.termux/files/home",
+                "PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets",
+                "TMPDIR=/data/data/com.termux/files/usr/tmp",
+                "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib",
+                "TERM=xterm-256color",
+                "LANG=C.UTF-8",
+                "LD_LIBRARY_PATH=$libDir",
+                "PROOT_TMP_DIR=$tmpPath",
+                "PROOT_LOADER=$loaderPath",
+            )
+
+            Distro.DEBIAN -> arrayOf(
+                "HOME=/root",
+                "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+                "TMPDIR=/tmp",
+                "LD_LIBRARY_PATH=/usr/lib",
+                "TERM=xterm-256color",
+                "LANG=C.UTF-8",
+                "LC_ALL=C.UTF-8",
+                "DEBIAN_FRONTEND=noninteractive",
+                "PROOT_TMP_DIR=$tmpPath",
+                "PROOT_LOADER=$loaderPath",
+            )
+        }
         return baseEnv + extraEnv.map { (k, v) -> "$k=$v" }.toTypedArray()
     }
 

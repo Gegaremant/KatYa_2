@@ -1,5 +1,12 @@
 # Release Notes
 
+## v3.1.1
+### Fixed & Improved
+- **Skill Installation Sandbox Support:** Android app now correctly writes custom skills downloaded from marketplaces into the PRoot sandbox.
+- **Compose Coroutines Stability:** Addressed a critical crash (`Unbalanced enter/exit`) when navigating away from ViewModels, by updating `androidx.lifecycle` to `2.11.0`.
+- **VLESS Error Diagnostics:** Extended Vless proxy error messages with full stack traces for easier connectivity troubleshooting.
+- **STT Settings Layout:** STT (Распознавание речи) toggle in settings was properly wrapped in `ToggleableHeadline`.
+
 ## v3.1.0
 ### Added & Improved
 - **Sandbox Root Access:** Added UI button and manifest permission (`MANAGE_EXTERNAL_STORAGE`) to allow root-like access to all files for the Linux PRoot sandbox.

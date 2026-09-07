@@ -42,6 +42,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.katya.app.getBackgroundDispatcher
+import com.katya.app.tts.SpeechEngine
 import com.katya.app.ui.dynamicui.FrozenSubmission
 import com.katya.app.ui.dynamicui.toSpeakableText
 import com.katya.app.ui.handCursor
@@ -63,14 +64,12 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.launch
-import nl.marc_apps.tts.TextToSpeechInstance
-import nl.marc_apps.tts.errors.TextToSpeechSynthesisInterruptedError
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun BotMessage(
     message: String,
-    textToSpeech: TextToSpeechInstance?,
+    textToSpeech: SpeechEngine?,
     isSpeaking: Boolean,
     setIsSpeaking: (Boolean) -> Unit,
     onRegenerate: (() -> Unit)? = null,
@@ -151,19 +150,22 @@ internal fun BotMessage(
                 contentDescription = stringResource(Res.string.bot_message_speech_content_description),
                 onClick = {
                     componentScope.launch(getBackgroundDispatcher()) {
-                        textToSpeech.stop()
+                        val engine = textToSpeech
+                        if (engine == null) return@launch
+                        engine.stop()
                         if (isSpeaking) {
                             setIsSpeaking(false)
                         } else {
+                            // Hold the "stop" button until playback actually ends:
+                            // the engine flips it back via onSpeechCompleted.
+                            engine.onSpeechCompleted = { setIsSpeaking(false) }
                             setIsSpeaking(true)
                             try {
-                                textToSpeech.say(text = message.toSpeakableText())
-                            } catch (ignore: TextToSpeechSynthesisInterruptedError) {
-                                // Expected interruption - no action needed
+                                engine.speak(text = message.toSpeakableText())
                             } catch (e: Exception) {
-                                // Handle TTS errors gracefully (service failure, audio issues, etc.)
+                                // Expected interruption or engine failure — no action needed
+                                setIsSpeaking(false)
                             }
-                            setIsSpeaking(false)
                         }
                     }
                 },

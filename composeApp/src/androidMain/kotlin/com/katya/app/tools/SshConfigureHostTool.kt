@@ -19,7 +19,7 @@ What this writes inside the sandbox:
 
 This tool does NOT create or upload private keys. To make a key usable, the user must place it under ~/.ssh in the sandbox separately. Be aware that any key text passed through chat (including via execute_shell_command's `cat > ~/.ssh/id_x <<EOF ...`) goes to the model provider in cleartext — ask the user before doing that.
 
-Password-only remotes: openssh inside this sandbox can't field interactive password prompts on its own (no PTY; ssh reads from /dev/tty, not stdin, so heredoc fallback does not work). Install sshpass once (`apk add sshpass` via execute_shell_command) and invoke as `sshpass -p '<password>' ssh <alias> '<remote-cmd>'`, or `sshpass -f <file> ssh <alias>` to keep the password out of the command line. sshpass fakes a PTY internally, which is the only path that actually delivers a password.
+Password-only remotes: openssh inside this sandbox can't field interactive password prompts on its own (no PTY; ssh reads from /dev/tty, not stdin, so heredoc fallback does not work). Install sshpass once (`apt-get install -y sshpass` on Debian, `apk add sshpass` on Termux) and invoke as `sshpass -p '<password>' ssh <alias> '<remote-cmd>'`, or `sshpass -f <file> ssh <alias>` to keep the password out of the command line. sshpass fakes a PTY internally, which is the only path that actually delivers a password.
 
 Connection persistence ("held connections") is NOT available — openssh's ControlMaster multiplexing requires the link() syscall to create its control socket, and Android blocks link() for app processes regardless of file ownership. Each ssh call does a full handshake. Don't fight this; don't try to seed your own ControlPath.
 

@@ -14,14 +14,12 @@ class KatyaAccessibilityService : AccessibilityService() {
         // Handle interruption
     }
 
-    fun performGlobalBack(): Boolean {
-        return performGlobalAction(GLOBAL_ACTION_BACK)
-    }
+    fun performGlobalBack(): Boolean = performGlobalAction(GLOBAL_ACTION_BACK)
 
     fun clickNodeByContentDescription(desc: String): Boolean {
         val rootNode = rootInActiveWindow ?: return false
         val nodes = rootNode.findAccessibilityNodeInfosByText(desc) // Content description falls back to text search often, but we should iterate
-        
+
         // Manual search for content description
         return clickNodeMatching(rootNode) { it.contentDescription?.toString()?.equals(desc, ignoreCase = true) == true }
     }
@@ -62,7 +60,7 @@ class KatyaAccessibilityService : AccessibilityService() {
         }
         return false
     }
-    
+
     /**
      * Reads the current screen's text content. Can be called from our agent tools.
      */
@@ -87,7 +85,7 @@ class KatyaAccessibilityService : AccessibilityService() {
             }
         }
     }
-    
+
     /**
      * Attempts to click a view by its text or content description.
      */
@@ -98,7 +96,8 @@ class KatyaAccessibilityService : AccessibilityService() {
 
     private fun searchAndClick(node: AccessibilityNodeInfo, targetText: String): Boolean {
         if (node.text?.toString()?.contains(targetText, ignoreCase = true) == true ||
-            node.contentDescription?.toString()?.contains(targetText, ignoreCase = true) == true) {
+            node.contentDescription?.toString()?.contains(targetText, ignoreCase = true) == true
+        ) {
             if (node.isClickable) {
                 node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
                 return true

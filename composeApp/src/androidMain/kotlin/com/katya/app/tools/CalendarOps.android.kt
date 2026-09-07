@@ -19,7 +19,7 @@ actual class CalendarOps actual constructor() {
             CalendarContract.Events.TITLE,
             CalendarContract.Events.DESCRIPTION,
             CalendarContract.Events.DTSTART,
-            CalendarContract.Events.DTEND
+            CalendarContract.Events.DTEND,
         )
 
         val selection = "(${CalendarContract.Events.DTSTART} >= ?) AND (${CalendarContract.Events.DTSTART} <= ?) AND (${CalendarContract.Events.DELETED} != 1)"
@@ -31,7 +31,7 @@ actual class CalendarOps actual constructor() {
             projection,
             selection,
             selectionArgs,
-            sortOrder
+            sortOrder,
         )
 
         val events = mutableListOf<String>()
@@ -60,7 +60,7 @@ actual class CalendarOps actual constructor() {
 
     actual fun createEvent(title: String, description: String, startTimeMs: Long, endTimeMs: Long): String {
         val contentResolver = context.contentResolver
-        
+
         // Find default calendar ID
         val projection = arrayOf(CalendarContract.Calendars._ID, CalendarContract.Calendars.IS_PRIMARY)
         val cursor = contentResolver.query(
@@ -68,9 +68,9 @@ actual class CalendarOps actual constructor() {
             projection,
             null,
             null,
-            null
+            null,
         )
-        
+
         var calendarId: Long = 1 // fallback
         cursor?.use {
             val idIdx = it.getColumnIndex(CalendarContract.Calendars._ID)

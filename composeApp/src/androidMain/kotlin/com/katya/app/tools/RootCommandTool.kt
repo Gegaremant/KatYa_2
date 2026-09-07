@@ -12,9 +12,9 @@ object RootCommandTool : Tool {
             "command" to ParameterSchema(
                 type = "string",
                 description = "Строка команды оболочки для выполнения. Например: 'pm disable-user --user 0 com.example.app'",
-                required = true
-            )
-        )
+                required = true,
+            ),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {

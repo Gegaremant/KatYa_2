@@ -5,7 +5,5 @@ import android.service.voice.VoiceInteractionSession
 import android.service.voice.VoiceInteractionSessionService
 
 class KatyaVoiceInteractionSessionService : VoiceInteractionSessionService() {
-    override fun onNewSession(args: Bundle?): VoiceInteractionSession {
-        return KatyaVoiceInteractionSession(this)
-    }
+    override fun onNewSession(args: Bundle?): VoiceInteractionSession = KatyaVoiceInteractionSession(this)
 }

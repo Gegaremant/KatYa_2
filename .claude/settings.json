@@ -1,0 +1,9 @@
+{ "permissions": { "allow": [ "Bash(*)", 
+      "FileEdit(*)", "FileWrite(*)", 
+      "FileRead(*)", "GlobTool(*)", 
+      "GrepTool(*)", "LS(*)"
+    ], "defaultMode": "bypassPermissions"
+  },
+  "skipDangerousModePermissionPrompt": true, 
+  "verbose": true
+}

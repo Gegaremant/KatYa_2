@@ -6,10 +6,8 @@ import com.katya.app.data.DataRepository
 import com.katya.app.data.EmailStore
 import com.katya.app.data.HeartbeatManager
 import com.katya.app.data.MemoryStore
-import com.katya.app.data.createConversationSqlDriver
-import com.katya.app.db.KatyaDatabase
-import com.katya.app.data.NotificationStore
 import com.katya.app.data.NotesStore
+import com.katya.app.data.NotificationStore
 import com.katya.app.data.RemoteDataRepository
 import com.katya.app.data.SmsDraftStore
 import com.katya.app.data.SmsStore
@@ -17,7 +15,9 @@ import com.katya.app.data.TaskScheduler
 import com.katya.app.data.TaskStore
 import com.katya.app.data.ToolExecutor
 import com.katya.app.data.createConversationPersistence
+import com.katya.app.data.createConversationSqlDriver
 import com.katya.app.data.runMigrations
+import com.katya.app.db.KatyaDatabase
 import com.katya.app.email.EmailPoller
 import com.katya.app.inference.createLocalInferenceEngine
 import com.katya.app.mcp.McpServerManager
@@ -32,8 +32,11 @@ import com.katya.app.sms.SmsSender
 import com.katya.app.splinterlands.SplinterlandsApi
 import com.katya.app.splinterlands.SplinterlandsBattleRunner
 import com.katya.app.splinterlands.SplinterlandsStore
+import com.katya.app.tools.AccessibilityPermissionController
 import com.katya.app.tools.AudioPermissionController
+import com.katya.app.tools.BatteryOptimizationPermissionController
 import com.katya.app.tools.CalendarPermissionController
+import com.katya.app.tools.ExactAlarmPermissionController
 import com.katya.app.tools.LocalNetworkPermissionController
 import com.katya.app.tools.NotificationListenerController
 import com.katya.app.tools.NotificationPermissionController
@@ -44,10 +47,6 @@ import com.katya.app.tunnel.createTunnelService
 import com.katya.app.ui.chat.ChatViewModel
 import com.katya.app.ui.settings.SettingsViewModel
 import com.katya.app.ui.settings.SplinterlandsViewModel
-import com.katya.app.tools.ExactAlarmPermissionController
-import com.katya.app.tools.AccessibilityPermissionController
-import com.katya.app.tools.BatteryOptimizationPermissionController
-
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -144,6 +143,7 @@ val appModule = module {
             mcpServerManager = get(),
             skillManager = get(),
             localInferenceEngine = createLocalInferenceEngine(),
+            piperVoiceManager = get<com.katya.app.tts.PiperVoiceManager>(),
         )
     }
     single<DataRepository> { get<RemoteDataRepository>() }

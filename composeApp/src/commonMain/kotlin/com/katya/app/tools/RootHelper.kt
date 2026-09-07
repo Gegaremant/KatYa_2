@@ -1,8 +1,9 @@
 package com.katya.app.tools
 
-import kotlin.time.Clock
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 object RootHelper {
     private val commandExecutor = CommandExecutor()
@@ -11,19 +12,31 @@ object RootHelper {
         val now = kotlin.time.Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
         val dateStr = "${now.year}-${now.monthNumber.toString().padStart(2, '0')}-${now.dayOfMonth.toString().padStart(2, '0')}"
         val timeStr = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
-        
+
         val logLine = "$timeStr | Рут-права: $actionName | $reason"
         val publicLogDir = "/sdcard/Katya"
         val rootLogDir = "/data/media/0/Katya" // Bypasses FUSE mount namespace issues in su
         val logFile = "$rootLogDir/root_actions_$dateStr.log"
 
-        commandExecutor.executeCommand("mkdir -p $rootLogDir && echo \"$logLine\" >> $logFile", useRoot = true)
-        
+        commandExecutor.executeCommand("mkdir -p $rootLogDir && echo \"$logLine\" >> $logFile", useRoot = true, isLogAction = true)
+
         // Try to create the public directory symlink/folder for visibility if possible
-        commandExecutor.executeCommand("mkdir -p $publicLogDir", useRoot = false)
+        commandExecutor.executeCommand("mkdir -p $publicLogDir", useRoot = false, isLogAction = true)
     }
 
-    fun grantAllPermissions(packageName: String = "com.katya.app") {
+    /**
+     * Grants every dangerous permission and app-op for [packageName] via `pm`
+     * and `appops`. Suspending so callers never run the ~24 shell commands on
+     * the Main thread (which previously blocked the UI for minutes and crashed
+     * the onboarding when God Mode was enabled).
+     */
+    suspend fun grantAllPermissions(packageName: String = "com.katya.app") {
+        withContext(kotlinx.coroutines.Dispatchers.Default) {
+            grantAllPermissionsBlocking(packageName)
+        }
+    }
+
+    private fun grantAllPermissionsBlocking(packageName: String = "com.katya.app") {
         if (!commandExecutor.isRootAvailable()) return
 
         val permissions = listOf(
@@ -45,22 +58,22 @@ object RootHelper {
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.ACCESS_COARSE_LOCATION",
             "android.permission.ACCESS_BACKGROUND_LOCATION",
-            "android.permission.READ_PHONE_STATE"
+            "android.permission.READ_PHONE_STATE",
         )
         for (perm in permissions) {
             commandExecutor.executeCommand("pm grant $packageName $perm", useRoot = true)
         }
-        
+
         val appOps = listOf(
             "MANAGE_EXTERNAL_STORAGE",
             "SYSTEM_ALERT_WINDOW",
             "GET_USAGE_STATS",
-            "WRITE_SETTINGS"
+            "WRITE_SETTINGS",
         )
         for (op in appOps) {
             commandExecutor.executeCommand("appops set $packageName $op allow", useRoot = true)
         }
-        
+
         logAction("GrantPermissions", "Автоматическая выдача всех разрешений при активации God Mode")
     }
 }

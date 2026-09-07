@@ -1,10 +1,12 @@
 package com.katya.app.network
 
-import com.katya.app.Version
+import com.katya.app.AppVersion
 import com.katya.app.currentPlatform
 import com.katya.app.data.Service
 import com.katya.app.httpClient
 import com.katya.app.isDebugBuild
+import com.katya.app.network.dtos.SpeechSynthesisRequestDto
+import com.katya.app.network.dtos.SpeechTranscriptionResponseDto
 import com.katya.app.network.dtos.anthropic.AnthropicChatRequestDto
 import com.katya.app.network.dtos.anthropic.AnthropicChatResponseDto
 import com.katya.app.network.dtos.anthropic.AnthropicModelsResponseDto
@@ -29,6 +31,8 @@ import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -36,6 +40,8 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
@@ -71,7 +77,7 @@ class Requests {
             )
         }
         install(UserAgent) {
-            agent = "Kai/${Version.appVersion} (${currentPlatform.displayName})"
+            agent = "Kai/${AppVersion.APP_VERSION} (${currentPlatform.displayName})"
         }
         install(HttpTimeout) {
             requestTimeoutMillis = 60.seconds.inWholeMilliseconds
@@ -220,7 +226,7 @@ class Requests {
         } catch (e: OpenAICompatibleApiException) {
             Result.failure(e)
         } catch (e: io.ktor.client.plugins.HttpRequestTimeoutException) {
-            Result.failure(OpenAICompatibleConnectionException())
+            Result.failure(OpenAICompatibleConnectionException(e.message, e))
         } catch (e: Exception) {
             Result.failure(mapOpenAICompatibleException(e))
         }
@@ -251,7 +257,7 @@ class Requests {
         } catch (e: OpenAICompatibleApiException) {
             Result.failure(e)
         } catch (e: Exception) {
-            Result.failure(OpenAICompatibleConnectionException())
+            Result.failure(OpenAICompatibleConnectionException(e.message, e))
         }
     }
 
@@ -272,8 +278,102 @@ class Requests {
         } catch (e: OpenAICompatibleApiException) {
             Result.failure(e)
         } catch (e: Exception) {
-            Result.failure(OpenAICompatibleConnectionException())
+            Result.failure(OpenAICompatibleConnectionException(e.message, e))
         }
+    }
+
+    // endregion
+
+    // region Cloud speech (OpenAI-compatible STT/TTS)
+
+    /**
+     * OpenAI-compatible speech-to-text: multipart POST of a WAV/OGG/MP3 blob to
+     * e.g. `/v1/audio/transcriptions`. Returns the transcribed text.
+     */
+    suspend fun transcribeSpeech(
+        url: String,
+        apiKey: String,
+        model: String,
+        audioBytes: ByteArray,
+        contentType: String = "audio/wav",
+        fileName: String = "recording.wav",
+    ): Result<String> {
+        val safeUrl = url.ifBlank { DEFAULTS.STT_URL }
+        val response: HttpResponse = try {
+            defaultClient.submitFormWithBinaryData(
+                url = safeUrl,
+                formData = formData {
+                    append("model", model.ifBlank { DEFAULTS.STT_MODEL })
+                    append(
+                        "file",
+                        audioBytes,
+                        Headers.build {
+                            append(HttpHeaders.ContentType, contentType)
+                            append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                        },
+                    )
+                },
+            ) {
+                if (apiKey.isNotBlank()) bearerAuth(apiKey)
+            }
+        } catch (e: Exception) {
+            return Result.failure(OpenAICompatibleConnectionException(e.message, e))
+        }
+        if (response.status.isSuccess()) {
+            val body = response.bodyAsText()
+            val text: String = try {
+                anthropicJson.decodeFromString<SpeechTranscriptionResponseDto>(body).text
+            } catch (_: Exception) {
+                body.trim().trim('"').takeIf { it.isNotEmpty() }.orEmpty()
+            }
+            return Result.success(text)
+        }
+        return Result.failure(
+            OpenAICompatibleGenericException("Speech-to-text failed: ${response.status} ${response.bodyAsText()}"),
+        )
+    }
+
+    /**
+     * OpenAI-compatible text-to-speech: JSON POST to e.g. `/v1/audio/speech`,
+     * returns raw audio bytes (usually MP3).
+     */
+    suspend fun synthesizeSpeech(
+        url: String,
+        apiKey: String,
+        model: String,
+        voice: String,
+        text: String,
+    ): Result<ByteArray> {
+        val safeUrl = url.ifBlank { DEFAULTS.TTS_URL }
+        val response: HttpResponse = try {
+            defaultClient.post(safeUrl) {
+                if (apiKey.isNotBlank()) bearerAuth(apiKey)
+                contentType(ContentType.Application.Json)
+                setBody(
+                    SpeechSynthesisRequestDto(
+                        model = model.ifBlank { DEFAULTS.TTS_MODEL },
+                        input = text,
+                        voice = voice.ifBlank { DEFAULTS.TTS_VOICE },
+                    ),
+                )
+            }
+        } catch (e: Exception) {
+            return Result.failure(OpenAICompatibleConnectionException(e.message, e))
+        }
+        if (response.status.isSuccess()) {
+            return Result.success(response.body<ByteArray>())
+        }
+        return Result.failure(
+            OpenAICompatibleGenericException("Text-to-speech failed: ${response.status} ${response.bodyAsText()}"),
+        )
+    }
+
+    private object DEFAULTS {
+        const val STT_URL = "https://api.openai.com/v1/audio/transcriptions"
+        const val STT_MODEL = "whisper-1"
+        const val TTS_URL = "https://api.openai.com/v1/audio/speech"
+        const val TTS_MODEL = "tts-1"
+        const val TTS_VOICE = "alloy"
     }
 
     // endregion

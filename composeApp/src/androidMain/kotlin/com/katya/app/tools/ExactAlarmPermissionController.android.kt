@@ -26,13 +26,11 @@ actual class ExactAlarmPermissionController actual constructor() {
 
     private val permissionResultFlow = MutableStateFlow<Boolean?>(null)
 
-    actual fun hasPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            alarmManager.canScheduleExactAlarms()
-        } else {
-            true
-        }
+    actual fun hasPermission(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        alarmManager.canScheduleExactAlarms()
+    } else {
+        true
     }
 
     actual suspend fun requestPermission(): Boolean {

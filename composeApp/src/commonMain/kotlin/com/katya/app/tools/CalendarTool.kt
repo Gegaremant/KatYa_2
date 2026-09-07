@@ -21,8 +21,8 @@ class CalendarTool : Tool {
             "title" to ParameterSchema("string", "Заголовок события (для create).", false),
             "description" to ParameterSchema("string", "Описание события (для create).", false),
             "start_time" to ParameterSchema("integer", "Время начала в Unix Timestamp (миллисекунды) (для create).", false),
-            "end_time" to ParameterSchema("integer", "Время окончания в Unix Timestamp (миллисекунды) (для create).", false)
-        )
+            "end_time" to ParameterSchema("integer", "Время окончания в Unix Timestamp (миллисекунды) (для create).", false),
+        ),
     )
 
     override suspend fun execute(args: Map<String, Any>): Any {
@@ -36,10 +36,11 @@ class CalendarTool : Tool {
                     val result = calendarOps.getEvents(days)
                     mapOf("success" to true, "events" to result)
                 }
+
                 "create" -> {
                     val title = args["title"]?.toString() ?: "Новое событие"
                     val desc = args["description"]?.toString() ?: ""
-                    
+
                     // Если время не передано, создаем на завтра в 12:00
                     val defaultStart = System.currentTimeMillis() + 24 * 60 * 60 * 1000
                     val startTime = (args["start_time"] as? Number)?.toLong() ?: defaultStart
@@ -48,6 +49,7 @@ class CalendarTool : Tool {
                     val result = calendarOps.createEvent(title, desc, startTime, endTime)
                     mapOf("success" to !result.startsWith("Error"), "result" to result)
                 }
+
                 else -> mapOf("success" to false, "error" to "Неизвестное действие: $action")
             }
         } catch (e: Exception) {
