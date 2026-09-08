@@ -58,7 +58,10 @@ object VlessParser {
                                                 buildJsonObject {
                                                     put("id", uuid)
                                                     put("encryption", "none")
-                                                    put("flow", params["flow"] ?: "")
+                                                    val flow = params["flow"]
+                                                    if (!flow.isNullOrBlank()) {
+                                                        put("flow", flow)
+                                                    }
                                                 },
                                             )
                                         }

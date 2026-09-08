@@ -73,6 +73,7 @@ class VlessProxyManager(
                         try {
                             val urlObj = java.net.URL(finalUri)
                             val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                             connection.connectTimeout = 10000 // 10 seconds
                             connection.readTimeout = 10000 // 10 seconds
                             val response = connection.inputStream.bufferedReader().use { it.readText() }

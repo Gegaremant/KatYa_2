@@ -14,14 +14,14 @@ object RootHelper {
         val timeStr = "${now.hour.toString().padStart(2, '0')}:${now.minute.toString().padStart(2, '0')}"
 
         val logLine = "$timeStr | Рут-права: $actionName | $reason"
-        val publicLogDir = "/sdcard/Katya"
-        val rootLogDir = "/data/media/0/Katya" // Bypasses FUSE mount namespace issues in su
+        val publicLogDir = "/sdcard/katya"
+        val rootLogDir = "/data/media/0/katya" // Bypasses FUSE mount namespace issues in su
         val logFile = "$rootLogDir/root_actions_$dateStr.log"
 
-        commandExecutor.executeCommand("mkdir -p $rootLogDir && echo \"$logLine\" >> $logFile", useRoot = true, isLogAction = true)
+        commandExecutor.executeCommand("mkdir -p $rootLogDir && echo \"$logLine\" >> $logFile && chown -R media_rw:media_rw $rootLogDir && chmod -R 777 $rootLogDir", useRoot = true, isLogAction = true)
 
         // Try to create the public directory symlink/folder for visibility if possible
-        commandExecutor.executeCommand("mkdir -p $publicLogDir", useRoot = false, isLogAction = true)
+        commandExecutor.executeCommand("mkdir -p $publicLogDir && chmod 777 $publicLogDir", useRoot = false, isLogAction = true)
     }
 
     /**

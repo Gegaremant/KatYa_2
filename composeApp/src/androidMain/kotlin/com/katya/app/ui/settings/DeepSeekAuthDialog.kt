@@ -55,12 +55,28 @@ private val ltrFixJs = """
     (function() {
         var STYLE_ID = '__katya_ltr_force__';
         function setLtr(el) {
+            var needChange = false;
+            if (el.getAttribute('dir') !== 'ltr') needChange = true;
+            if (el.style && el.style.getPropertyValue('direction') !== 'ltr') needChange = true;
+            if (!needChange) return;
+
+            var active = (document.activeElement === el);
+            var start = 0, end = 0;
+            if (active && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && typeof el.selectionStart === 'number') {
+                start = el.selectionStart;
+                end = el.selectionEnd;
+            }
+
             try { el.setAttribute('dir', 'ltr'); } catch (e) {}
             try {
                 var s = el.style;
                 s.setProperty('direction', 'ltr', 'important');
                 s.setProperty('text-align', 'left', 'important');
             } catch (e) {}
+
+            if (active && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && typeof el.setSelectionRange === 'function') {
+                try { el.setSelectionRange(start, end); } catch (e) {}
+            }
         }
         function applyLTR() {
             try {

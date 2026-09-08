@@ -317,7 +317,6 @@ fun QuestionInput(
                     modifier = Modifier
                         .focusRequester(focusRequester)
                         .padding(16.dp)
-                        .heightIn(max = 120.dp)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(28.dp))
                         .background(MaterialTheme.colorScheme.background)
@@ -421,6 +420,8 @@ fun QuestionInput(
                     keyboardOptions = KeyboardOptions(
                         imeAction = if (currentPlatform is Platform.Mobile) ImeAction.Default else ImeAction.Send,
                     ),
+                    minLines = 1,
+                    maxLines = 10,
                 )
                 linkValidationStatus?.let { status ->
                     Text(

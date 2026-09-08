@@ -272,7 +272,11 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
         if (vibrate) {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                vibrator.vibrate(VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE))
+                val effect = VibrationEffect.createOneShot(150, VibrationEffect.DEFAULT_AMPLITUDE)
+                val attr = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .build()
+                vibrator.vibrate(effect, attr)
             } else {
                 vibrator.vibrate(150)
             }
@@ -280,8 +284,16 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
         if (sound) {
             try {
                 val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                val r = RingtoneManager.getRingtone(context, notification)
-                r.play()
+                val mediaPlayer = android.media.MediaPlayer()
+                mediaPlayer.setDataSource(context, notification)
+                val attr = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                mediaPlayer.setAudioAttributes(attr)
+                mediaPlayer.setOnCompletionListener { it.release() }
+                mediaPlayer.prepare()
+                mediaPlayer.start()
             } catch (e: Exception) {
                 e.printStackTrace()
             }

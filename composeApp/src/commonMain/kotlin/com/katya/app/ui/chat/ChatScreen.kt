@@ -911,7 +911,15 @@ private fun ChatModeScreen(
                                     (frozenByAssistantId.values.none { it.isPending } || executingToolsState.tools.isNotEmpty())
                                 if (showWaitingRow) {
                                     item(key = "loading") {
-                                        // Katya status is now in the top bar
+                                        val toolsToRender = if (uiState.isAgentVisibilityEnabled) {
+                                            executingToolsState.tools
+                                        } else {
+                                            persistentListOf()
+                                        }
+                                        WaitingResponseRow(
+                                            executingTools = toolsToRender,
+                                            isStatusOnly = executingToolsState.isStatusOnly,
+                                        )
                                     }
                                 }
                                 uiState.error?.let { error ->

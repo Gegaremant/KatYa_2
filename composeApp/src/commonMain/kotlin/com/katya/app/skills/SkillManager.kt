@@ -61,9 +61,11 @@ class SkillManager(
     /** Browses the curated marketplaces and returns the combined, searchable list. */
     suspend fun browseMarketplaces(): Result<List<RegistrySkillEntry>> = registry.browseMarketplaces(curatedSkillMarketplaces)
 
-    /** Writes a downloaded skill into `~/skills/<id>/`, replacing any existing copy, then reloads. */
     internal suspend fun install(downloaded: DownloadedSkill): SkillManifest {
-        com.katya.app.writeSkillFile(downloaded.id, "SKILL.md", downloaded.rawSkillMd)
+        val success = com.katya.app.writeSkillFile(downloaded.id, "SKILL.md", downloaded.rawSkillMd)
+        if (!success) {
+            error("Failed to write skill files. Ensure the storage is accessible.")
+        }
         downloaded.files.forEach { (fileName, content) ->
             com.katya.app.writeSkillFile(downloaded.id, fileName, content)
         }

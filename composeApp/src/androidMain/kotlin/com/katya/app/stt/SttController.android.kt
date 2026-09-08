@@ -307,8 +307,22 @@ class AndroidSttController : SttController {
 
     private fun requestAudioFocus() {
         if (dataRepository.isWatchIntegrationEnabled()) {
-            audioManager.startBluetoothSco()
-            audioManager.isBluetoothScoOn = true
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                val devices = audioManager.getDevices(android.media.AudioManager.GET_DEVICES_INPUTS)
+                val hasBluetoothMic = devices.any { 
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_SCO || 
+                    it.type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET
+                }
+                if (hasBluetoothMic) {
+                    audioManager.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+                    audioManager.startBluetoothSco()
+                    audioManager.isBluetoothScoOn = true
+                }
+            } else {
+                audioManager.mode = android.media.AudioManager.MODE_IN_COMMUNICATION
+                audioManager.startBluetoothSco()
+                audioManager.isBluetoothScoOn = true
+            }
         }
 
         // Pause music (Exclusive focus)
@@ -342,6 +356,7 @@ class AndroidSttController : SttController {
         if (dataRepository.isWatchIntegrationEnabled()) {
             audioManager.isBluetoothScoOn = false
             audioManager.stopBluetoothSco()
+            audioManager.mode = android.media.AudioManager.MODE_NORMAL
         }
 
         @Suppress("DEPRECATION")

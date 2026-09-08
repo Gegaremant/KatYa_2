@@ -866,7 +866,6 @@ actual fun getDirectoryPath(directory: Any?): String? {
 actual suspend fun writeSkillFile(skillId: String, fileName: String, content: String): Boolean {
     return try {
         val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
-        if (sandboxManager.state.value != SandboxState.Ready) return false
         val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
         skillDir.mkdirs()
         val targetFile = java.io.File(skillDir, fileName)

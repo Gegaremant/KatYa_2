@@ -233,7 +233,7 @@ class ChatViewModel(
                 val showConnection = appSettings.isShowConnectionStateEnabled()
                 if (showDevice || showConnection) {
                     val (connectionText, networkConnected) = if (showConnection) {
-                        buildConnectionStatus()
+                        buildConnectionStatus(uiState.value.availableServices.firstOrNull())
                     } else {
                         null to false
                     }
@@ -276,16 +276,18 @@ class ChatViewModel(
         return parts.joinToString(" · ").ifEmpty { null }
     }
 
-    private suspend fun buildConnectionStatus(): Pair<String?, Boolean> {
+    private suspend fun buildConnectionStatus(selectedService: ServiceEntry?): Pair<String?, Boolean> {
         val provider = networkStatusProvider ?: return null to false
         val status = provider.getNetworkStatus() ?: return null to false
-        if (!status.isConnected) return "○ Нет подключения" to false
+        val apiText = selectedService?.serviceName?.let { "API: $it" } ?: "API: Auto"
+        if (!status.isConnected) return "○ Нет подключения · $apiText" to false
         val parts = buildList {
             add("●")
             status.networkType?.let { add(it) }
             status.pingMs?.let { add("$it мс") }
             status.downloadKbps?.let { add("↓ ${formatSpeed(it)}") }
             status.uploadKbps?.let { add("↑ ${formatSpeed(it)}") }
+            add(apiText)
         }
         return parts.joinToString(" · ") to true
     }
