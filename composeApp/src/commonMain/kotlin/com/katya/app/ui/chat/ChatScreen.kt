@@ -830,6 +830,7 @@ private fun ChatModeScreen(
                                                 UserMessage(
                                                     message = history.content,
                                                     attachments = history.attachments,
+                                                    timestampMs = history.timestampMs,
                                                 )
                                             }
                                         }
@@ -862,6 +863,7 @@ private fun ChatModeScreen(
                                                     } else {
                                                         persistentListOf()
                                                     },
+                                                    timestampMs = history.timestampMs,
                                                 )
                                                 if (history.fallbackServiceName != null) {
                                                     androidx.compose.material3.Text(
@@ -890,6 +892,7 @@ private fun ChatModeScreen(
                                                         frozen = null,
                                                         onResubmit = null,
                                                         reasoningSegments = persistentListOf(history.content),
+                                                        timestampMs = history.timestampMs,
                                                     )
                                                 }
                                             }

@@ -43,6 +43,7 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 internal fun UserMessage(
     message: String,
     attachments: ImmutableList<Attachment> = persistentListOf(),
+    timestampMs: Long? = null,
 ) {
     val showFullScreen = LocalShowFullScreenImage.current
     SelectionContainer {
@@ -109,6 +110,14 @@ internal fun UserMessage(
                     Text(
                         text = message,
                         color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                if (timestampMs != null) {
+                    Text(
+                        text = com.katya.app.toMessageTime(timestampMs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                        modifier = Modifier.align(Alignment.End).padding(top = 4.dp)
                     )
                 }
             }

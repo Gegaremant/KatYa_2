@@ -116,6 +116,7 @@ data class History(
     val id: String = Uuid.random().toString(),
     val role: Role,
     val content: String,
+    val timestampMs: Long = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
     val attachments: ImmutableList<Attachment> = persistentListOf(),
     val toolCallId: String? = null,
     val toolName: String? = null,

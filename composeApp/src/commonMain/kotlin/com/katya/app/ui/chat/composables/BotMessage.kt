@@ -78,6 +78,7 @@ internal fun BotMessage(
     frozen: FrozenSubmission? = null,
     onResubmit: ((event: String, data: Map<String, String>) -> Unit)? = null,
     reasoningSegments: ImmutableList<String> = persistentListOf(),
+    timestampMs: Long? = null,
 ) {
     val document = remember(message) { parseMarkdown(message) }
     var isEditing by remember(frozen) { mutableStateOf(false) }
@@ -143,6 +144,14 @@ internal fun BotMessage(
     }
     if (message.isEmpty()) return
     Row(Modifier.padding(horizontal = 8.dp)) {
+        if (timestampMs != null) {
+            Text(
+                text = com.katya.app.toMessageTime(timestampMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp).align(Alignment.CenterVertically)
+            )
+        }
         if (textToSpeech != null) {
             val componentScope = rememberCoroutineScope()
             SmallIconButton(

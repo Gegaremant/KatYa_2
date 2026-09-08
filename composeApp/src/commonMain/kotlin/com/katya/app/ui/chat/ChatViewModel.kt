@@ -233,7 +233,7 @@ class ChatViewModel(
                 val showConnection = appSettings.isShowConnectionStateEnabled()
                 if (showDevice || showConnection) {
                     val (connectionText, networkConnected) = if (showConnection) {
-                        buildConnectionStatus(uiState.value.availableServices.firstOrNull())
+                        buildConnectionStatus(_state.value.availableServices.firstOrNull())
                     } else {
                         null to false
                     }

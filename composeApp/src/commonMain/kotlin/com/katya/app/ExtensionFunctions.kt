@@ -5,6 +5,9 @@ import kotlinx.datetime.format.DateTimeComponents.Companion.Format
 import kotlinx.datetime.format.MonthNames
 import kotlinx.datetime.format.char
 import kotlin.time.Instant
+import kotlinx.datetime.Instant as KInstant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 private val humanReadableDateFormat = Format {
     day()
@@ -14,14 +17,21 @@ private val humanReadableDateFormat = Format {
     year()
 }
 
-fun Long.toHumanReadableDate(): String = Instant.fromEpochSeconds(this).format(humanReadableDateFormat)
+fun Long.toHumanReadableDate(): String = KInstant.fromEpochSeconds(this).format(humanReadableDateFormat)
+
+fun Long.toMessageTime(): String {
+    val dt = KInstant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.currentSystemDefault())
+    val h = dt.hour.toString().padStart(2, '0')
+    val m = dt.minute.toString().padStart(2, '0')
+    return "$h:$m"
+}
 
 /**
  * Convert a Unix epoch-seconds timestamp to an ISO-8601 date string (YYYY-MM-DD),
  * or null for zero/negative values. Some providers return `0` instead of omitting
  * the `created` field, which would otherwise surface as "Jan 1970".
  */
-fun Long.toIsoDate(): String? = if (this <= 0L) null else Instant.fromEpochSeconds(this).toString().take(10)
+fun Long.toIsoDate(): String? = if (this <= 0L) null else KInstant.fromEpochSeconds(this).toString().take(10)
 
 fun formatContextWindow(tokens: Long): String = when {
     tokens >= 1_000_000 -> "${tokens / 1_000_000}M"
