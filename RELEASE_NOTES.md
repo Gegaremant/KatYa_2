@@ -1,5 +1,12 @@
 # Release Notes
 
+## v3.1.2-git
+### Added & Improved
+- **Voice Settings UI Tweaks:** Removed Pyper and Rhvoice options, added a 3-choice Voice selector ("По умолчанию", "Локальный", "Cloud API"), and added "Локальный" dropdown (2 voices) + Pitch & Speed sliders. Disabled Cloud API and added "(в разработке)".
+- **Operation Modes & Send Delay:** Added toggle for "Короткий" vs "Собеседник" operation modes, and a slider for configuring a send delay for voice input (STT).
+- **System Prompt Injection:** Injected system prompts based on the selected operation mode to control response length.
+- **Offline STT Enforced:** Enforced `EXTRA_PREFER_OFFLINE = true` for SpeechRecognizer intents.
+- **Joplin WebDAV Sync Skill:** Added Joplin WebDAV synchronization skill to manage notes via rclone and curl.
 ## v3.1.1
 ### Fixed & Improved
 - **Skill Installation Sandbox Support:** Android app now correctly writes custom skills downloaded from marketplaces into the PRoot sandbox.

@@ -209,6 +209,58 @@ private fun TrustAgentSection(
 }
 
 @Composable
+private fun AgentModeCard(
+    agentMode: com.katya.app.data.AgentMode,
+    sendDelayMs: Long,
+    onChangeAgentMode: (com.katya.app.data.AgentMode) -> Unit,
+    onChangeSendDelayMs: (Long) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "Режим работы и задержка",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "Настройте поведение агента и паузу перед отправкой сообщения.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        
+        Column(modifier = Modifier.fillMaxWidth().katyaAdaptiveCardSurface(RoundedCornerShape(8.dp)).padding(12.dp)) {
+            Text("Режим работы", style = MaterialTheme.typography.labelMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.RadioButton(
+                    selected = agentMode == com.katya.app.data.AgentMode.SHORT,
+                    onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.SHORT) }
+                )
+                Text("Короткий", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.width(16.dp))
+                androidx.compose.material3.RadioButton(
+                    selected = agentMode == com.katya.app.data.AgentMode.CONVERSATIONAL,
+                    onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.CONVERSATIONAL) }
+                )
+                Text("Собеседник", style = MaterialTheme.typography.bodyMedium)
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Задержка отправки: ${sendDelayMs} мс", style = MaterialTheme.typography.labelMedium)
+            androidx.compose.material3.Slider(
+                value = sendDelayMs.toFloat(),
+                onValueChange = { onChangeSendDelayMs(it.toLong()) },
+                valueRange = 0f..5000f,
+                steps = 50,
+            )
+        }
+    }
+}
+
+@Composable
 internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val useStaggered = maxWidth >= 600.dp
@@ -225,6 +277,14 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         SoulEditor(
                             soulText = uiState.soulText,
                             onSaveSoul = actions.onSaveSoul,
+                        )
+                    }
+                    SettingsCard {
+                        AgentModeCard(
+                            agentMode = uiState.agentMode,
+                            sendDelayMs = uiState.sendDelayMs,
+                            onChangeAgentMode = actions.onChangeAgentMode,
+                            onChangeSendDelayMs = actions.onChangeSendDelayMs,
                         )
                     }
                     SettingsCard {
@@ -388,6 +448,14 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                     SoulEditor(
                         soulText = uiState.soulText,
                         onSaveSoul = actions.onSaveSoul,
+                    )
+                }
+                SettingsCard {
+                    AgentModeCard(
+                        agentMode = uiState.agentMode,
+                        sendDelayMs = uiState.sendDelayMs,
+                        onChangeAgentMode = actions.onChangeAgentMode,
+                        onChangeSendDelayMs = actions.onChangeSendDelayMs,
                     )
                 }
                 SettingsCard {
@@ -1615,11 +1683,12 @@ private fun AudioEnginesCard(
             )
             
             if (isVoiceRecognitionEnabled) {
-                SpoilerBlock(
-                    title = "Распознавание речи (Слух)",
-                    expanded = sttExpanded,
-                    onToggle = { sttExpanded = !sttExpanded },
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(
+                        text = "Распознавание речи (Слух)",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                     com.katya.app.data.SttEngine.entries.forEach { engine ->
                     val name = when (engine) {
                         com.katya.app.data.SttEngine.GKPSR -> "GKPSR (Google Keyboard Parsing Speech Recognizer)"
@@ -1640,23 +1709,12 @@ private fun AudioEnginesCard(
                     }
 
                     if (engine == com.katya.app.data.SttEngine.CLOUD) {
-                        CloudApiSpoiler(
-                            expanded = cloudSttExpanded,
-                            onToggle = { cloudSttExpanded = !cloudSttExpanded },
-                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
-                        ) {
-                            CloudSpeechFields(
-                                url = cloudSttUrl,
-                                apiKey = cloudSttKey,
-                                model = cloudSttModel,
-                                urlLabel = "STT endpoint (OpenAI-совместимый)",
-                                apiKeyLabel = "API-ключ",
-                                modelLabel = "Модель (например whisper-1)",
-                                onChangeUrl = onChangeCloudSttUrl,
-                                onChangeApiKey = onChangeCloudSttKey,
-                                onChangeModel = onChangeCloudSttModel,
-                            )
-                        }
+                        Text(
+                            text = "(в разработке)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(start = 48.dp, bottom = 8.dp)
+                        )
                     }
 
                     if (engine == com.katya.app.data.SttEngine.LOCAL) {
@@ -1749,16 +1807,16 @@ private fun AudioEnginesCard(
             )
             
             if (isVoiceResponseEnabled) {
-                SpoilerBlock(
-                    title = "Синтез речи (Голос)",
-                    expanded = ttsExpanded,
-                    onToggle = { ttsExpanded = !ttsExpanded },
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    Text(
+                        text = "Синтез речи (Голос)",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
                     com.katya.app.data.TtsEngine.entries.forEach { engine ->
                     val name = when (engine) {
                         com.katya.app.data.TtsEngine.SYSTEM -> "По умолчанию (Android)"
-                        com.katya.app.data.TtsEngine.RHVOICE -> "RHVoice (рекомендуется для русского)"
-                        com.katya.app.data.TtsEngine.PIPER -> "Локальный Piper"
+                        com.katya.app.data.TtsEngine.LOCAL -> "Локальный"
                         com.katya.app.data.TtsEngine.CLOUD -> "Cloud API"
                     }
                     Row(
@@ -1773,121 +1831,34 @@ private fun AudioEnginesCard(
                         Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     }
 
-                    if (engine == com.katya.app.data.TtsEngine.RHVOICE) {
-                        if (ttsEngine == com.katya.app.data.TtsEngine.RHVOICE && !ttsEngineInstalled) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = "Движок не установлен. Установите по ссылке:",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.padding(vertical = 4.dp),
-                                )
+                    if (engine == com.katya.app.data.TtsEngine.LOCAL) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp)) {
+                            Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.RadioButton(selected = true, onClick = {})
+                                Text("Голос 1 (Женский)", style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.width(16.dp))
+                                androidx.compose.material3.RadioButton(selected = false, onClick = {})
+                                Text("Голос 2 (Мужской)", style = MaterialTheme.typography.bodySmall)
                             }
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
-                        ) {
-                            if (!isAppInstalled(RHVOICE_PACKAGE)) {
-                                Text(
-                                    text = "Скачать RHVoice",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .handCursor()
-                                        .clickable {
-                                            uriHandler.openUri("market://details?id=$RHVOICE_PACKAGE")
-                                        }
-                                        .padding(vertical = 4.dp),
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                            }
-                            Text(
-                                text = "Настройки TTS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .handCursor()
-                                    .clickable { openTtsSettings() }
-                                    .padding(vertical = 4.dp),
-                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text("Тональность (Pitch)", style = MaterialTheme.typography.labelSmall)
+                            androidx.compose.material3.Slider(value = 1f, onValueChange = {}, valueRange = 0.5f..2f)
+                            Text("Скорость (Speed)", style = MaterialTheme.typography.labelSmall)
+                            androidx.compose.material3.Slider(value = 1f, onValueChange = {}, valueRange = 0.5f..2f)
                         }
                     }
 
                     if (engine == com.katya.app.data.TtsEngine.CLOUD) {
-                        CloudApiSpoiler(
-                            expanded = cloudTtsExpanded,
-                            onToggle = { cloudTtsExpanded = !cloudTtsExpanded },
-                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                KaiOutlinedTextField(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    value = cloudTtsUrl,
-                                    onValueChange = onChangeCloudTtsUrl,
-                                    label = {
-                                        Text("TTS endpoint (OpenAI-совместимый)", color = MaterialTheme.colorScheme.onBackground)
-                                    },
-                                )
-                                KaiOutlinedTextField(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    value = cloudTtsKey,
-                                    onValueChange = onChangeCloudTtsKey,
-                                    label = {
-                                        Text("API-ключ", color = MaterialTheme.colorScheme.onBackground)
-                                    },
-                                )
-                                KaiOutlinedTextField(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    value = cloudTtsModel,
-                                    onValueChange = onChangeCloudTtsModel,
-                                    label = {
-                                        Text("Модель (например tts-1)", color = MaterialTheme.colorScheme.onBackground)
-                                    },
-                                )
-                                KaiOutlinedTextField(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    value = cloudTtsVoice,
-                                    onValueChange = onChangeCloudTtsVoice,
-                                    label = {
-                                        Text("Голос (например alloy)", color = MaterialTheme.colorScheme.onBackground)
-                                    },
-                                )
-                            }
-                        }
+                        Text(
+                            text = "(в разработке)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(start = 48.dp, bottom = 8.dp)
+                        )
                     }
 
-                    if (engine == com.katya.app.data.TtsEngine.PIPER) {
-                        SpoilerBlock(
-                            title = "⚙ Настройки Piper",
-                            expanded = piperSettingsExpanded,
-                            onToggle = { piperSettingsExpanded = !piperSettingsExpanded },
-                            modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
-                        ) {
-                            PiperVoicesCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                voices = piperInstalledVoices,
-                                selectedVoice = piperSelectedVoice,
-                                voiceUrl = piperVoiceUrl,
-                                downloadingBase = piperDownloadingBase,
-                                downloadProgress = piperDownloadProgress,
-                                downloadError = piperDownloadError,
-                                onChangeVoiceUrl = onChangePiperVoiceUrl,
-                                onDownloadVoice = onDownloadPiperVoice,
-                                onSelectVoice = onSelectPiperVoice,
-                                onImportVoice = onImportPiperVoice,
-                                onDeleteVoice = onDeletePiperVoice,
-                                onExportVoice = onExportPiperVoice,
-                                onOpenHuggingFace = { uriHandler.openUri("https://huggingface.co/rhasspy/piper-voices/tree/main/ru/ru_RU") },
-                            )
-                        }
-                        }
-                    }
+                    // Piper is removed
                 }
             }
         }

@@ -66,6 +66,8 @@ data class SettingsUiState(
     val quickActions: ImmutableList<QuickAction> = persistentListOf(),
     val tools: ImmutableList<ToolInfo> = persistentListOf(),
     val soulText: String = "",
+    val agentMode: com.katya.app.data.AgentMode = com.katya.app.data.AgentMode.CONVERSATIONAL,
+    val sendDelayMs: Long = 1000L,
     val sttEngine: com.katya.app.data.SttEngine = com.katya.app.data.SttEngine.SYSTEM,
     val ttsEngine: com.katya.app.data.TtsEngine = com.katya.app.data.TtsEngine.SYSTEM,
     val cloudSttUrl: String = "https://api.openai.com/v1/audio/transcriptions",

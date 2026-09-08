@@ -142,13 +142,42 @@ fun QuestionInput(
         SetupAudioPermissionHandler(audioPermissionController)
     }
 
-    LaunchedEffect(partialResults) {
-        if (isListening && partialResults.isNotBlank()) {
-            onTextStateChange(TextFieldValue(partialResults, TextRange(partialResults.length)))
+    var autoSendJob: kotlinx.coroutines.Job? by remember { mutableStateOf(null) }
+
+    val handleTextChange: (TextFieldValue) -> Unit = { newText ->
+        if (autoSendJob != null) {
+            autoSendJob?.cancel()
+            autoSendJob = null
         }
+        onTextStateChange(newText)
     }
 
     val appSettings: AppSettings? = if (isPreview) null else koinInject()
+
+    val handleSttResult: (String) -> Unit = { result ->
+        val text = result.trim()
+        if (text.isNotEmpty()) {
+            val delayMs = appSettings?.getSendDelayMs() ?: 0L
+            if (delayMs > 0) {
+                onTextStateChange(TextFieldValue(text, TextRange(text.length)))
+                autoSendJob?.cancel()
+                autoSendJob = coroutineScope.launch {
+                    kotlinx.coroutines.delay(delayMs)
+                    onTextStateChange(TextFieldValue(""))
+                    ask(text)
+                }
+            } else {
+                onTextStateChange(TextFieldValue(""))
+                ask(text)
+            }
+        }
+    }
+
+    LaunchedEffect(partialResults) {
+        if (isListening && partialResults.isNotBlank()) {
+            handleTextChange(TextFieldValue(partialResults, TextRange(partialResults.length)))
+        }
+    }
     val voiceUiMode by (appSettings?.voiceUiModeFlow ?: kotlinx.coroutines.flow.MutableStateFlow(VoiceUiMode.FULL_SCREEN)).collectAsStateWithLifecycle()
 
     val requests: Requests = if (isPreview) Requests() else koinInject()
@@ -271,10 +300,12 @@ fun QuestionInput(
         }
 
         fun submitQuestion() {
+            autoSendJob?.cancel()
+            autoSendJob = null
             val text = textState.text
             if (text.isNotBlank()) {
                 ask(text.trim())
-                onTextStateChange(TextFieldValue(""))
+                handleTextChange(TextFieldValue(""))
             }
         }
 
@@ -297,8 +328,7 @@ fun QuestionInput(
             if (wakeWordTriggerCount > 0) {
                 if (audioPermissionController?.requestPermission() == true) {
                     sttController?.startListening { result ->
-                        onTextStateChange(TextFieldValue(""))
-                        ask(result.trim())
+                        handleSttResult(result)
                     }
                 }
             }
@@ -313,7 +343,7 @@ fun QuestionInput(
             Column {
                 TextField(
                     value = textState,
-                    onValueChange = onTextStateChange,
+                    onValueChange = handleTextChange,
                     modifier = Modifier
                         .focusRequester(focusRequester)
                         .padding(16.dp)
@@ -335,7 +365,7 @@ fun QuestionInput(
                                     val end = maxOf(selection.start, selection.end).coerceIn(0, currentText.length)
 
                                     val newText = currentText.replaceRange(start, end, "\n")
-                                    onTextStateChange(
+                                    handleTextChange(
                                         TextFieldValue(
                                             text = newText,
                                             selection = TextRange(start + 1),
@@ -380,8 +410,7 @@ fun QuestionInput(
                                     coroutineScope.launch {
                                         if (audioPermissionController?.requestPermission() == true) {
                                             sttController?.startListening { result ->
-                                                onTextStateChange(TextFieldValue(""))
-                                                ask(result.trim())
+                                                handleSttResult(result)
                                             }
                                         }
                                     }
@@ -446,7 +475,7 @@ fun QuestionInput(
                 mode = voiceUiMode,
                 onCancel = {
                     sttController?.stopListening()
-                    onTextStateChange(TextFieldValue(""))
+                    handleTextChange(TextFieldValue(""))
                 },
             )
         }

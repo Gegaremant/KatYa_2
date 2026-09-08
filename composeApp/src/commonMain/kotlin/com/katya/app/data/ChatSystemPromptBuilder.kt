@@ -187,11 +187,17 @@ internal fun buildChatSystemPrompt(
     emailAccounts: List<EmailAccountSummary>,
     runtime: ChatPromptRuntimeContext,
     uiMode: ChatPromptUiMode,
+    agentMode: com.katya.app.data.AgentMode,
     activeSkill: SkillManifest? = null,
     isSandbox: Boolean = true,
     isGodMode: Boolean = false,
 ): String = buildString {
     append(soul)
+
+    if (agentMode == com.katya.app.data.AgentMode.SHORT) {
+        if (isNotEmpty()) append("\n\n")
+        append("SHORT MODE ACTIVE: Keep your responses as brief and direct as possible. Avoid conversational filler, pleasantries, or long explanations unless explicitly requested. Provide just the answer.")
+    }
 
     if (isNotEmpty()) append("\n\n")
     append(DEFAULT_HONESTY_RULE)

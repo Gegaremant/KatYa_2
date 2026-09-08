@@ -1764,6 +1764,11 @@ Your task is to restore the connection to the main server.
     override fun getSoulText(): String = appSettings.getSoulText()
     override fun setSoulText(text: String) = appSettings.setSoulText(text)
 
+    override fun getAgentMode(): AgentMode = appSettings.getAgentMode()
+    override fun setAgentMode(mode: AgentMode) = appSettings.setAgentMode(mode)
+    override fun getSendDelayMs(): Long = appSettings.getSendDelayMs()
+    override fun setSendDelayMs(delay: Long) = appSettings.setSendDelayMs(delay)
+
     override fun getSttEngine(): SttEngine = appSettings.getSttEngine()
     override fun setSttEngine(engine: SttEngine) = appSettings.setSttEngine(engine)
     override val sttEngineFlow: StateFlow<SttEngine> = appSettings.sttEngineFlow
@@ -1886,12 +1891,11 @@ Your task is to restore the connection to the main server.
             emailAccounts = emailAccounts,
             runtime = runtime,
             uiMode = uiMode,
+            agentMode = appSettings.getAgentMode(),
             activeSkill = activeSkill,
             isSandbox = appSettings.isSandboxEnabled(),
             isGodMode = appSettings.isGodModeEnabled(),
         ).ifEmpty { null }
-    }
-
     override fun isDynamicUiEnabled(): Boolean = appSettings.isDynamicUiEnabled()
     override fun setDynamicUiEnabled(enabled: Boolean) = appSettings.setDynamicUiEnabled(enabled)
 

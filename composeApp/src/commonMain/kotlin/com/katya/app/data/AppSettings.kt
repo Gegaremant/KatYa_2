@@ -55,9 +55,13 @@ enum class SttEngine {
 
 enum class TtsEngine {
     SYSTEM,
-    RHVOICE,
-    PIPER,
+    LOCAL,
     CLOUD,
+}
+
+enum class AgentMode {
+    SHORT,
+    CONVERSATIONAL,
 }
 
 enum class Distro {
@@ -418,8 +422,8 @@ class AppSettings(internal val settings: Settings) {
     fun getTtsEngine(): TtsEngine {
         val name = settings.getString("tts_engine", TtsEngine.SYSTEM.name)
         return try {
-            TtsEngine.valueOf(name)
-        } catch (e: Exception) {
+            if (name == "RHVOICE" || name == "PIPER") TtsEngine.LOCAL else TtsEngine.valueOf(name)
+        } catch (e: IllegalArgumentException) {
             TtsEngine.SYSTEM
         }
     }
@@ -430,6 +434,15 @@ class AppSettings(internal val settings: Settings) {
 
     private val _ttsEngineFlow = MutableStateFlow(getTtsEngine())
     val ttsEngineFlow: StateFlow<TtsEngine> = _ttsEngineFlow
+
+    fun getAgentMode(): AgentMode {
+        val name = settings.getString("agent_mode", AgentMode.CONVERSATIONAL.name)
+        return try { AgentMode.valueOf(name) } catch (e: Exception) { AgentMode.CONVERSATIONAL }
+    }
+    fun setAgentMode(mode: AgentMode) = settings.putString("agent_mode", mode.name)
+    
+    fun getSendDelayMs(): Long = settings.getLong("send_delay_ms", 1000L)
+    fun setSendDelayMs(delay: Long) = settings.putLong("send_delay_ms", delay)
 
     // OpenAI-compatible cloud speech settings (STT = /audio/transcriptions, TTS = /audio/speech)
     fun getCloudSttUrl(): String = settings.getString("cloud_stt_url", DEFAULTS.CLOUD_STT_URL)

@@ -98,6 +98,8 @@ class SettingsViewModel(
         availableServicesToAdd = computeAvailableServices().toImmutableList(),
         tools = dataRepository.getToolDefinitions().toImmutableList(),
         soulText = dataRepository.getSoulText(),
+        agentMode = dataRepository.getAgentMode(),
+        sendDelayMs = dataRepository.getSendDelayMs(),
         sttEngine = dataRepository.getSttEngine(),
         ttsEngine = dataRepository.getTtsEngine(),
         ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()),
@@ -196,6 +198,8 @@ class SettingsViewModel(
         onSelectModel = ::onSelectModel,
         onToggleTool = ::onToggleTool,
         onSaveSoul = ::onSaveSoul,
+        onChangeAgentMode = ::onChangeAgentMode,
+        onChangeSendDelayMs = ::onChangeSendDelayMs,
         onChangeSttEngine = ::onChangeSttEngine,
         onChangeTtsEngine = ::onChangeTtsEngine,
         onChangeCloudSttUrl = ::onChangeCloudSttUrl,
@@ -589,6 +593,16 @@ class SettingsViewModel(
         _state.update { it.copy(soulText = text) }
     }
 
+    private fun onChangeAgentMode(mode: com.katya.app.data.AgentMode) {
+        dataRepository.setAgentMode(mode)
+        _state.update { it.copy(agentMode = mode) }
+    }
+
+    private fun onChangeSendDelayMs(delay: Long) {
+        dataRepository.setSendDelayMs(delay)
+        _state.update { it.copy(sendDelayMs = delay) }
+    }
+
     private fun onChangeSttEngine(engine: com.katya.app.data.SttEngine) {
         dataRepository.setSttEngine(engine)
         _state.update { it.copy(sttEngine = engine) }
@@ -635,7 +649,7 @@ class SettingsViewModel(
     }
 
     private fun isTtsEngineInstalled(engine: com.katya.app.data.TtsEngine): Boolean = when (engine) {
-        com.katya.app.data.TtsEngine.RHVOICE -> com.katya.app.isAppInstalled(com.katya.app.RHVOICE_PACKAGE)
+        com.katya.app.data.TtsEngine.LOCAL -> true // Since we will ship local voices or download them internally
         else -> true
     }
 
