@@ -97,10 +97,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     remember { mutableStateOf(com.katya.app.data.TtsEngine.SYSTEM) }.value
                 }
-            val ttsEngineSpec = when (ttsEngineSetting) {
-                com.katya.app.data.TtsEngine.RHVOICE -> TextToSpeechEngine.Custom(RHVOICE_PACKAGE)
-                else -> TextToSpeechEngine.SystemDefault
-            }
+            val ttsEngineSpec = TextToSpeechEngine.SystemDefault
             // key() on the engine discards the previous instance and rebuilds the
             // TextToSpeech when the user switches engines in Settings.
             val textToSpeech = if (ttsReady) {
@@ -126,7 +123,7 @@ class MainActivity : ComponentActivity() {
             }
             val speechEngine: com.katya.app.tts.SpeechEngine? = when (ttsEngineSetting) {
                 com.katya.app.data.TtsEngine.CLOUD -> cloudTts
-                com.katya.app.data.TtsEngine.PIPER -> piperTts
+                com.katya.app.data.TtsEngine.LOCAL -> piperTts
                 else -> textToSpeech?.let { com.katya.app.tts.SystemTtsSpeechEngine(it) }
             }
             App(

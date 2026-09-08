@@ -28,6 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.katya.app.data.Attachment
 import com.katya.app.decodeToImageBitmap
+import com.katya.app.toMessageTime
 import com.katya.app.ui.components.LocalShowFullScreenImage
 import com.katya.app.ui.handCursor
 import katya.composeapp.generated.resources.Res
@@ -114,7 +115,7 @@ internal fun UserMessage(
                 }
                 if (timestampMs != null) {
                     Text(
-                        text = com.katya.app.toMessageTime(timestampMs),
+                        text = timestampMs.toMessageTime(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                         modifier = Modifier.align(Alignment.End).padding(top = 4.dp)

@@ -18,6 +18,7 @@ import com.katya.app.network.dtos.openaicompatible.OpenAICompatibleChatRequestDt
 import io.github.vinceglb.filekit.PlatformFile
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlin.time.Clock
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -116,7 +117,7 @@ data class History(
     val id: String = Uuid.random().toString(),
     val role: Role,
     val content: String,
-    val timestampMs: Long = kotlinx.datetime.Clock.System.now().toEpochMilliseconds(),
+    val timestampMs: Long = Clock.System.now().toEpochMilliseconds(),
     val attachments: ImmutableList<Attachment> = persistentListOf(),
     val toolCallId: String? = null,
     val toolName: String? = null,

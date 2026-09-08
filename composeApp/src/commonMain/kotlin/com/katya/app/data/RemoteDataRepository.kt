@@ -1896,6 +1896,7 @@ Your task is to restore the connection to the main server.
             isSandbox = appSettings.isSandboxEnabled(),
             isGodMode = appSettings.isGodModeEnabled(),
         ).ifEmpty { null }
+    }
     override fun isDynamicUiEnabled(): Boolean = appSettings.isDynamicUiEnabled()
     override fun setDynamicUiEnabled(enabled: Boolean) = appSettings.setDynamicUiEnabled(enabled)
 

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.katya.app.getBackgroundDispatcher
+import com.katya.app.toMessageTime
 import com.katya.app.tts.SpeechEngine
 import com.katya.app.ui.dynamicui.FrozenSubmission
 import com.katya.app.ui.dynamicui.toSpeakableText
@@ -146,7 +147,7 @@ internal fun BotMessage(
     Row(Modifier.padding(horizontal = 8.dp)) {
         if (timestampMs != null) {
             Text(
-                text = com.katya.app.toMessageTime(timestampMs),
+                text = timestampMs.toMessageTime(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                 modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp).align(Alignment.CenterVertically)
