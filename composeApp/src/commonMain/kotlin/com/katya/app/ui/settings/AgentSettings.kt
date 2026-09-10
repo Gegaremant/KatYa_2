@@ -1874,7 +1874,6 @@ private fun AudioEnginesCard(
                     if (engine == com.katya.app.data.TtsEngine.LOCAL) {
                         Column(modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp)) {
                             Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium)
-                                val tts = org.koin.compose.koinInject<com.katya.app.tts.SpeechEngine>()
                                 Spacer(Modifier.height(8.dp))
                                 Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall)
                                 androidx.compose.material3.Slider(

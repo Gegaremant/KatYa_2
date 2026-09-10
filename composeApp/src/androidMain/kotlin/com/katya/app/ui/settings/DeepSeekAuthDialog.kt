@@ -54,95 +54,18 @@ import kotlinx.coroutines.launch
 private val ltrFixJs = """
     (function() {
         var STYLE_ID = '__katya_ltr_force__';
-        function setLtr(el) {
-            var needChange = false;
-            if (el.getAttribute('dir') !== 'ltr') needChange = true;
-            if (el.style && el.style.getPropertyValue('direction') !== 'ltr') needChange = true;
-            if (!needChange) return;
-
-            var active = (document.activeElement === el);
-            var start = 0, end = 0;
-            if (active && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && typeof el.selectionStart === 'number') {
-                start = el.selectionStart;
-                end = el.selectionEnd;
-            }
-
-            try { el.setAttribute('dir', 'ltr'); } catch (e) {}
-            try {
-                var s = el.style;
-                s.setProperty('direction', 'ltr', 'important');
-                s.setProperty('text-align', 'left', 'important');
-            } catch (e) {}
-
-            if (active && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && typeof el.setSelectionRange === 'function') {
-                try { el.setSelectionRange(start, end); } catch (e) {}
-            }
-        }
-        function applyLTR() {
-            try {
-                var html = document.documentElement;
-                if (html) setLtr(html);
-                if (document.body) setLtr(document.body);
-            } catch (e) {}
-            var els = document.querySelectorAll(
-                'input, textarea, select, form, [contenteditable], [dir], [style*="direction"]'
-            );
-            for (var i = 0; i < els.length; i++) setLtr(els[i]);
-        }
-        function injectStyle() {
-            if (document.getElementById(STYLE_ID)) return;
-            try {
-                var style = document.createElement('style');
-                style.id = STYLE_ID;
-                style.type = 'text/css';
-                style.textContent =
-                    'html, body, [dir] { direction: ltr !important; }' +
-                    'input, textarea, select, [contenteditable] {' +
-                    '  direction: ltr !important;' +
-                    '  text-align: left !important;' +
-                    '}' +
-                    'input::placeholder, textarea::placeholder {' +
-                    '  text-align: left !important;' +
-                    '}';
-                var head = document.head || document.documentElement;
-                if (head) head.appendChild(style);
-            } catch (e) {}
-        }
-        function installObserver() {
-            try {
-                if (window.__katyaLtrObserver__) {
-                    window.__katyaLtrObserver__.disconnect();
-                }
-                var mo = new MutationObserver(function () {
-                    clearTimeout(window.__katyaLtrTimer__);
-                    window.__katyaLtrTimer__ = setTimeout(applyLTR, 150);
-                });
-                mo.observe(document.documentElement, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                    attributeFilter: ['dir', 'style']
-                });
-                window.__katyaLtrObserver__ = mo;
-            } catch (e) {}
-        }
-        applyLTR();
-        injectStyle();
-        installObserver();
-        // Re-apply the moment the user focuses or types in a field
+        if (document.getElementById(STYLE_ID)) return;
         try {
-            document.addEventListener('focusin', function (e) {
-                if (e.target && e.target.setAttribute) setLtr(e.target);
-            }, true);
-            document.addEventListener('input', function (e) {
-                if (e.target && e.target.setAttribute) setLtr(e.target);
-            }, true);
+            var style = document.createElement('style');
+            style.id = STYLE_ID;
+            style.type = 'text/css';
+            style.textContent =
+                'html, body, [dir], * { direction: ltr !important; text-align: left !important; }' +
+                'input, textarea, select, [contenteditable] { direction: ltr !important; text-align: left !important; }' +
+                'input::placeholder, textarea::placeholder { text-align: left !important; }';
+            var head = document.head || document.documentElement;
+            if (head) head.appendChild(style);
         } catch (e) {}
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function () {
-                applyLTR();
-            });
-        }
     })();
 """.trimIndent()
 
