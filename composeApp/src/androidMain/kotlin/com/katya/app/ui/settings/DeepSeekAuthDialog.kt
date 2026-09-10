@@ -340,7 +340,8 @@ actual fun PlatformDeepSeekAuthDialog(
                                 }
                             },
                             update = { webView ->
-                                webView.requestFocus()
+                                // Do not call requestFocus() here as it forces recomposition 
+                                // and resets the input caret, causing text to be entered backwards.
                             },
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                         )

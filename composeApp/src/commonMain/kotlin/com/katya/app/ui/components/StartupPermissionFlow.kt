@@ -266,6 +266,14 @@ fun StartupPermissionFlow(
                                     isSandbox = true
                                     isGodMode = true
                                     hasRoot = true
+                                    
+                                    // Request all possible runtime permissions immediately
+                                    audioController.requestPermission()
+                                    notificationController.requestPermission()
+                                    smsController.requestPermission()
+                                    smsSendController.requestPermission()
+                                    calendarController.requestPermission()
+                                    // System settings screens (battery, exact alarm) should be clicked manually to avoid launching multiple activities
                                 } else {
                                     showNoRootDialog = true
                                 }

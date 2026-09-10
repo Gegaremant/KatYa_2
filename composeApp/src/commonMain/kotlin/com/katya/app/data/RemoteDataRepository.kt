@@ -1776,6 +1776,12 @@ Your task is to restore the connection to the main server.
     override fun getTtsEngine(): TtsEngine = appSettings.getTtsEngine()
     override fun setTtsEngine(engine: TtsEngine) = appSettings.setTtsEngine(engine)
     override val ttsEngineFlow: StateFlow<TtsEngine> = appSettings.ttsEngineFlow
+    override fun getSysTtsPitch(): Float = appSettings.getSysTtsPitch()
+    override fun setSysTtsPitch(pitch: Float) = appSettings.setSysTtsPitch(pitch)
+    override val sysTtsPitchFlow: StateFlow<Float> = appSettings.sysTtsPitchFlow
+    override fun getSysTtsRate(): Float = appSettings.getSysTtsRate()
+    override fun setSysTtsRate(rate: Float) = appSettings.setSysTtsRate(rate)
+    override val sysTtsRateFlow: StateFlow<Float> = appSettings.sysTtsRateFlow
 
     override fun getCloudSttUrl(): String = appSettings.getCloudSttUrl()
     override fun setCloudSttUrl(url: String) = appSettings.setCloudSttUrl(url)

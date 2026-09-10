@@ -1,5 +1,14 @@
 # Release Notes
 
+## v3.1.3-git
+### Added & Improved
+- **Deepseek Proxy Login:** Fixed caret shift issue in internal browser by avoiding `requestFocus()` on recomposition.
+- **Proxy Connection Logging:** Added detailed Kermit logs for `127.0.0.1:10809` proxy checks.
+- **Dynamic Connection Status:** Replaced static 'no connection' bar with dynamic connection speed visibility during generation.
+- **Operation Modes Descriptions:** Added descriptive texts for 'Только по делу', 'Собеседник', and 'Сыскун' modes.
+- **Chat UI Clean-up:** Removed uninformative gray top bar from the main chat.
+- **GGUF Local Models:** Added prominent UI suggestion to download local models and updated HuggingFace button to search specifically for GGUF models.
+- **GodMode One-Click Permissions:** Request all system runtime permissions at once when GodMode is selected during startup.
 ## v3.1.2-git
 ### Added & Improved
 - **Voice Settings UI Tweaks:** Removed Pyper and Rhvoice options, added a 3-choice Voice selector ("По умолчанию", "Локальный", "Cloud API"), and added "Локальный" dropdown (2 voices) + Pitch & Speed sliders. Disabled Cloud API and added "(в разработке)".

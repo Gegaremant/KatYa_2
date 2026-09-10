@@ -186,6 +186,15 @@ private fun AppContent(
         }
     }
 
+    val sysTtsPitch by appSettings.sysTtsPitchFlow.collectAsStateWithLifecycle()
+    val sysTtsRate by appSettings.sysTtsRateFlow.collectAsStateWithLifecycle()
+
+    LaunchedEffect(speechEngine, sysTtsPitch, sysTtsRate) {
+        val instance = (speechEngine as? SystemTtsSpeechEngine)?.instance ?: return@LaunchedEffect
+        instance.pitch = sysTtsPitch
+        instance.rate = sysTtsRate
+    }
+
     val uiScale by appSettings.uiScaleFlow.collectAsStateWithLifecycle()
     val defaultDensity = LocalDensity.current
     val scaledDensity = remember(defaultDensity, uiScale) {

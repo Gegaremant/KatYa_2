@@ -25,6 +25,8 @@ data class SettingsActions(
     val onChangeSendDelayMs: (Long) -> Unit,
     val onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
     val onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
+    val onChangeSysTtsPitch: (Float) -> Unit,
+    val onChangeSysTtsRate: (Float) -> Unit,
     val onChangeCloudSttUrl: (String) -> Unit = {},
     val onChangeCloudSttKey: (String) -> Unit = {},
     val onChangeCloudSttModel: (String) -> Unit = {},
@@ -203,6 +205,8 @@ data class SettingsActions(
             onFetchHfModels = {},
             onOpenDeviceAdminSettings = {},
             onOpenTrustAgentSettings = {},
+            onChangeSysTtsPitch = {},
+            onChangeSysTtsRate = {},
         )
     }
 }

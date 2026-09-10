@@ -211,51 +211,68 @@ private fun TrustAgentSection(
 @Composable
 private fun AgentModeCard(
     agentMode: com.katya.app.data.AgentMode,
-    sendDelayMs: Long,
     onChangeAgentMode: (com.katya.app.data.AgentMode) -> Unit,
-    onChangeSendDelayMs: (Long) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
-            text = "Режим работы и задержка",
+            text = "Режим работы",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "Настройте поведение агента и паузу перед отправкой сообщения.",
+            text = "Настройте поведение агента.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
         
         Column(modifier = Modifier.fillMaxWidth().katyaAdaptiveCardSurface(RoundedCornerShape(8.dp)).padding(12.dp)) {
-            Text("Режим работы", style = MaterialTheme.typography.labelMedium)
+            Text("Режим работы", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                androidx.compose.material3.RadioButton(
-                    selected = agentMode == com.katya.app.data.AgentMode.SHORT,
-                    onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.SHORT) }
-                )
-                Text("Короткий", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.width(16.dp))
-                androidx.compose.material3.RadioButton(
-                    selected = agentMode == com.katya.app.data.AgentMode.CONVERSATIONAL,
-                    onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.CONVERSATIONAL) }
-                )
-                Text("Собеседник", style = MaterialTheme.typography.bodyMedium)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.SHORT) }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = agentMode == com.katya.app.data.AgentMode.SHORT,
+                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.SHORT) }
+                    )
+                    Column {
+                        Text("Только по делу", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Ответы краткие, без лишних деталей и уточнений", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.CONVERSATIONAL) }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = agentMode == com.katya.app.data.AgentMode.CONVERSATIONAL,
+                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.CONVERSATIONAL) }
+                    )
+                    Column {
+                        Text("Собеседник", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Рассказывает все, что знает, думает, уточняет. Старается поддержать разговор.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.DETECTIVE) }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    androidx.compose.material3.RadioButton(
+                        selected = agentMode == com.katya.app.data.AgentMode.DETECTIVE,
+                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.DETECTIVE) }
+                    )
+                    Column {
+                        Text("Сыскун", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Поиск заданной информации с ссылками на источники, без болтовни.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Задержка отправки: ${sendDelayMs} мс", style = MaterialTheme.typography.labelMedium)
-            androidx.compose.material3.Slider(
-                value = sendDelayMs.toFloat(),
-                onValueChange = { onChangeSendDelayMs(it.toLong()) },
-                valueRange = 0f..5000f,
-                steps = 50,
-            )
         }
     }
 }
@@ -282,9 +299,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                     SettingsCard {
                         AgentModeCard(
                             agentMode = uiState.agentMode,
-                            sendDelayMs = uiState.sendDelayMs,
                             onChangeAgentMode = actions.onChangeAgentMode,
-                            onChangeSendDelayMs = actions.onChangeSendDelayMs,
                         )
                     }
                     SettingsCard {
@@ -305,10 +320,16 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                             ttsEngineInstalled = uiState.ttsEngineInstalled,
                             isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
                             onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
+                            sendDelayMs = uiState.sendDelayMs,
+                            onChangeSendDelayMs = actions.onChangeSendDelayMs,
                             isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
                             onToggleVoiceResponse = actions.onToggleVoiceResponse,
                             onChangeSttEngine = actions.onChangeSttEngine,
                             onChangeTtsEngine = actions.onChangeTtsEngine,
+                            sysTtsPitch = uiState.sysTtsPitch,
+                            sysTtsRate = uiState.sysTtsRate,
+                            onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
+                            onChangeSysTtsRate = actions.onChangeSysTtsRate,
                             cloudSttUrl = uiState.cloudSttUrl,
                             cloudSttKey = uiState.cloudSttKey,
                             cloudSttModel = uiState.cloudSttModel,
@@ -453,9 +474,7 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                 SettingsCard {
                     AgentModeCard(
                         agentMode = uiState.agentMode,
-                        sendDelayMs = uiState.sendDelayMs,
                         onChangeAgentMode = actions.onChangeAgentMode,
-                        onChangeSendDelayMs = actions.onChangeSendDelayMs,
                     )
                 }
                 SettingsCard {
@@ -465,10 +484,16 @@ internal fun AgentContent(uiState: SettingsUiState, actions: SettingsActions) {
                         ttsEngineInstalled = uiState.ttsEngineInstalled,
                         isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
                         onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
+                        sendDelayMs = uiState.sendDelayMs,
+                        onChangeSendDelayMs = actions.onChangeSendDelayMs,
                         isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
                         onToggleVoiceResponse = actions.onToggleVoiceResponse,
                         onChangeSttEngine = actions.onChangeSttEngine,
                         onChangeTtsEngine = actions.onChangeTtsEngine,
+                        sysTtsPitch = uiState.sysTtsPitch,
+                        sysTtsRate = uiState.sysTtsRate,
+                        onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
+                        onChangeSysTtsRate = actions.onChangeSysTtsRate,
                         cloudSttUrl = uiState.cloudSttUrl,
                         cloudSttKey = uiState.cloudSttKey,
                         cloudSttModel = uiState.cloudSttModel,
@@ -1614,8 +1639,14 @@ private fun AudioEnginesCard(
     onToggleVoiceResponse: (Boolean) -> Unit,
     isVoiceRecognitionEnabled: Boolean,
     onToggleVoiceRecognition: (Boolean) -> Unit,
+    sendDelayMs: Long,
+    onChangeSendDelayMs: (Long) -> Unit,
     onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
     onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
+    sysTtsPitch: Float = 1.0f,
+    sysTtsRate: Float = 1.0f,
+    onChangeSysTtsPitch: (Float) -> Unit = {},
+    onChangeSysTtsRate: (Float) -> Unit = {},
     cloudSttUrl: String = "",
     cloudSttKey: String = "",
     cloudSttModel: String = "",
@@ -1790,6 +1821,15 @@ private fun AudioEnginesCard(
                         }
                     }
                     }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Задержка отправки: ${sendDelayMs} мс", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                    androidx.compose.material3.Slider(
+                        value = sendDelayMs.toFloat(),
+                        onValueChange = { onChangeSendDelayMs(it.toLong()) },
+                        valueRange = 0f..5000f,
+                        steps = 50,
+                    )
                 }
             }
         }
@@ -1834,20 +1874,24 @@ private fun AudioEnginesCard(
                     if (engine == com.katya.app.data.TtsEngine.LOCAL) {
                         Column(modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp)) {
                             Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                androidx.compose.material3.RadioButton(selected = true, onClick = {})
-                                Text("Голос 1 (Женский)", style = MaterialTheme.typography.bodySmall)
-                                Spacer(Modifier.width(16.dp))
-                                androidx.compose.material3.RadioButton(selected = false, onClick = {})
-                                Text("Голос 2 (Мужской)", style = MaterialTheme.typography.bodySmall)
+                                val tts = org.koin.compose.koinInject<com.katya.app.tts.SpeechEngine>()
+                                Spacer(Modifier.height(8.dp))
+                                Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall)
+                                androidx.compose.material3.Slider(
+                                    value = sysTtsPitch,
+                                    onValueChange = onChangeSysTtsPitch,
+                                    onValueChangeFinished = { tts.speak("Это теперь будет мой голос?") },
+                                    valueRange = 0.5f..2f
+                                )
+                                Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall)
+                                androidx.compose.material3.Slider(
+                                    value = sysTtsRate,
+                                    onValueChange = onChangeSysTtsRate,
+                                    onValueChangeFinished = { tts.speak("Это теперь будет мой голос?") },
+                                    valueRange = 0.5f..2f
+                                )
                             }
-                            Spacer(Modifier.height(8.dp))
-                            Text("Тональность (Pitch)", style = MaterialTheme.typography.labelSmall)
-                            androidx.compose.material3.Slider(value = 1f, onValueChange = {}, valueRange = 0.5f..2f)
-                            Text("Скорость (Speed)", style = MaterialTheme.typography.labelSmall)
-                            androidx.compose.material3.Slider(value = 1f, onValueChange = {}, valueRange = 0.5f..2f)
                         }
-                    }
 
                     if (engine == com.katya.app.data.TtsEngine.CLOUD) {
                         Text(

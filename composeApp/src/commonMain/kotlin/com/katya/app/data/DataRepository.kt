@@ -102,6 +102,12 @@ interface DataRepository {
     fun getTtsEngine(): TtsEngine
     fun setTtsEngine(engine: TtsEngine)
     val ttsEngineFlow: StateFlow<TtsEngine>
+    fun getSysTtsPitch(): Float
+    fun setSysTtsPitch(pitch: Float)
+    val sysTtsPitchFlow: StateFlow<Float>
+    fun getSysTtsRate(): Float
+    fun setSysTtsRate(rate: Float)
+    val sysTtsRateFlow: StateFlow<Float>
     fun getCloudSttUrl(): String
     fun setCloudSttUrl(url: String)
     fun getCloudSttKey(): String

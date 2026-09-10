@@ -569,14 +569,6 @@ private fun ChatModeScreen(
                 },
             )
 
-            com.katya.app.ui.chat.composables.MonitorOverlay(
-                mode = uiState.monitorOverlayMode,
-                stats = monitorStats,
-                selectedService = uiState.availableServices.firstOrNull(),
-                isProcessing = uiState.isLoading,
-                systemStatus = uiState.systemStatus,
-            )
-
             PendingSmsBanners(
                 drafts = uiState.smsDrafts,
                 onSend = uiState.actions.sendSmsDraft,

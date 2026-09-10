@@ -62,6 +62,7 @@ enum class TtsEngine {
 enum class AgentMode {
     SHORT,
     CONVERSATIONAL,
+    DETECTIVE,
 }
 
 enum class Distro {
@@ -434,6 +435,22 @@ class AppSettings(internal val settings: Settings) {
 
     private val _ttsEngineFlow = MutableStateFlow(getTtsEngine())
     val ttsEngineFlow: StateFlow<TtsEngine> = _ttsEngineFlow
+
+    fun getSysTtsPitch(): Float = settings.getFloat("sys_tts_pitch", 1.0f)
+    fun setSysTtsPitch(pitch: Float) {
+        settings.putFloat("sys_tts_pitch", pitch)
+        _sysTtsPitchFlow.value = pitch
+    }
+    private val _sysTtsPitchFlow = MutableStateFlow(getSysTtsPitch())
+    val sysTtsPitchFlow: StateFlow<Float> = _sysTtsPitchFlow
+
+    fun getSysTtsRate(): Float = settings.getFloat("sys_tts_rate", 1.0f)
+    fun setSysTtsRate(rate: Float) {
+        settings.putFloat("sys_tts_rate", rate)
+        _sysTtsRateFlow.value = rate
+    }
+    private val _sysTtsRateFlow = MutableStateFlow(getSysTtsRate())
+    val sysTtsRateFlow: StateFlow<Float> = _sysTtsRateFlow
 
     fun getAgentMode(): AgentMode {
         val name = settings.getString("agent_mode", AgentMode.CONVERSATIONAL.name)

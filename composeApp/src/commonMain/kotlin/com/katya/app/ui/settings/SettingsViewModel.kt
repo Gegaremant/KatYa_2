@@ -102,6 +102,8 @@ class SettingsViewModel(
         sendDelayMs = dataRepository.getSendDelayMs(),
         sttEngine = dataRepository.getSttEngine(),
         ttsEngine = dataRepository.getTtsEngine(),
+        sysTtsPitch = dataRepository.getSysTtsPitch(),
+        sysTtsRate = dataRepository.getSysTtsRate(),
         ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()),
         cloudSttUrl = dataRepository.getCloudSttUrl(),
         cloudSttKey = dataRepository.getCloudSttKey(),
@@ -202,6 +204,8 @@ class SettingsViewModel(
         onChangeSendDelayMs = ::onChangeSendDelayMs,
         onChangeSttEngine = ::onChangeSttEngine,
         onChangeTtsEngine = ::onChangeTtsEngine,
+        onChangeSysTtsPitch = ::onChangeSysTtsPitch,
+        onChangeSysTtsRate = ::onChangeSysTtsRate,
         onChangeCloudSttUrl = ::onChangeCloudSttUrl,
         onChangeCloudSttKey = ::onChangeCloudSttKey,
         onChangeCloudSttModel = ::onChangeCloudSttModel,
@@ -611,6 +615,16 @@ class SettingsViewModel(
     private fun onChangeTtsEngine(engine: com.katya.app.data.TtsEngine) {
         dataRepository.setTtsEngine(engine)
         _state.update { it.copy(ttsEngine = engine, ttsEngineInstalled = isTtsEngineInstalled(engine)) }
+    }
+
+    private fun onChangeSysTtsPitch(pitch: Float) {
+        dataRepository.setSysTtsPitch(pitch)
+        _state.update { it.copy(sysTtsPitch = pitch) }
+    }
+
+    private fun onChangeSysTtsRate(rate: Float) {
+        dataRepository.setSysTtsRate(rate)
+        _state.update { it.copy(sysTtsRate = rate) }
     }
 
     private fun onChangeCloudSttUrl(url: String) {

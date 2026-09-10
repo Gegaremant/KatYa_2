@@ -2,6 +2,7 @@
 
 package com.katya.app.ui.settings
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,23 +12,30 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -1047,6 +1055,33 @@ private fun LiteRTSettings(
         color = MaterialTheme.colorScheme.primary,
     )
     Spacer(Modifier.height(8.dp))
+    
+    // Prominent UI suggestion
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "Хотите ИИ без интернета? Скачайте локальную модель в формате GGUF или LiteRT.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+
     Text(
         text = "Вставьте ссылку на репозиторий с моделями (GGUF или LiteRT) или прямую ссылку на файл модели.",
         style = MaterialTheme.typography.bodySmall,
@@ -1067,7 +1102,7 @@ private fun LiteRTSettings(
         modifier = Modifier.fillMaxWidth(),
     ) {
         OutlinedButton(
-            onClick = { uriHandler.openUri("https://huggingface.co") },
+            onClick = { uriHandler.openUri("https://huggingface.co/models?search=gguf") },
             modifier = Modifier.handCursor(),
         ) {
             ResourceImage(
@@ -1076,7 +1111,7 @@ private fun LiteRTSettings(
                 modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(6.dp))
-            Text("Открыть HF")
+            Text("Найти GGUF на HF")
         }
         val directFileUrl = hfRepoUrl.trim().let { url ->
             if (url.isNotEmpty() && HF_DIRECT_FILE_SUFFIXES.any { url.endsWith(it, ignoreCase = true) }) url else null

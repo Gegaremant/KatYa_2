@@ -233,7 +233,10 @@ class ChatViewModel(
                 val showConnection = appSettings.isShowConnectionStateEnabled()
                 if (showDevice || showConnection) {
                     val (connectionText, networkConnected) = if (showConnection) {
-                        buildConnectionStatus(_state.value.availableServices.firstOrNull())
+                        buildConnectionStatus(
+                            selectedService = _state.value.availableServices.firstOrNull(),
+                            isLoading = _state.value.isLoading
+                        )
                     } else {
                         null to false
                     }
@@ -276,17 +279,26 @@ class ChatViewModel(
         return parts.joinToString(" · ").ifEmpty { null }
     }
 
-    private suspend fun buildConnectionStatus(selectedService: ServiceEntry?): Pair<String?, Boolean> {
+    private suspend fun buildConnectionStatus(
+        selectedService: ServiceEntry?,
+        isLoading: Boolean
+    ): Pair<String?, Boolean> {
+        if (!isLoading) return null to false
+        
         val provider = networkStatusProvider ?: return null to false
         val status = provider.getNetworkStatus() ?: return null to false
         val apiText = selectedService?.serviceName?.let { "API: $it" } ?: "API: Auto"
-        if (!status.isConnected) return "○ Нет подключения · $apiText" to false
+
         val parts = buildList {
-            add("●")
-            status.networkType?.let { add(it) }
-            status.pingMs?.let { add("$it мс") }
-            status.downloadKbps?.let { add("↓ ${formatSpeed(it)}") }
-            status.uploadKbps?.let { add("↑ ${formatSpeed(it)}") }
+            add("⚡ Активно")
+
+            val d = status.downloadKbps ?: 0f
+            val u = status.uploadKbps ?: 0f
+            if (d > 0.1f || u > 0.1f) {
+                if (d >= 0f) add("↓ ${formatSpeed(d)}")
+                if (u >= 0f) add("↑ ${formatSpeed(u)}")
+            }
+            
             add(apiText)
         }
         return parts.joinToString(" · ") to true

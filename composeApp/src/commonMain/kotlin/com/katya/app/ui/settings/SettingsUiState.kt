@@ -70,6 +70,8 @@ data class SettingsUiState(
     val sendDelayMs: Long = 1000L,
     val sttEngine: com.katya.app.data.SttEngine = com.katya.app.data.SttEngine.SYSTEM,
     val ttsEngine: com.katya.app.data.TtsEngine = com.katya.app.data.TtsEngine.SYSTEM,
+    val sysTtsPitch: Float = 1.0f,
+    val sysTtsRate: Float = 1.0f,
     val cloudSttUrl: String = "https://api.openai.com/v1/audio/transcriptions",
     val cloudSttKey: String = "",
     val cloudSttModel: String = "whisper-1",
