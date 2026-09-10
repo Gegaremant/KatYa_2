@@ -1879,14 +1879,14 @@ private fun AudioEnginesCard(
                                 androidx.compose.material3.Slider(
                                     value = sysTtsPitch,
                                     onValueChange = onChangeSysTtsPitch,
-                                    onValueChangeFinished = { tts.speak("Это теперь будет мой голос?") },
+                                    onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
                                     valueRange = 0.5f..2f
                                 )
                                 Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall)
                                 androidx.compose.material3.Slider(
                                     value = sysTtsRate,
                                     onValueChange = onChangeSysTtsRate,
-                                    onValueChangeFinished = { tts.speak("Это теперь будет мой голос?") },
+                                    onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
                                     valueRange = 0.5f..2f
                                 )
                             }

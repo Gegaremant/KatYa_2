@@ -191,9 +191,11 @@ fun ServersContent(
                                                 val oldUri = appSettings.getVlessUri()
                                                 val oldId = appSettings.getActiveVlessProxyId()
                                                 val oldMode = appSettings.getActiveConnectionMode()
+                                                val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
 
                                                 appSettings.setActiveConnectionMode("VLESS")
                                                 appSettings.setVlessUri(newUri)
+                                                daemon.start()
 
                                                 var connected = false
                                                 for (i in 1..15) {
