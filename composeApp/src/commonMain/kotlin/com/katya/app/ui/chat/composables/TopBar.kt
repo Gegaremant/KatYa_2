@@ -205,7 +205,7 @@ private fun LeadingButtons(
             }
         }
     }
-    
+
     if (hasSavedConversations) {
         IconButton(
             modifier = Modifier.handCursor(),
@@ -265,7 +265,6 @@ private fun StatusRow(text: String, isOnline: Boolean? = null) {
         )
     }
 }
-
 
 @Composable
 private fun SpeechToggleButton(

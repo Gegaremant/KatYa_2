@@ -266,7 +266,7 @@ fun StartupPermissionFlow(
                                     isSandbox = true
                                     isGodMode = true
                                     hasRoot = true
-                                    
+
                                     // Request all possible runtime permissions immediately
                                     audioController.requestPermission()
                                     notificationController.requestPermission()

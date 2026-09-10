@@ -760,7 +760,7 @@ private fun ChatModeScreen(
                                         entry.reasoningContent
                                             ?.takeIf { it.isNotBlank() }
                                             ?.let { pending.add(it) }
-                                            
+
                                         entry.toolCalls?.forEach { tc ->
                                             val actionDesc = when (tc.name) {
                                                 "read_file", "view_file" -> "Читаю файл"
@@ -775,7 +775,7 @@ private fun ChatModeScreen(
                                                 "read_url_content", "browser_subagent" -> "Просматриваю веб-страницу"
                                                 else -> "Использую инструмент ${tc.name}"
                                             }
-                                            pending.add("🛠 ${actionDesc}")
+                                            pending.add("🛠 $actionDesc")
                                         }
                                     }
                                 }

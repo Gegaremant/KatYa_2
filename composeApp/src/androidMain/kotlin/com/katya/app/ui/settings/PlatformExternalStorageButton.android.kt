@@ -26,10 +26,10 @@ import androidx.lifecycle.LifecycleEventObserver
 actual fun PlatformExternalStorageButton() {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         var hasPermission by remember { mutableStateOf(Environment.isExternalStorageManager()) }
-        
+
         DisposableEffect(lifecycleOwner) {
             val observer = LifecycleEventObserver { _, event ->
                 if (event == Lifecycle.Event.ON_RESUME) {
@@ -60,7 +60,7 @@ actual fun PlatformExternalStorageButton() {
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             ) {
                 Text("Разрешить доступ ко всем файлам (для Root)")
             }
@@ -69,7 +69,7 @@ actual fun PlatformExternalStorageButton() {
                 text = "Доступ ко всем файлам разрешен",
                 modifier = Modifier.padding(top = 8.dp),
                 color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                style = androidx.compose.material3.MaterialTheme.typography.labelMedium
+                style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
             )
         }
     }

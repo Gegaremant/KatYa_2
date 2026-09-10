@@ -1,5 +1,14 @@
 # Release Notes
 
+## v3.1.4-git
+### Added & Improved
+- **Agent Settings Crash Fix:** Restored the missing `textToSpeech` parameter in `AgentContent`/`AudioEnginesCard`, fixing `Unresolved reference` compile errors.
+- **Email Icons:** Gmail/Outlook/Yandex/Mail.ru chips now use bitmap assets via `ResourceImage` (`files/ic_email_*.png`).
+- **HuggingFace Button:** HF search button now uses the `ic_hf.png` asset instead of a placeholder.
+- **Spotless Fix:** Pinned ktlint `1.7.1` to resolve the spotless 8.8.0 + ktlint 1.8.0 "0 lint error(s)" incompatibility.
+- **DeepSeek LTR Fix:** Strengthened the LTR enforcement script in the DeepSeek auth web view.
+- **TopBar & Voice UX:** TopBar polish and STT/TTS/Piper spoiler clean-up across voice settings.
+
 ## v3.1.3-git
 ### Added & Improved
 - **Deepseek Proxy Login:** Fixed caret shift issue in internal browser by avoiding `requestFocus()` on recomposition.

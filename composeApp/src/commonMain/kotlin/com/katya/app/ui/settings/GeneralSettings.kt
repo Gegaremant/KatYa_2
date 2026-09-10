@@ -265,7 +265,6 @@ private fun AgentVisibilityToggle(
     }
 }
 
-
 @Composable
 private fun ThemeModePicker(
     themeMode: ThemeMode,

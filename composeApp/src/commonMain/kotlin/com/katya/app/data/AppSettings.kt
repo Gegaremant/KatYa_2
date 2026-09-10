@@ -389,7 +389,7 @@ class AppSettings(internal val settings: Settings) {
 
     fun isWakeWordSoundEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_WAKE_WORD_SOUND, true)
     fun setVoiceResponseEnabled(enabled: Boolean) = settings.putBoolean(AppSettingsKeys.KEY_VOICE_RESPONSE_ENABLED, enabled)
-    
+
     fun isVoiceRecognitionEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_VOICE_RECOGNITION_ENABLED, true)
     fun setVoiceRecognitionEnabled(enabled: Boolean) = settings.putBoolean(AppSettingsKeys.KEY_VOICE_RECOGNITION_ENABLED, enabled)
 
@@ -454,10 +454,14 @@ class AppSettings(internal val settings: Settings) {
 
     fun getAgentMode(): AgentMode {
         val name = settings.getString("agent_mode", AgentMode.CONVERSATIONAL.name)
-        return try { AgentMode.valueOf(name) } catch (e: Exception) { AgentMode.CONVERSATIONAL }
+        return try {
+            AgentMode.valueOf(name)
+        } catch (e: Exception) {
+            AgentMode.CONVERSATIONAL
+        }
     }
     fun setAgentMode(mode: AgentMode) = settings.putString("agent_mode", mode.name)
-    
+
     fun getSendDelayMs(): Long = settings.getLong("send_delay_ms", 1000L)
     fun setSendDelayMs(delay: Long) = settings.putLong("send_delay_ms", delay)
 

@@ -88,7 +88,7 @@ interface DataRepository {
     fun getSoulText(): String
     fun setSoulText(text: String)
     suspend fun getActiveSystemPrompt(variant: SystemPromptVariant = SystemPromptVariant.CHAT_REMOTE): String?
-    
+
     // Agent Mode & Send Delay
     fun getAgentMode(): AgentMode
     fun setAgentMode(mode: AgentMode)

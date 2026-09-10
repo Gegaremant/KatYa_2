@@ -18,7 +18,6 @@ import com.katya.app.network.dtos.openaicompatible.OpenAICompatibleChatRequestDt
 import io.github.vinceglb.filekit.PlatformFile
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-import kotlin.time.Clock
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -29,6 +28,7 @@ import kotlinx.serialization.json.put
 import org.jetbrains.compose.resources.StringResource
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
