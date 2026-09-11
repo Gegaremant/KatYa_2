@@ -168,6 +168,17 @@ class ProotExecutor(
     }
 
     private fun buildEnvVars(extraEnv: Map<String, String>): Array<String> {
+        // Ensure libtalloc.so.2 exists in tmpPath
+        val tallocOrig = File(libDir, "libtalloc.so")
+        val tallocLink = File(tmpPath, "libtalloc.so.2")
+        if (tallocOrig.exists() && !tallocLink.exists()) {
+            try {
+                android.system.Os.symlink(tallocOrig.absolutePath, tallocLink.absolutePath)
+            } catch (e: Exception) {
+                tallocOrig.copyTo(tallocLink, overwrite = true)
+            }
+        }
+        
         val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
         val baseEnv = when (distro) {
             Distro.TERMUX -> arrayOf(
@@ -175,10 +186,9 @@ class ProotExecutor(
                 "HOME=/data/data/com.termux/files/home",
                 "PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets",
                 "TMPDIR=/data/data/com.termux/files/usr/tmp",
-                "LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib",
+                "LD_LIBRARY_PATH=$tmpPath:$libDir:/data/data/com.termux/files/usr/lib",
                 "TERM=xterm-256color",
                 "LANG=C.UTF-8",
-                "LD_LIBRARY_PATH=$libDir",
                 "PROOT_TMP_DIR=$tmpPath",
                 "PROOT_LOADER=$loaderPath",
             )
@@ -187,7 +197,7 @@ class ProotExecutor(
                 "HOME=/root",
                 "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
                 "TMPDIR=/tmp",
-                "LD_LIBRARY_PATH=/usr/lib",
+                "LD_LIBRARY_PATH=$tmpPath:$libDir:/usr/lib",
                 "TERM=xterm-256color",
                 "LANG=C.UTF-8",
                 "LC_ALL=C.UTF-8",

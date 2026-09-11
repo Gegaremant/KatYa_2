@@ -34,6 +34,9 @@ fun AppSettings.exportToJson(
         map["current_service_id"] = JsonPrimitive(settings.getString(KEY_CURRENT_SERVICE_ID, Service.Free.id))
         map["free_fallback_enabled"] = JsonPrimitive(isFreeFallbackEnabled())
         map["monitor_overlay_mode"] = JsonPrimitive(settings.getString(AppSettingsKeys.KEY_MONITOR_OVERLAY_MODE, MonitorOverlayMode.SHORT.name))
+        map["send_delay_ms"] = JsonPrimitive(getSendDelayMs())
+        map["sys_tts_pitch"] = JsonPrimitive(getSysTtsPitch())
+        map["sys_tts_rate"] = JsonPrimitive(getSysTtsRate())
 
         val instances = getConfiguredServiceInstances()
         if (instances.isNotEmpty()) {
@@ -206,6 +209,9 @@ fun AppSettings.importFromJson(
                     setMonitorOverlayMode(mode)
                 } catch (_: Exception) {}
             }
+            json["send_delay_ms"]?.jsonPrimitive?.content?.toLongOrNull()?.let { setSendDelayMs(it) }
+            json["sys_tts_pitch"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { setSysTtsPitch(it) }
+            json["sys_tts_rate"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { setSysTtsRate(it) }
         } catch (_: Exception) {
             errors++
         }

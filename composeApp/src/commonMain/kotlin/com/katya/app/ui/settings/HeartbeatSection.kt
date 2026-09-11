@@ -639,21 +639,28 @@ internal fun EmailSection(
                         Triple("Mail.ru", "@mail.ru", "files/ic_email_mailru.png"),
                     )
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     ) {
                         emailPresets.forEach { (name, domain, iconPath) ->
-                            androidx.compose.material3.AssistChip(
-                                onClick = { email = "user$domain" },
-                                label = {
-                                    ResourceImage(
-                                        filePath = iconPath,
-                                        contentDescription = name,
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                },
-                                modifier = Modifier.weight(1f).handCursor(),
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .androidx.compose.foundation.layout.aspectRatio(1f)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
+                                    .clickable { email = "user$domain" }
+                                    .padding(12.dp)
+                                    .handCursor(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                ResourceImage(
+                                    filePath = iconPath,
+                                    contentDescription = name,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         }
                     }
                     OutlinedTextField(

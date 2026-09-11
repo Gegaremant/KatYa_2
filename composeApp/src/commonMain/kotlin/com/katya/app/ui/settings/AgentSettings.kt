@@ -1834,7 +1834,8 @@ private fun AudioEnginesCard(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Считать окончанием диктовки паузу в: $sendDelayMs мс", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+                    val delayTextColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+                    Text("Пауза для отправки при диктовке: $sendDelayMs мс", style = MaterialTheme.typography.labelMedium, color = delayTextColor)
                     androidx.compose.material3.Slider(
                         value = sendDelayMs.toFloat(),
                         onValueChange = { onChangeSendDelayMs(it.toLong()) },
@@ -1902,7 +1903,7 @@ private fun AudioEnginesCard(
                             } else {
                                 Column(modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp)) {
                                     val textColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
-                                    Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium)
+                                    Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium, color = textColor)
                                     Spacer(Modifier.height(8.dp))
                                     Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
                                     androidx.compose.material3.Slider(

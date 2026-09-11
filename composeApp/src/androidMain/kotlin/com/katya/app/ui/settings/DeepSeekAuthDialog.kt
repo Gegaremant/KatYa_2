@@ -56,6 +56,10 @@ actual fun PlatformDeepSeekAuthDialog(
         var isLoggedIn by remember { mutableStateOf(false) }
         var manualToken by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
         var useManualMode by remember { mutableStateOf(false) }
+        
+        var dsEmail by remember { mutableStateOf("") }
+        var dsPassword by remember { mutableStateOf("") }
+        var autoLoginTriggered by remember { mutableStateOf(false) }
 
         var isDoctorRunning by remember { mutableStateOf(false) }
         var doctorLog by remember { mutableStateOf<String?>(null) }
@@ -169,76 +173,160 @@ actual fun PlatformDeepSeekAuthDialog(
                             }
                         }
                     } else {
-                        // WebView for automatic extraction
-                        AndroidView(
-                            factory = { context ->
-                                WebView(context).apply {
-                                    webViewRef = this
-                                    isFocusable = true
-                                    isFocusableInTouchMode = true
-                                    settings.javaScriptEnabled = true
-                                    settings.domStorageEnabled = true
-                                    settings.databaseEnabled = true
-                                    settings.setSupportMultipleWindows(true)
-                                    settings.javaScriptCanOpenWindowsAutomatically = true
-                                    settings.useWideViewPort = true
-                                    settings.loadWithOverviewMode = true
-                                    settings.mixedContentMode =
-                                        android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                                    layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
-
-                                    // Remove "wv" from user agent so DeepSeek doesn't detect WebView
-                                    val defaultAgent = settings.userAgentString
-                                    settings.userAgentString = defaultAgent.replace("; wv", "")
-
-                                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-
-                                    webChromeClient = object : android.webkit.WebChromeClient() {
-                                        override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
-                                            android.util.Log.d(
-                                                "DeepSeekAuth",
-                                                "JS: ${consoleMessage?.message()}",
-                                            )
-                                            return super.onConsoleMessage(consoleMessage)
-                                        }
-
-                                        // DeepSeek opens the sign-in/registration form in a popup window
-                                        // in some builds. Without this override the popup would be served
-                                        // by a raw WebView (or the system browser) where the LTR fix never
-                                        // runs. Redirect the popup into the main WebView so the LTR
-                                        // injection keeps applying.
-                                        override fun onCreateWindow(
-                                            view: android.webkit.WebView?,
-                                            isDialog: Boolean,
-                                            isUserGesture: Boolean,
-                                            resultMsg: android.os.Message?,
-                                        ): Boolean {
-                                            val transport = resultMsg?.obj as? android.webkit.WebView.WebViewTransport
-                                                ?: return false
-                                            val mainView = view ?: return false
-                                            transport.setWebView(mainView)
-                                            resultMsg?.sendToTarget()
-                                            return true
-                                        }
-                                    }
-                                    webViewClient = object : WebViewClient() {
-                                        override fun onPageFinished(view: WebView?, url: String?) {
-                                            super.onPageFinished(view, url)
-                                            android.util.Log.d("DeepSeekAuth", "Page loaded: $url")
-                                        }
-                                    }
-                                    loadUrl("https://chat.deepseek.com/")
-                                    // Ensure the WebView receives focus so the soft keyboard opens
-                                    // for login form text input.
-                                    postDelayed({ requestFocus() }, 300)
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Native Login UI
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    "Авторизация в DeepSeek",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                OutlinedTextField(
+                                    value = dsEmail,
+                                    onValueChange = { dsEmail = it },
+                                    label = { Text("Email / Phone") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                OutlinedTextField(
+                                    value = dsPassword,
+                                    onValueChange = { dsPassword = it },
+                                    label = { Text("Пароль") },
+                                    singleLine = true,
+                                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Button(
+                                    onClick = {
+                                        autoLoginTriggered = true
+                                        statusText = "Авторизация... (подождите 5-10 секунд)"
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = dsEmail.isNotBlank() && dsPassword.isNotBlank() && !autoLoginTriggered
+                                ) {
+                                    Text(if (autoLoginTriggered) "Выполняется вход..." else "Войти")
                                 }
-                            },
-                            update = { webView ->
-                                // Do not call requestFocus() here as it forces recomposition
-                                // and resets the input caret, causing text to be entered backwards.
-                            },
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
-                        )
+                            }
+                            
+                            // WebView for automatic extraction (Visible for CAPTCHA if needed)
+                            AndroidView(
+                                factory = { context ->
+                                    WebView(context).apply {
+                                        webViewRef = this
+                                        isFocusable = true
+                                        isFocusableInTouchMode = true
+                                        settings.javaScriptEnabled = true
+                                        settings.domStorageEnabled = true
+                                        settings.databaseEnabled = true
+                                        settings.setSupportMultipleWindows(true)
+                                        settings.javaScriptCanOpenWindowsAutomatically = true
+                                        settings.useWideViewPort = true
+                                        settings.loadWithOverviewMode = true
+                                        settings.mixedContentMode =
+                                            android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                                        layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
+
+                                        // Remove "wv" from user agent so DeepSeek doesn't detect WebView
+                                        val defaultAgent = settings.userAgentString
+                                        settings.userAgentString = defaultAgent.replace("; wv", "")
+
+                                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+                                        webChromeClient = object : android.webkit.WebChromeClient() {
+                                            override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+                                                android.util.Log.d(
+                                                    "DeepSeekAuth",
+                                                    "JS: ${consoleMessage?.message()}",
+                                                )
+                                                return super.onConsoleMessage(consoleMessage)
+                                            }
+
+                                            // DeepSeek opens the sign-in/registration form in a popup window
+                                            // in some builds. Without this override the popup would be served
+                                            // by a raw WebView (or the system browser) where the LTR fix never
+                                            // runs. Redirect the popup into the main WebView so the LTR
+                                            // injection keeps applying.
+                                            override fun onCreateWindow(
+                                                view: android.webkit.WebView?,
+                                                isDialog: Boolean,
+                                                isUserGesture: Boolean,
+                                                resultMsg: android.os.Message?,
+                                            ): Boolean {
+                                                val transport = resultMsg?.obj as? android.webkit.WebView.WebViewTransport
+                                                    ?: return false
+                                                val mainView = view ?: return false
+                                                transport.setWebView(mainView)
+                                                resultMsg?.sendToTarget()
+                                                return true
+                                            }
+                                        }
+                                        webViewClient = object : WebViewClient() {
+                                            override fun onPageFinished(view: WebView?, url: String?) {
+                                                super.onPageFinished(view, url)
+                                                android.util.Log.d("DeepSeekAuth", "Page loaded: $url")
+                                                if (autoLoginTriggered) {
+                                                    // Try injecting JS
+                                                    val js = """
+                                                        (function() {
+                                                            var emailInput = document.querySelector('input[type="text"]');
+                                                            var passInput = document.querySelector('input[type="password"]');
+                                                            if (emailInput && passInput) {
+                                                                emailInput.value = '${dsEmail.replace("'", "\\'")}';
+                                                                emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                                
+                                                                passInput.value = '${dsPassword.replace("'", "\\'")}';
+                                                                passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                                
+                                                                setTimeout(() => {
+                                                                    var btn = document.querySelector('div.ds-button') || document.querySelector('button[type="button"]');
+                                                                    if(btn) btn.click();
+                                                                }, 500);
+                                                            }
+                                                        })();
+                                                    """.trimIndent()
+                                                    view?.evaluateJavascript(js, null)
+                                                }
+                                            }
+                                        }
+                                        loadUrl("https://chat.deepseek.com/sign_in")
+                                    }
+                                },
+                                update = { webView ->
+                                    // If trigger is set and page already loaded
+                                    if (autoLoginTriggered) {
+                                        val js = """
+                                            (function() {
+                                                var emailInput = document.querySelector('input[type="text"]');
+                                                var passInput = document.querySelector('input[type="password"]');
+                                                if (emailInput && passInput && emailInput.value === '') {
+                                                    emailInput.value = '${dsEmail.replace("'", "\\'")}';
+                                                    emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                    
+                                                    passInput.value = '${dsPassword.replace("'", "\\'")}';
+                                                    passInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                                    
+                                                    setTimeout(() => {
+                                                        var buttons = document.querySelectorAll('.ds-button, button');
+                                                        for(var i = 0; i < buttons.length; i++) {
+                                                            if(buttons[i].innerText && buttons[i].innerText.toLowerCase().includes('log')) {
+                                                                buttons[i].click();
+                                                                break;
+                                                            }
+                                                        }
+                                                    }, 500);
+                                                }
+                                            })();
+                                        """.trimIndent()
+                                        webView.evaluateJavascript(js, null)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                            )
+                        }
                     }
                 }
 

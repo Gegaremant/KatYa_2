@@ -449,7 +449,7 @@ fun QuestionInput(
                     keyboardOptions = KeyboardOptions(
                         imeAction = if (currentPlatform is Platform.Mobile) ImeAction.Default else ImeAction.Send,
                     ),
-                    minLines = 1,
+                    minLines = if (isListening) 4 else 1,
                     maxLines = 10,
                 )
                 linkValidationStatus?.let { status ->

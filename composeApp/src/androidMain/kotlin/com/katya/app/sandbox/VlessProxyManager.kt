@@ -107,17 +107,9 @@ class VlessProxyManager(
                 configFilePath.writeText(configJson)
                 AppLogger.d("VlessProxyManager", "Config written to: ${configFilePath.absolutePath}")
 
-                val configPathInSandbox = "/root/xray_config.json"
-                val distro = try {
-                    appSettings.getDistro()
-                } catch (_: Exception) {
-                    com.katya.app.data.Distro.DEBIAN
-                }
-                val xrayBinary = when (distro) {
-                    com.katya.app.data.Distro.TERMUX -> "/data/data/com.termux/files/usr/bin/xray"
-                    com.katya.app.data.Distro.DEBIAN -> "/bin/xray"
-                }
-
+                val nativeLibDir = linuxSandboxManager.nativeLibDir
+                val xrayNativeBinary = File(nativeLibDir, "libxray.so")
+                
                 launchConnectionLoop()
 
                 // Check for root
@@ -127,31 +119,31 @@ class VlessProxyManager(
                 } catch (e: Exception) {
                     false
                 }
-
+                
+                
                 if (isRooted) {
-                    AppLogger.d("VlessProxyManager", "Starting xray with root privileges")
+                    AppLogger.d("VlessProxyManager", "Starting xray with root privileges natively")
                     appSettings.setSystemStatus("Запрашиваю root-права для VLESS")
-                    val prootPath = linuxSandboxManager.prootPath
-                    val rootfs = linuxSandboxManager.rootfsPath
-                    val home = linuxSandboxManager.homePath
-                    val tmp = linuxSandboxManager.tmpPath
-
-                    val command = "$prootPath -0 --rootfs=$rootfs --bind=/dev --bind=/proc --bind=/sys --bind=$home:/root --bind=$tmp:/tmp -w /root /bin/sh -c '$xrayBinary -c $configPathInSandbox'"
+                    val command = "${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
                     AppLogger.d("VlessProxyManager", "Root command: $command")
-
+                    
                     rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
                     rootProcess?.waitFor()
                 } else {
-                    AppLogger.d("VlessProxyManager", "Starting xray with proot (non-root)")
-                    val executor = linuxSandboxManager.createProotExecutor()
-                    val cmd = "$xrayBinary -c $configPathInSandbox"
-                    AppLogger.d("VlessProxyManager", "Non-root command: $cmd")
-                    prootHandle = executor.executeStreaming(
-                        command = cmd,
-                        onStdout = { AppLogger.d("XrayOut", it) },
-                        onStderr = { AppLogger.e("XrayErr", it) },
-                    )
-                    prootHandle?.awaitExit()
+                    AppLogger.d("VlessProxyManager", "Starting xray natively (non-root)")
+                    val command = arrayOf(xrayNativeBinary.absolutePath, "-c", configFilePath.absolutePath)
+                    AppLogger.d("VlessProxyManager", "Non-root command: ${command.joinToString(" ")}")
+                    
+                    rootProcess = ProcessBuilder(*command)
+                        .redirectErrorStream(true)
+                        .start()
+                    
+                    val reader = java.io.BufferedReader(java.io.InputStreamReader(rootProcess!!.inputStream))
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        AppLogger.d("XrayOut", line ?: "")
+                    }
+                    rootProcess?.waitFor()
                 }
             } catch (e: Exception) {
                 AppLogger.e("VlessProxyManager", "Error starting VLESS proxy: ${e.message}\n${e.stackTraceToString()}")

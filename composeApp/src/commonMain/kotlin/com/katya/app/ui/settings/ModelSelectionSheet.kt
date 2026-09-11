@@ -192,15 +192,13 @@ private enum class ModelSortOption(
 
 @Composable
 private fun ModelCard(model: SettingsModel, isSelected: Boolean, onClick: () -> Unit) {
-    var rawTitle = model.displayName?.takeIf { it.isNotBlank() && it != model.id } ?: model.id
-    val lower = rawTitle.lowercase()
-    if (lower.contains("vision") || lower.contains("vl") || lower.contains("llava") || lower.contains("minicpm")) {
-        if (!rawTitle.contains("Vision")) rawTitle += " 👁 (Vision)"
+    val rawTitle = model.displayName?.takeIf { it.isNotBlank() && it != model.id } ?: model.id
+    val title = if (com.katya.app.data.modelSupportsImages(model.id)) {
+        "$rawTitle 👁️ (Vision)"
     } else {
-        if (!rawTitle.contains("Text")) rawTitle += " 📝 (Text)"
+        rawTitle
     }
-
-    val title = rawTitle
+    
     val displayName = model.displayName?.takeIf { it.isNotBlank() && it != model.id }
     val secondary = if (displayName == null && model.subtitle.isNotBlank()) model.subtitle else null
     val contextText = model.contextWindow?.let { formatContextWindow(it) }

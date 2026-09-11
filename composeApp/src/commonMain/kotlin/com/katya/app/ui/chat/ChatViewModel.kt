@@ -5,9 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.katya.app.data.Conversation
 import com.katya.app.data.DataRepository
 import com.katya.app.data.FreeMode
+import com.katya.app.data.KatyaFile
+import com.katya.app.data.ScheduledTask
 import com.katya.app.data.Service
 import com.katya.app.data.ServiceEntry
 import com.katya.app.data.TaskScheduler
+import com.katya.app.data.modelSupportsImages
 import com.katya.app.data.UiSubmission
 import com.katya.app.device.DeviceInfoProvider
 import com.katya.app.device.NetworkStatusProvider
@@ -397,6 +400,24 @@ class ChatViewModel(
                 return@launch
             }
             try {
+                // Check if user is trying to send images to a vision-blind model
+                if (files.any { it.mimeType()?.startsWith("image/") == true }) {
+                    val serviceEntry = dataRepository.getServiceEntries().firstOrNull()
+                    if (serviceEntry != null) {
+                        val service = Service.fromId(serviceEntry.serviceId)
+                        if (!service.supportsImages || !modelSupportsImages(serviceEntry.modelId)) {
+                            _state.update {
+                                it.copy(
+                                    error = UiError.Message("Вы прикрепили изображение, но текущая модель не умеет их распознавать. Пожалуйста, выберите Vision-модель (например, gpt-4o, claude-3-opus, llava, qwen-vl)."),
+                                    isLoading = false,
+                                    files = files, // Restore files so user can remove them or change model
+                                )
+                            }
+                            return@launch
+                        }
+                    }
+                }
+
                 dataRepository.ask(strippedQuestion, files, uiSubmission, activeSkillId)
 
                 // Auto-retry in interactive mode if the response has no valid katya-ui

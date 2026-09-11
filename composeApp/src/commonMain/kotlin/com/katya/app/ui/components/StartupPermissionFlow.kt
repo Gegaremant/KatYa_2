@@ -313,15 +313,26 @@ fun StartupPermissionFlow(
                             onRequest = {
                                 coroutineScope.launch {
                                     isCheckingRoot = true
-                                    hasRoot = withContext(Dispatchers.Default) {
-                                        commandExecutor.isRootAvailable()
+                                    var attempts = 0
+                                    hasRoot = false
+                                    while (attempts < 15 && !hasRoot) {
+                                        hasRoot = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+                                            commandExecutor.isRootAvailable()
+                                        }
+                                        if (hasRoot) break
+                                        kotlinx.coroutines.delay(1000)
+                                        attempts++
                                     }
                                     if (hasRoot) {
                                         RootHelper.grantAllPermissions()
-                                        // Update state immediately to show as granted
-                                        hasMicrophone = true
-                                        hasGodModePack = true
-                                        hasNotifications = true
+                                        kotlinx.coroutines.delay(1000)
+                                        // Sync settings checkboxes with actual permission state
+                                        hasMicrophone = audioController.hasPermission()
+                                        hasAccessibility = accessibilityController.hasPermission()
+                                        hasNotifications = notificationController.hasPermission()
+                                        hasGodModePack = smsController.hasPermission() &&
+                                                smsSendController.hasPermission() &&
+                                                calendarController.hasPermission()
                                     }
                                     isCheckingRoot = false
                                 }

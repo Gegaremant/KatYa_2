@@ -73,8 +73,8 @@ KatYa/
 Если вам нужно обновить версию приложения (например, для нового релиза):
 1. Откройте `gradle/libs.versions.toml`.
 2. Измените параметры в блоке `[versions]`:
-   - `appVersion = "3.1.4-git"` (Отображаемая версия)
-   - `android-versionCode = "146"` (Код сборки для Google Play)
+   - `appVersion = "3.1.5-git"` (Отображаемая версия)
+   - `android-versionCode = "147"` (Код сборки для Google Play)
 3. Синхронизируйте проект. Версия для UI (`composeApp/src/commonMain/kotlin/com/katya/app/AppVersion.kt`) и версия для манифеста (`gradle/libs.versions.toml`, генерируется `Version.kt`) должны совпадать — при сборке релиза обновляйте оба места.
 
 ---
