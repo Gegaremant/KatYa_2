@@ -1,93 +1,125 @@
 # Katya AI Assistant
 
-<img src="https://img.shields.io/badge/Platform-Android-34a853.svg?logo=android" alt="Android" />
 <div align="center">
 <br>
-<img src="katya_icon.png" height="250">
+<img src="KatYa-3.1.jpg" height="400">
 <br>
 <br>
 
-**KatYa** — это автономный AI-ассистент для Android-устройств с персистентной памятью, встроенной средой Linux (PRoot) и возможностью полного системного контроля (Root/God Mode).
+# [📥 Скачать последнюю версию / Download latest version 📥](https://github.com/Gegaremant/KatYa_2/releases/latest)
+
+[![RU](https://img.shields.io/badge/Язык-Русский-blue)](#-русский) | [![EN](https://img.shields.io/badge/Language-English-red)](#-english)
 
 </div>
 
 ---
 
-## 🌟 Ключевые возможности
+# 🇷🇺 Русский
 
-- **Автономность и Память**: Агент способен работать в фоне, выполнять запланированные задачи (cron/heartbeat) и автоматически запоминать важные факты из общения.
-- **Режимы работы**: 
-  - **God Mode (Root)**: Полный контроль над ОС Android (выполнение shell-команд, управление пакетами).
-  - **Sandbox (PRoot)**: Встроенное Debian-окружение для запуска Node.js, Python и Linux-утилит (например, локальный сервер DeepSeek или Xray Core).
-- **Оффлайн и Облачные LLM**: 
-  - Интеграция с локальными моделями через `LiteRT` (выполнение прямо на устройстве).
-  - Поддержка внешних API (OpenAI-совместимые, Ollama, VLLM) и SSH-туннелирования для обхода ограничений.
-- **Локальный Голос (STT / TTS)**: Оффлайн распознавание речи с использованием **Vosk** / **GKPSR** и синтез речи на базе **Piper**, что обеспечивает полную приватность.
-- **Интеграция с сетью и прокси**: Встроенный менеджер VLESS / Xray для управления локальными и удаленными прокси-соединениями с автоматической проверкой работоспособности.
-- **Динамический UI (Dynamic UI)**: Генерация нативного Android Compose интерфейса "на лету" силами самой нейросети.
+## 📖 Описание проекта (Для чего это нужно?)
 
----
+**KatYa** — это продвинутый и полностью автономный AI-ассистент для Android-устройств. Проект создан для тех, кто хочет иметь мощный искусственный интеллект прямо в своем кармане с максимальной приватностью. 
+В отличие от обычных ботов, Катя обладает собственной памятью, может работать в фоне и умеет управлять операционной системой Android. Благодаря встроенной песочнице (PRoot) и возможности получения Root-прав, это не просто чат, а полноценный инструмент для автоматизации, выполнения команд и локального запуска нейросетей.
 
-## 🗺 Карта проекта (Структура папок)
+## 🌟 Возможности Кати
 
-Ниже представлено описание файловой структуры репозитория и основных скриптов:
+- **Абсолютная автономность**: Работает в фоновом режиме, самостоятельно выполняет запланированные задачи и проводит регулярный самоанализ (Heartbeat).
+- **Персистентная память**: Автоматически запоминает важные факты о вас и контекст прошлых бесед, развиваясь вместе с пользователем.
+- **Два режима доступа**:
+  - **God Mode (Root)**: Полный контроль над Android. Катя может выполнять любые shell-команды напрямую от имени суперпользователя.
+  - **Sandbox (PRoot)**: Встроенная изолированная Linux-среда. Позволяет запускать Node.js, Python, локальные серверы и утилиты прямо на телефоном без вреда для ОС.
+- **Приватность и Локальная работа**:
+  - Распознавание голоса (STT) работает локально через Vosk без интернета.
+  - Синтез речи (TTS) работает локально через Piper.
+  - Поддержка запуска локальных LLM моделей через LiteRT прямо на устройстве (формат GGUF).
+- **Обход блокировок**: Встроенная поддержка VLESS / Xray для подключения к облачным моделям (OpenAI, DeepSeek и др.) через защищенные прокси, работающая нативно и без ограничений.
 
-`	ext
+## 📂 Структура проекта и Описание папок
+
+Проект построен с использованием Kotlin Multiplatform и Jetpack Compose, что обеспечивает современную архитектуру.
+
+```text
 KatYa/
-├── androidApp/          # Точка входа Android-приложения (Сборка, манифест, подписи и Gradle-скрипты)
-├── composeApp/          # Основной кроссплатформенный исходный код (Kotlin Multiplatform)
-│   ├── src/androidMain/ # Специфичные для Android реализации (Platform-specific API)
-│   │   ├── browser/     # Управление встроенным WebView (KatyaWebView)
-│   │   ├── inference/   # Запуск локальных ML-моделей (LiteRT) через аппаратное ускорение
-│   │   ├── network/     # Проверка прокси и работы локальной сети (ProxyConnectionChecker)
-│   │   ├── sandbox/     # Управление Debian PRoot (LinuxSandboxManager), FreeDeepSeek API и VLESS Manager
-│   │   ├── stt/         # Распознавание речи (Vosk, GKPSR, WakeWordPlatform)
-│   │   ├── tools/       # Исполнение root-команд, загрузчики файлов, SSH-клиент, управление будильниками
-│   │   └── voice/       # Службы VoiceInteractionService и AccessibilityService для системного взаимодействия
-│   │
-│   └── src/commonMain/  # Общая бизнес-логика и UI (Compose Multiplatform)
-│       ├── data/        # Настройки (AppSettings), миграции БД, локальное хранилище и персистентность
-│       ├── inference/   # Общие абстракции для работы с LLM (Локальные и удаленные запросы)
-│       ├── network/     # HTTP-клиенты (Ktor) и API-интеграции
-│       ├── skills/      # Модуль расширений и навыков (Hermes Skills) для агента
-│       ├── stt/         # Интерфейсы STT/TTS
-│       ├── tools/       # Общие инструменты агента (Заметки, Календарь, IntentTool)
-│       └── ui/          # Экраны (Chat, Settings), графики, Markdown-рендер и динамические UI-компоненты
-│
-├── gradle/              # Конфигурации Gradle. Содержит libs.versions.toml (централизованное управление версиями)
-├── release_notes_v3.md  # Детальная история изменений (Release Notes) для 3.x ветки
-├── RELEASE_NOTES.md     # Архив старых релиз-ноутов (до 3.0)
-└── README.md            # Этот файл
-`
+├── androidApp/          # Точка входа для Android приложения, платформенно-специфичный код (манифест, JNI, запуск).
+├── composeApp/          # Основная логика приложения и UI на базе Compose Multiplatform.
+│   └── src/
+│       ├── androidMain/ # Android-специфичные реализации интерфейсов (Root-доступ, сервисы, WebView).
+│       └── commonMain/  # Общая бизнес-логика, UI экраны (Settings, Chat), работа с БД, интеграции API и работа с локальными LLM.
+├── gradle/              # Конфигурация сборки Gradle и версии библиотек (libs.versions.toml).
+├── release_notes/       # История релизов и списки изменений (Changelogs).
+└── ...                  # Файлы конфигурации CI/CD, Git и скрипты сборки.
+```
 
-### 📂 Что лежит в ключевых папках?
-- **`sandbox/`**: Содержит логику развертывания Debian прямо внутри Android (без root). Здесь лежат скрипты установки `npm`, запуска VLESS-прокси и поднятия локального Node.js-сервера (например, для FreeDeepSeek API).
-- **`tools/`**: Системные "руки" Кати. Здесь реализованы `CommandExecutor` для Bash/Root-скриптов, `SshClient` для туннелей, интеграции с SMS и календарем.
-- **`data/`**: Все, что связано с памятью приложения: SQLite (через SQLDelight) для истории чата, хранилище `katya_secure_prefs.xml` и механизмы бэкапа/восстановления конфигураций.
+## 🚀 Сборка локально
 
----
-
-## 🛠 Версионирование
-
-В проекте используется централизованное управление версиями через **Gradle Version Catalog**. 
-Если вам нужно обновить версию приложения (например, для нового релиза):
-1. Откройте `gradle/libs.versions.toml`.
-2. Измените параметры в блоке `[versions]`:
-   - `appVersion = "3.1.5-git"` (Отображаемая версия)
-   - `android-versionCode = "147"` (Код сборки для Google Play)
-3. Синхронизируйте проект. Версия для UI (`composeApp/src/commonMain/kotlin/com/katya/app/AppVersion.kt`) и версия для манифеста (`gradle/libs.versions.toml`, генерируется `Version.kt`) должны совпадать — при сборке релиза обновляйте оба места.
-
----
-
-## 🚀 Установка и сборка
-
-1. Клонируйте репозиторий.
-2. Откройте проект в Android Studio (или Fleet).
-3. Дождитесь загрузки Gradle-зависимостей.
-4. Выполните сборку:
-   `ash
+1. Склонируйте репозиторий:
+   ```bash
+   git clone https://github.com/Gegaremant/KatYa_2.git
+   cd KatYa_2/KatYa
+   ```
+2. Откройте проект в **Android Studio** (или Fleet) и дождитесь загрузки Gradle-зависимостей.
+3. Соберите проект через терминал:
+   ```bash
+   # Для сборки отладочной версии:
    ./gradlew assembleDebug
-   `
-5. Для работы в `God Mode` убедитесь, что ваше устройство имеет **Root-права** (Magisk/KernelSU). Если прав нет, используйте режим **Sandbox**.
 
-*Подробные изменения последних версий можно найти в [release_notes_v3.md](release_notes_v3.md).*
+   # Для сборки релизной версии:
+   ./gradlew assembleRelease
+   ```
+4. Установите получившийся APK на устройство. Для использования `God Mode` убедитесь, что на устройстве установлены Root-права (Magisk/KernelSU). Если прав нет, используйте `Sandbox`.
+
+---
+
+# 🇬🇧 English
+
+## 📖 Project Description (Why is this needed?)
+
+**KatYa** is an advanced and fully autonomous AI assistant for Android devices. This project is built for those who want a powerful artificial intelligence right in their pocket with maximum privacy.
+Unlike standard chatbots, Katya has her own persistent memory, can operate in the background, and can control the Android operating system. Thanks to a built-in PRoot sandbox and optional Root access, this is not just a chat interface, but a full-fledged tool for automation, shell command execution, and running local neural networks.
+
+## 🌟 Katya's Features
+
+- **Absolute Autonomy**: Operates in the background, autonomously executes scheduled tasks, and performs regular self-reflection (Heartbeat).
+- **Persistent Memory**: Automatically remembers important facts about you and past conversation contexts, growing alongside the user.
+- **Two Access Modes**:
+  - **God Mode (Root)**: Full control over Android. Katya can execute shell commands directly as a superuser.
+  - **Sandbox (PRoot)**: Built-in isolated Linux environment. Allows you to run Node.js, Python, local servers, and utilities directly on the phone without harming the OS.
+- **Privacy and Local Execution**:
+  - Voice recognition (STT) works locally offline via Vosk.
+  - Text-to-speech (TTS) works locally offline via Piper.
+  - Support for running local LLM models via LiteRT directly on the device (GGUF format).
+- **Censorship Bypass**: Built-in VLESS / Xray support for connecting to cloud models (OpenAI, DeepSeek, etc.) via secure proxies, running natively and unrestrictedly.
+
+## 📂 Project Structure and Folders
+
+The project is built using Kotlin Multiplatform and Jetpack Compose, providing a modern architecture.
+
+```text
+KatYa/
+├── androidApp/          # Android entry point, platform-specific code (Manifest, JNI, launch logic).
+├── composeApp/          # Main application logic and UI based on Compose Multiplatform.
+│   └── src/
+│       ├── androidMain/ # Android-specific implementations (Root access, Background Services, WebView).
+│       └── commonMain/  # Shared business logic, UI screens (Settings, Chat), DB operations, API integrations, and local LLM logic.
+├── gradle/              # Gradle build configurations and library versions (libs.versions.toml).
+├── release_notes/       # Release history and Changelogs.
+└── ...                  # CI/CD configurations, Git files, and build scripts.
+```
+
+## 🚀 Local Build Instructions
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Gegaremant/KatYa_2.git
+   cd KatYa_2/KatYa
+   ```
+2. Open the project in **Android Studio** (or Fleet) and wait for the Gradle dependencies to sync.
+3. Build the project via terminal:
+   ```bash
+   # Build the debug version:
+   ./gradlew assembleDebug
+
+   # Build the release version:
+   ./gradlew assembleRelease
+   ```
+4. Install the resulting APK on your device. To use `God Mode`, make sure your device has Root access (Magisk/KernelSU). If you don't have Root, you can still use the `Sandbox` mode.

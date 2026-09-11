@@ -408,7 +408,7 @@ class ChatViewModel(
                         if (!service.supportsImages || !modelSupportsImages(serviceEntry.modelId)) {
                             _state.update {
                                 it.copy(
-                                    error = UiError.Message("Вы прикрепили изображение, но текущая модель не умеет их распознавать. Пожалуйста, выберите Vision-модель (например, gpt-4o, claude-3-opus, llava, qwen-vl)."),
+                                    error = UiError.Text("Вы прикрепили изображение, но текущая модель не умеет их распознавать. Пожалуйста, выберите Vision-модель (например, gpt-4o, claude-3-opus, llava, qwen-vl)."),
                                     isLoading = false,
                                     files = files, // Restore files so user can remove them or change model
                                 )

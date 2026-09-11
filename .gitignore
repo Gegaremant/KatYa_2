@@ -54,3 +54,10 @@ trash/
 release_latest.json
 build_log.txt
 scris/
+
+#helpers settings
+.claude
+.continue
+.github
+.vscode
+.tmp

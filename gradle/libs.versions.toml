@@ -1,10 +1,10 @@
 [versions]
 
 
-appVersion = "3.1.5-git"
-appVersionCode = "147"
+appVersion = "3.1.6-git"
+appVersionCode = "148"
 agp = "9.2.1"
-android-versionCode = "147"
+android-versionCode = "148"
 android-compileSdk = "37"
 android-minSdk = "26"
 android-targetSdk = "37"
