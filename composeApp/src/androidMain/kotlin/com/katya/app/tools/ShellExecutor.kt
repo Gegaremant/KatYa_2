@@ -24,8 +24,8 @@ import java.util.concurrent.TimeUnit
 object ShellExecutor {
 
     const val DEFAULT_TIMEOUT_MS = 15_000L
-    const val ROOT_CHECK_TIMEOUT_MS = 3_000L
-    private const val ROOT_CACHE_TTL_MS = 10_000L
+    const val ROOT_CHECK_TIMEOUT_MS = 15_000L
+    private const val ROOT_CACHE_TTL_MS = 15_000L
 
     data class ExecResult(
         val isSuccess: Boolean,

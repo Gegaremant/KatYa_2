@@ -863,28 +863,24 @@ actual fun getDirectoryPath(directory: Any?): String? {
     return uriString
 }
 
-actual suspend fun writeSkillFile(skillId: String, fileName: String, content: String): Boolean {
-    return try {
-        val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
-        val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
-        skillDir.mkdirs()
-        val targetFile = java.io.File(skillDir, fileName)
-        targetFile.parentFile?.mkdirs()
-        targetFile.writeText(content)
-        true
-    } catch (e: Exception) {
-        false
-    }
+actual suspend fun writeSkillFile(skillId: String, fileName: String, content: String): Boolean = try {
+    val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
+    val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
+    skillDir.mkdirs()
+    val targetFile = java.io.File(skillDir, fileName)
+    targetFile.parentFile?.mkdirs()
+    targetFile.writeText(content)
+    true
+} catch (e: Exception) {
+    false
 }
 
-actual suspend fun deleteSkillDir(skillId: String): Boolean {
-    return try {
-        val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
-        val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
-        skillDir.deleteRecursively()
-    } catch (e: Exception) {
-        false
-    }
+actual suspend fun deleteSkillDir(skillId: String): Boolean = try {
+    val sandboxManager: LinuxSandboxManager = org.koin.java.KoinJavaComponent.getKoin().get()
+    val skillDir = java.io.File(sandboxManager.homePath, "skills/$skillId")
+    skillDir.deleteRecursively()
+} catch (e: Exception) {
+    false
 }
 
 actual suspend fun readSandboxSkillFiles(): Map<String, String> {

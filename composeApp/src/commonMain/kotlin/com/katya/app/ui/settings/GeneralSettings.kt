@@ -255,6 +255,10 @@ private fun AgentVisibilityToggle(
     isAgentVisibilityEnabled: Boolean,
     onToggleAgentVisibility: (Boolean) -> Unit,
 ) {
+    val appSettings = org.koin.compose.koinInject<com.katya.app.data.AppSettings>()
+    var voiceThoughts by remember { mutableStateOf(appSettings.isShowAndVoiceThoughtsEnabled()) }
+    val isVoiceResponseEnabled = appSettings.isVoiceResponseEnabled()
+
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
             title = "Видимость работы",
@@ -262,9 +266,19 @@ private fun AgentVisibilityToggle(
             checked = isAgentVisibilityEnabled,
             onCheckedChange = onToggleAgentVisibility,
         )
+        Spacer(Modifier.height(16.dp))
+        ToggleableHeadline(
+            title = "Показ и озвучивание размышлений",
+            description = "Катя будет проговаривать свои мысли вслух",
+            checked = voiceThoughts && isVoiceResponseEnabled,
+            enabled = isVoiceResponseEnabled,
+            onCheckedChange = {
+                voiceThoughts = it
+                appSettings.setShowAndVoiceThoughtsEnabled(it)
+            },
+        )
     }
 }
-
 
 @Composable
 private fun ThemeModePicker(

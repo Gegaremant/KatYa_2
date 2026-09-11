@@ -229,6 +229,7 @@ fun StartupPermissionFlow(
                     )
 
                     var showNoRootDialog by remember { mutableStateOf(false) }
+                    var isCheckingRoot by remember { mutableStateOf(false) }
 
                     if (showNoRootDialog) {
                         AlertDialog(
@@ -257,16 +258,20 @@ fun StartupPermissionFlow(
                         description = "Полная власть над устройством. Требуются Root-права (Magisk) и все доступы.",
                         selected = isSandbox && isGodMode,
                         accent = true,
+                        isLoading = isCheckingRoot,
                         onClick = {
+                            if (isCheckingRoot) return@ModeSelectorItem
+                            isCheckingRoot = true
                             coroutineScope.launch {
                                 val rootAvailable = withContext(Dispatchers.Default) {
                                     commandExecutor.isRootAvailable()
                                 }
+                                isCheckingRoot = false
                                 if (rootAvailable) {
                                     isSandbox = true
                                     isGodMode = true
                                     hasRoot = true
-                                    
+
                                     // Request all possible runtime permissions immediately
                                     audioController.requestPermission()
                                     notificationController.requestPermission()
@@ -462,6 +467,7 @@ private fun ModeSelectorItem(
     description: String,
     selected: Boolean,
     accent: Boolean = false,
+    isLoading: Boolean = false,
     onClick: () -> Unit,
 ) {
     val borderColor = when {
@@ -479,22 +485,31 @@ private fun ModeSelectorItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
+            .clickable(enabled = !isLoading) { onClick() }
             .border(1.5.dp, borderColor, RoundedCornerShape(14.dp)),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
         shape = RoundedCornerShape(14.dp),
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(
-                    selected = selected,
-                    onClick = onClick,
-                    colors = RadioButtonDefaults.colors(
-                        selectedColor = if (accent) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
-                        unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    ),
-                )
-                Spacer(Modifier.width(8.dp))
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = if (accent) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(16.dp))
+                } else {
+                    RadioButton(
+                        selected = selected,
+                        onClick = onClick,
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = if (accent) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                            unselectedColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        ),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),

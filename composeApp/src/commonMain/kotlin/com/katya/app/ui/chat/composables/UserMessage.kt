@@ -118,7 +118,7 @@ internal fun UserMessage(
                         text = timestampMs.toMessageTime(),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                        modifier = Modifier.align(Alignment.End).padding(top = 4.dp)
+                        modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
                     )
                 }
             }

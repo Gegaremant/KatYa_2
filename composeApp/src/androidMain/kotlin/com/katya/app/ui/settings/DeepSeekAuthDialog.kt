@@ -39,35 +39,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Forced LTR (left-to-right) rendering fix for DeepSeek's login/registration form.
- *
- * DeepSeek mirrors its form fields when the device/system locale is right-to-left,
- * so the entered login/password come out reversed and are rejected. Earlier attempts
- * called `document.setAttribute('dir', 'ltr')`, but setAttribute exists only on
- * Element, so the call on `document` failed silently and no stylesheet was injected.
- *
- * This version targets documentElement/body directly, injects a persistent stylesheet
- * for dynamically-inserted fields, and installs a MutationObserver so the fix survives
- * SPA re-renders instead of applying only once.
- */
-private val ltrFixJs = """
-    (function() {
-        var STYLE_ID = '__katya_ltr_force__';
-        if (document.getElementById(STYLE_ID)) return;
-        try {
-            var style = document.createElement('style');
-            style.id = STYLE_ID;
-            style.type = 'text/css';
-            style.textContent =
-                'html, body, [dir], * { direction: ltr !important; text-align: left !important; }' +
-                'input, textarea, select, [contenteditable] { direction: ltr !important; text-align: left !important; }' +
-                'input::placeholder, textarea::placeholder { text-align: left !important; }';
-            var head = document.head || document.documentElement;
-            if (head) head.appendChild(style);
-        } catch (e) {}
-    })();
-""".trimIndent()
+
 
 @Composable
 actual fun PlatformDeepSeekAuthDialog(
@@ -253,7 +225,6 @@ actual fun PlatformDeepSeekAuthDialog(
                                         override fun onPageFinished(view: WebView?, url: String?) {
                                             super.onPageFinished(view, url)
                                             android.util.Log.d("DeepSeekAuth", "Page loaded: $url")
-                                            view?.evaluateJavascript(ltrFixJs, null)
                                         }
                                     }
                                     loadUrl("https://chat.deepseek.com/")
@@ -263,7 +234,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                 }
                             },
                             update = { webView ->
-                                // Do not call requestFocus() here as it forces recomposition 
+                                // Do not call requestFocus() here as it forces recomposition
                                 // and resets the input caret, causing text to be entered backwards.
                             },
                             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -271,20 +242,7 @@ actual fun PlatformDeepSeekAuthDialog(
                     }
                 }
 
-                // Keep the LTR fix applied while the SPA re-renders: dynamically created forms
-                // (registration/sign-in) are re-processed periodically in addition to the
-                // onPageFinished hook.
-                LaunchedEffect(Unit) {
-                    while (true) {
-                        delay(1200)
-                        val wv = webViewRef
-                        if (wv != null) {
-                            wv.post {
-                                runCatching { wv.evaluateJavascript(ltrFixJs, null) }
-                            }
-                        }
-                    }
-                }
+
 
                 // Close button
                 IconButton(

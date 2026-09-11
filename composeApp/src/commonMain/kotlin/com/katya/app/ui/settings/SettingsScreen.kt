@@ -437,7 +437,7 @@ fun SettingsScreenContent(
                             }
 
                             SettingsTab.Agent -> {
-                                AgentContent(uiState = filteredUiState, actions = actions)
+                                AgentContent(uiState = filteredUiState, actions = actions, textToSpeech = textToSpeech)
                             }
 
                             SettingsTab.Services -> {

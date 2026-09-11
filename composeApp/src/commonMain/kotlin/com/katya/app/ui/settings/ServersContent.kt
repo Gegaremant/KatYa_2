@@ -51,7 +51,7 @@ fun ServersContent(
     var showConnectionStatus by remember { mutableStateOf(appSettings.isShowConnectionStateEnabled()) }
 
     // Voice thoughts
-    var voiceThoughts by remember { mutableStateOf(appSettings.isShowAndVoiceThoughtsEnabled()) }
+
     val isVoiceResponseEnabled = appSettings.isVoiceResponseEnabled()
 
     // Logging
@@ -204,27 +204,23 @@ fun ServersContent(
                                                     if (connected) break
                                                 }
 
-                                                if (connected) {
-                                                    val id = "vless_${kotlin.random.Random.nextInt()}"
-                                                    proxies = proxies + VlessProxyProfile(id, newName, newUri)
-                                                    appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
-                                                    appSettings.setActiveVlessProxyId(id)
+                                                val id = "vless_${kotlin.random.Random.nextInt()}"
+                                                proxies = proxies + VlessProxyProfile(id, newName, newUri)
+                                                appSettings.setVlessProxyProfilesJson(kotlinx.serialization.json.Json.encodeToString(proxies))
+                                                appSettings.setActiveVlessProxyId(id)
 
+                                                if (connected) {
                                                     buttonText = "Сохранить"
                                                     showSuccess = true
-                                                    // Instead of isAddingNew, just clear fields
-                                                    newName = ""
-                                                    newUri = ""
-
-                                                    kotlinx.coroutines.delay(2000)
-                                                    showSuccess = false
                                                 } else {
-                                                    appSettings.setActiveConnectionMode(oldMode)
-                                                    appSettings.setVlessUri(oldUri)
-                                                    appSettings.setActiveVlessProxyId(oldId)
-
-                                                    buttonText = "Ошибка! Проверь логи"
+                                                    buttonText = "Нет связи (сохранено)"
+                                                    showSuccess = true
                                                 }
+                                                newName = ""
+                                                newUri = ""
+
+                                                kotlinx.coroutines.delay(3000)
+                                                showSuccess = false
                                                 isChecking = false
                                             }
                                         }
@@ -422,21 +418,7 @@ fun ServersContent(
 
         Spacer(Modifier.height(16.dp))
 
-        // Voice thoughts
-        SettingsCard {
-            ToggleableHeadline(
-                title = "Показ и озвучивание размышлений",
-                description = "Катя будет проговаривать свои мысли вслух",
-                checked = voiceThoughts && isVoiceResponseEnabled,
-                enabled = isVoiceResponseEnabled,
-                onCheckedChange = {
-                    voiceThoughts = it
-                    appSettings.setShowAndVoiceThoughtsEnabled(it)
-                },
-            )
-        }
 
-        Spacer(Modifier.height(16.dp))
 
         // Logging
         SettingsCard {

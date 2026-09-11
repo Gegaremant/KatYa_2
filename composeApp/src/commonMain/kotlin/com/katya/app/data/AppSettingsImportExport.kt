@@ -170,6 +170,11 @@ fun AppSettings.exportToJson(
         map["vless_enabled"] = JsonPrimitive(isVlessEnabled())
         val vlessUri = getVlessUri()
         if (vlessUri.isNotBlank()) map["vless_uri"] = JsonPrimitive(vlessUri)
+        map["vless_proxy_profiles"] = JsonPrimitive(getVlessProxyProfilesJson())
+        val activeVlessProxyId = getActiveVlessProxyId()
+        if (activeVlessProxyId.isNotBlank()) map["active_vless_proxy_id"] = JsonPrimitive(activeVlessProxyId)
+        map["active_connection_mode"] = JsonPrimitive(getActiveConnectionMode())
+        map["agent_visibility_enabled"] = JsonPrimitive(isAgentVisibilityEnabled())
     }
 
     return JsonObject(map)
@@ -418,6 +423,10 @@ fun AppSettings.importFromJson(
             setTunnelPersistentReconnectEnabled(json["tunnel_persistent_reconnect"]?.jsonPrimitive?.content?.toBoolean() ?: false)
             setVlessEnabled(json["vless_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: false)
             setVlessUri(json["vless_uri"]?.jsonPrimitive?.content ?: "")
+            json["vless_proxy_profiles"]?.jsonPrimitive?.content?.let { setVlessProxyProfilesJson(it) }
+            json["active_vless_proxy_id"]?.jsonPrimitive?.content?.let { setActiveVlessProxyId(it) }
+            json["active_connection_mode"]?.jsonPrimitive?.content?.let { setActiveConnectionMode(it) }
+            json["agent_visibility_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setAgentVisibilityEnabled(it) }
         } catch (_: Exception) {
             errors++
         }
@@ -429,6 +438,10 @@ fun AppSettings.importFromJson(
         setTunnelPersistentReconnectEnabled(false)
         setVlessEnabled(false)
         setVlessUri("")
+        setVlessProxyProfilesJson("[]")
+        setActiveVlessProxyId("")
+        setActiveConnectionMode("LOCAL")
+        setAgentVisibilityEnabled(true)
     }
 
     return errors

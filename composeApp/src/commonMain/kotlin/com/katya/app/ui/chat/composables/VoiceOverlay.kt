@@ -99,6 +99,7 @@ private fun ListeningBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -121,13 +122,14 @@ private fun ListeningBar(
                     text = if (partialResults.isNotBlank()) partialResults else "Внимаю...",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 10,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 )
             }
             IconButton(
                 onClick = onCancel,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(32.dp).padding(start = 8.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,

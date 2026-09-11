@@ -235,7 +235,7 @@ class ChatViewModel(
                     val (connectionText, networkConnected) = if (showConnection) {
                         buildConnectionStatus(
                             selectedService = _state.value.availableServices.firstOrNull(),
-                            isLoading = _state.value.isLoading
+                            isLoading = _state.value.isLoading,
                         )
                     } else {
                         null to false
@@ -281,10 +281,10 @@ class ChatViewModel(
 
     private suspend fun buildConnectionStatus(
         selectedService: ServiceEntry?,
-        isLoading: Boolean
+        isLoading: Boolean,
     ): Pair<String?, Boolean> {
         if (!isLoading) return null to false
-        
+
         val provider = networkStatusProvider ?: return null to false
         val status = provider.getNetworkStatus() ?: return null to false
         val apiText = selectedService?.serviceName?.let { "API: $it" } ?: "API: Auto"
@@ -298,7 +298,7 @@ class ChatViewModel(
                 if (d >= 0f) add("↓ ${formatSpeed(d)}")
                 if (u >= 0f) add("↑ ${formatSpeed(u)}")
             }
-            
+
             add(apiText)
         }
         return parts.joinToString(" · ") to true

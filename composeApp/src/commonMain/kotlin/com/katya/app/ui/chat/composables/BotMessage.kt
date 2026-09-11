@@ -150,7 +150,7 @@ internal fun BotMessage(
                 text = timestampMs.toMessageTime(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp).align(Alignment.CenterVertically)
+                modifier = Modifier.padding(start = 12.dp, top = 8.dp, end = 8.dp).align(Alignment.CenterVertically),
             )
         }
         if (textToSpeech != null) {
