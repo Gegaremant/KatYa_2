@@ -225,6 +225,16 @@ data class ServiceInstance(
 class AppSettings(internal val settings: Settings) {
     companion object {
         private const val KEY_LOG_FILE_PATH = "log_file_path"
+        private const val KEY_VISION_HELPER_INSTANCE_ID = "vision_helper_instance_id"
+    }
+
+    fun getVisionHelperInstanceId(): String? = settings.getStringOrNull(KEY_VISION_HELPER_INSTANCE_ID)
+    fun setVisionHelperInstanceId(id: String?) {
+        if (id != null) {
+            settings.putString(KEY_VISION_HELPER_INSTANCE_ID, id)
+        } else {
+            settings.remove(KEY_VISION_HELPER_INSTANCE_ID)
+        }
     }
 
     fun getLogFilePath(): String? = settings.getStringOrNull(KEY_LOG_FILE_PATH)
@@ -481,11 +491,7 @@ class AppSettings(internal val settings: Settings) {
     fun getCloudTtsVoice(): String = settings.getString("cloud_tts_voice", DEFAULTS.CLOUD_TTS_VOICE)
     fun setCloudTtsVoice(voice: String) = settings.putString("cloud_tts_voice", voice)
 
-    // Piper on-device voice selection (base name of the installed *.tflite voice)
-    fun getPiperSelectedVoice(): String? = settings.getStringOrNull("piper_selected_voice")
-    fun setPiperSelectedVoice(baseName: String?) {
-        if (baseName == null) settings.remove("piper_selected_voice") else settings.putString("piper_selected_voice", baseName)
-    }
+
 
     // region Speech defaults
     private object DEFAULTS {

@@ -400,25 +400,45 @@ class ChatViewModel(
                 return@launch
             }
             try {
-                // Check if user is trying to send images to a vision-blind model
+                var finalQuestion = strippedQuestion
+                var finalFiles = files
+
                 if (files.any { it.mimeType()?.startsWith("image/") == true }) {
                     val serviceEntry = dataRepository.getServiceEntries().firstOrNull()
                     if (serviceEntry != null) {
                         val service = Service.fromId(serviceEntry.serviceId)
                         if (!service.supportsImages || !modelSupportsImages(serviceEntry.modelId)) {
-                            _state.update {
-                                it.copy(
-                                    error = UiError.Text("Вы прикрепили изображение, но текущая модель не умеет их распознавать. Пожалуйста, выберите Vision-модель (например, gpt-4o, claude-3-opus, llava, qwen-vl)."),
-                                    isLoading = false,
-                                    files = files, // Restore files so user can remove them or change model
-                                )
+                            val helperId = appSettings.getVisionHelperInstanceId()
+                            if (helperId == null) {
+                                _state.update {
+                                    it.copy(
+                                        error = UiError.Text("Вы прикрепили изображение, но текущая модель не умеет их распознавать. В настройках не задана вспомогательная Vision-модель."),
+                                        isLoading = false,
+                                        files = files,
+                                    )
+                                }
+                                return@launch
+                            } else {
+                                try {
+                                    val description = dataRepository.askVisionHelper(helperId, files)
+                                    finalQuestion = (finalQuestion ?: "") + "\n\n[Авто-описание прикрепленного изображения: $description]"
+                                    finalFiles = finalFiles.filterNot { it.mimeType()?.startsWith("image/") == true }.toImmutableList()
+                                } catch (e: Exception) {
+                                    _state.update {
+                                        it.copy(
+                                            error = UiError.Text("Ошибка вспомогательной Vision-модели: ${e.message}"),
+                                            isLoading = false,
+                                            files = files,
+                                        )
+                                    }
+                                    return@launch
+                                }
                             }
-                            return@launch
                         }
                     }
                 }
 
-                dataRepository.ask(strippedQuestion, files, uiSubmission, activeSkillId)
+                dataRepository.ask(finalQuestion, finalFiles, uiSubmission, activeSkillId)
 
                 // Auto-retry in interactive mode if the response has no valid katya-ui
                 if (_state.value.isInteractiveMode) {

@@ -30,7 +30,6 @@
   - **Sandbox (PRoot)**: Встроенная изолированная Linux-среда. Позволяет запускать Node.js, Python, локальные серверы и утилиты прямо на телефоном без вреда для ОС.
 - **Приватность и Локальная работа**:
   - Распознавание голоса (STT) работает локально через Vosk без интернета.
-  - Синтез речи (TTS) работает локально через Piper.
   - Поддержка запуска локальных LLM моделей через LiteRT прямо на устройстве (формат GGUF).
 - **Обход блокировок**: Встроенная поддержка VLESS / Xray для подключения к облачным моделям (OpenAI, DeepSeek и др.) через защищенные прокси, работающая нативно и без ограничений.
 
@@ -86,7 +85,6 @@ Unlike standard chatbots, Katya has her own persistent memory, can operate in th
   - **Sandbox (PRoot)**: Built-in isolated Linux environment. Allows you to run Node.js, Python, local servers, and utilities directly on the phone without harming the OS.
 - **Privacy and Local Execution**:
   - Voice recognition (STT) works locally offline via Vosk.
-  - Text-to-speech (TTS) works locally offline via Piper.
   - Support for running local LLM models via LiteRT directly on the device (GGUF format).
 - **Censorship Bypass**: Built-in VLESS / Xray support for connecting to cloud models (OpenAI, DeepSeek, etc.) via secure proxies, running natively and unrestrictedly.
 

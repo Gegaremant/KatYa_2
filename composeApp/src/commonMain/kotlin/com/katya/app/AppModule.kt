@@ -143,7 +143,6 @@ val appModule = module {
             mcpServerManager = get(),
             skillManager = get(),
             localInferenceEngine = createLocalInferenceEngine(),
-            piperVoiceManager = get<com.katya.app.tts.PiperVoiceManager>(),
         )
     }
     single<DataRepository> { get<RemoteDataRepository>() }

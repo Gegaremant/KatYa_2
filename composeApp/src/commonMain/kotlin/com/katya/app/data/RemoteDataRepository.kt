@@ -170,7 +170,6 @@ class RemoteDataRepository(
     private val mcpServerManager: McpServerManager,
     private val skillManager: SkillManager,
     private val localInferenceEngine: LocalInferenceEngine? = null,
-    private val piperVoiceManager: com.katya.app.tts.PiperVoiceManager? = null,
 ) : DataRepository {
 
     private val prettyJson = Json { prettyPrint = true }
@@ -722,6 +721,57 @@ class RemoteDataRepository(
                 skillManager.load()
             }
         }
+    }
+
+    override suspend fun askVisionHelper(instanceId: String, files: List<com.katya.app.data.KatyaFile>): String {
+        val entry = getServiceEntries().find { it.instanceId == instanceId }
+            ?: throw Exception("Vision helper instance not found")
+
+        val attachments = files.mapNotNull { file ->
+            val mime = file.mimeType()?.toString()
+            if (mime?.startsWith("image/") != true) return@mapNotNull null
+            
+            val bytes = file.readBytes()
+            Attachment(
+                data = Base64.encode(bytes),
+                mimeType = mime,
+                fileName = file.name,
+            )
+        }.toImmutableList()
+
+        if (attachments.isEmpty()) return "Нет изображений для анализа."
+
+        val tempHistory = listOf(
+            History(
+                role = History.Role.USER,
+                content = "Подробно опиши, что изображено на картинке, обращая внимание на детали, текст и контекст.",
+                attachments = attachments
+            )
+        )
+
+        val service = com.katya.app.data.Service.fromId(entry.serviceId)
+        val turn = askWithService(
+            service = service,
+            messages = tempHistory,
+            systemPrompt = null,
+            instanceId = instanceId,
+            history = MutableStateFlow(tempHistory)
+        )
+
+        chatHistory.update {
+            it.toMutableList().apply {
+                add(
+                    History(
+                        role = History.Role.ASSISTANT,
+                        content = "",
+                        reasoningContent = "Вспомогательная модель увидела:\n${turn.content}",
+                        fallbackServiceName = entry.serviceName,
+                    )
+                )
+            }
+        }
+        
+        return turn.content
     }
 
     private var pendingActiveSkillId: String? = null
@@ -2444,31 +2494,4 @@ Your task is to restore the connection to the main server.
         )
     }
 
-    override fun getPiperInstalledVoices(): List<com.katya.app.tts.PiperVoiceInfo> = piperVoiceManager?.getInstalledVoices() ?: emptyList()
-
-    override fun getPiperSelectedVoice(): String? = piperVoiceManager?.getSelectedVoice()
-
-    override fun setPiperSelectedVoice(baseName: String) {
-        piperVoiceManager?.setSelectedVoice(baseName)
-    }
-
-    override fun getPiperDownloadingBaseName(): StateFlow<String?>? = piperVoiceManager?.downloadingBaseName
-
-    override fun getPiperDownloadProgress(): StateFlow<Float?>? = piperVoiceManager?.downloadProgress
-
-    override fun getPiperDownloadError(): StateFlow<String?>? = piperVoiceManager?.downloadError
-
-    override fun startPiperVoiceDownload(modelUrl: String) {
-        piperVoiceManager?.startDownload(modelUrl)
-    }
-
-    override suspend fun importPiperVoice(fileName: String, fileBytes: ByteArray) {
-        piperVoiceManager?.importVoice(fileName, fileBytes)
-    }
-
-    override suspend fun deletePiperVoice(baseName: String) {
-        piperVoiceManager?.deleteVoice(baseName)
-    }
-
-    override suspend fun exportPiperVoice(baseName: String): Boolean = piperVoiceManager?.exportVoice(baseName) ?: false
 }

@@ -114,16 +114,8 @@ class MainActivity : ComponentActivity() {
                     null
                 }
             }
-            val piperTts: com.katya.app.tts.PiperTtsSpeechEngine? = remember {
-                try {
-                    org.koin.core.context.GlobalContext.get().get()
-                } catch (_: Exception) {
-                    null
-                }
-            }
             val speechEngine: com.katya.app.tts.SpeechEngine? = when (ttsEngineSetting) {
                 com.katya.app.data.TtsEngine.CLOUD -> cloudTts
-                com.katya.app.data.TtsEngine.LOCAL -> piperTts
                 else -> textToSpeech?.let { com.katya.app.tts.SystemTtsSpeechEngine(it) }
             }
             App(

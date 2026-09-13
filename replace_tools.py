@@ -1,54 +1,36 @@
-package com.katya.app.ui.settings
+import re
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.Button
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
-import com.katya.app.mcp.PopularMcpServer
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import com.katya.app.Platform
-import com.katya.app.currentPlatform
-import com.katya.app.Platform.Mobile
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.material3.Icon
-import com.katya.app.network.tools.ToolInfo
-import com.katya.app.skills.RegistrySkillEntry
-import com.katya.app.skills.SkillManifest
-import com.katya.app.ui.handCursor
-import com.katya.app.ui.katyaAdaptiveCardBorder
-import com.katya.app.ui.katyaAdaptiveCardColors
-import katya.composeapp.generated.resources.Res
-import katya.composeapp.generated.resources.settings_tools_description
-import katya.composeapp.generated.resources.settings_tools_none_available
-import kotlinx.collections.immutable.ImmutableList
-import org.jetbrains.compose.resources.stringResource
+with open('composeApp/src/commonMain/kotlin/com/katya/app/ui/settings/ToolsSettings.kt', 'r') as f:
+    content = f.read()
 
-@Composable
-internal fun ToolsContent(
+start_idx = content.find('internal fun ToolsContent(')
+if start_idx == -1:
+    print("Error: ToolsContent not found")
+    exit(1)
+
+def find_end_brace(text, start_index):
+    count = 0
+    in_str = False
+    for i in range(start_index, len(text)):
+        if text[i] == '"':
+            in_str = not in_str
+        if not in_str:
+            if text[i] == '{':
+                count += 1
+            elif text[i] == '}':
+                count -= 1
+                if count == 0:
+                    return i
+    return -1
+
+brace_start = content.find('{', start_idx)
+end_idx = find_end_brace(content, brace_start)
+
+if end_idx == -1:
+    print("Error: End of ToolsContent not found")
+    exit(1)
+
+new_tools_content = """internal fun ToolsContent(
     tools: ImmutableList<ToolInfo>,
     onToggleTool: (String, Boolean) -> Unit,
     mcpServers: ImmutableList<McpServerUiState>,
@@ -70,7 +52,6 @@ internal fun ToolsContent(
     browsableSkills: ImmutableList<RegistrySkillEntry>,
     isBrowsingSkills: Boolean,
     browseSkillsFailed: Boolean,
-    onOpenAppPermissionSettings: () -> Unit,
 ) {
     var isMcpExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     var isPermissionsExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -209,9 +190,7 @@ internal fun ToolsContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(
-                            onClick = onOpenAppPermissionSettings
-                        ) {
+                        androidx.compose.material3.Button(onClick = { com.katya.app.openAppPermissionSettings() }) {
                             Text("Открыть системные настройки")
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -221,45 +200,11 @@ internal fun ToolsContent(
         }
     }
 }
+"""
 
+content = content[:start_idx] + new_tools_content + content[end_idx+1:]
 
-@Composable
-private fun ToolItem(
-    tool: ToolInfo,
-    onToggle: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(
-        modifier = modifier
-            .clip(CardDefaults.shape)
-            .clickable { onToggle(!tool.isEnabled) }
-            .handCursor(),
-        colors = katyaAdaptiveCardColors(),
-        border = katyaAdaptiveCardBorder(),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = tool.nameRes?.let { stringResource(it) } ?: tool.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-                Text(
-                    text = tool.descriptionRes?.let { stringResource(it) } ?: tool.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+with open('composeApp/src/commonMain/kotlin/com/katya/app/ui/settings/ToolsSettings.kt', 'w') as f:
+    f.write(content)
 
-            Spacer(Modifier.width(16.dp))
-
-            Switch(
-                checked = tool.isEnabled,
-                onCheckedChange = onToggle,
-            )
-        }
-    }
-}
+print("ToolsSettings.kt updated successfully.")

@@ -19,21 +19,12 @@ data class SettingsActions(
     val onChangeApiKey: (String, String) -> Unit,
     val onChangeBaseUrl: (String, String) -> Unit,
     val onSelectModel: (String, String) -> Unit,
+    val onSelectVisionHelper: (String?) -> Unit,
     val onToggleTool: (String, Boolean) -> Unit,
     val onSaveSoul: (String) -> Unit,
     val onChangeAgentMode: (com.katya.app.data.AgentMode) -> Unit,
     val onChangeSendDelayMs: (Long) -> Unit,
-    val onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
-    val onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
-    val onChangeSysTtsPitch: (Float) -> Unit,
-    val onChangeSysTtsRate: (Float) -> Unit,
-    val onChangeCloudSttUrl: (String) -> Unit = {},
-    val onChangeCloudSttKey: (String) -> Unit = {},
-    val onChangeCloudSttModel: (String) -> Unit = {},
-    val onChangeCloudTtsUrl: (String) -> Unit = {},
-    val onChangeCloudTtsKey: (String) -> Unit = {},
-    val onChangeCloudTtsModel: (String) -> Unit = {},
-    val onChangeCloudTtsVoice: (String) -> Unit = {},
+
     val onChangeDistro: (com.katya.app.data.Distro) -> Unit,
     val onToggleDynamicUi: (Boolean) -> Unit,
     val onToggleAgentVisibility: (Boolean) -> Unit,
@@ -44,6 +35,7 @@ data class SettingsActions(
     val onSelectWakeWordModelLang: (String) -> Unit,
     val onToggleWakeWordVibration: (Boolean) -> Unit,
     val onToggleWakeWordSound: (Boolean) -> Unit,
+
     val onToggleWatchIntegration: (Boolean) -> Unit,
     val onDownloadVosk: () -> Unit,
     val onAddQuickAction: (com.katya.app.data.QuickAction) -> Unit,
@@ -99,12 +91,7 @@ data class SettingsActions(
     val onDeleteLocalModel: (String) -> Unit,
     val onSaveLocalModelToDevice: (String) -> Unit = {},
     val onChangeModelContextTokens: (String, Int) -> Unit,
-    val onChangePiperVoiceUrl: (String) -> Unit = {},
-    val onDownloadPiperVoice: (String) -> Unit = {},
-    val onSelectPiperVoice: (String) -> Unit = {},
-    val onImportPiperVoice: (String, ByteArray) -> Unit = { _, _ -> },
-    val onDeletePiperVoice: (String) -> Unit = {},
-    val onExportPiperVoice: (String) -> Unit = {},
+
     val onExportSettings: suspend (Set<ImportSection>) -> ByteArray,
     val onPrepareExport: () -> Map<ImportSection, String?>,
     val onImportSettings: (ByteArray, Set<ImportSection>, Boolean) -> ImportResult,
@@ -126,12 +113,12 @@ data class SettingsActions(
             onChangeApiKey = { _, _ -> },
             onChangeBaseUrl = { _, _ -> },
             onSelectModel = { _, _ -> },
+            onSelectVisionHelper = {},
             onToggleTool = { _, _ -> },
             onSaveSoul = {},
             onChangeAgentMode = {},
             onChangeSendDelayMs = {},
-            onChangeSttEngine = {},
-            onChangeTtsEngine = {},
+
             onChangeDistro = {},
             onToggleDynamicUi = {},
             onToggleAgentVisibility = {},
@@ -142,6 +129,7 @@ data class SettingsActions(
             onSelectWakeWordModelLang = {},
             onToggleWakeWordVibration = {},
             onToggleWakeWordSound = {},
+
             onToggleWatchIntegration = {},
             onDownloadVosk = {},
             onAddQuickAction = {},
@@ -205,8 +193,7 @@ data class SettingsActions(
             onFetchHfModels = {},
             onOpenDeviceAdminSettings = {},
             onOpenTrustAgentSettings = {},
-            onChangeSysTtsPitch = {},
-            onChangeSysTtsRate = {},
+
         )
     }
 }

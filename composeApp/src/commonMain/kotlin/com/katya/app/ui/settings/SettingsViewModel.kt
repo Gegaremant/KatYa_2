@@ -95,23 +95,13 @@ class SettingsViewModel(
 
     private fun buildFullState(): SettingsUiState = SettingsUiState(
         configuredServices = buildConfiguredServiceEntries().toImmutableList(),
+        visionHelperInstanceId = appSettings.getVisionHelperInstanceId(),
         availableServicesToAdd = computeAvailableServices().toImmutableList(),
         tools = dataRepository.getToolDefinitions().toImmutableList(),
         soulText = dataRepository.getSoulText(),
         agentMode = dataRepository.getAgentMode(),
         sendDelayMs = dataRepository.getSendDelayMs(),
-        sttEngine = dataRepository.getSttEngine(),
-        ttsEngine = dataRepository.getTtsEngine(),
-        sysTtsPitch = dataRepository.getSysTtsPitch(),
-        sysTtsRate = dataRepository.getSysTtsRate(),
-        ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()),
-        cloudSttUrl = dataRepository.getCloudSttUrl(),
-        cloudSttKey = dataRepository.getCloudSttKey(),
-        cloudSttModel = dataRepository.getCloudSttModel(),
-        cloudTtsUrl = dataRepository.getCloudTtsUrl(),
-        cloudTtsKey = dataRepository.getCloudTtsKey(),
-        cloudTtsModel = dataRepository.getCloudTtsModel(),
-        cloudTtsVoice = dataRepository.getCloudTtsVoice(),
+
         distro = dataRepository.getDistro(),
         isDynamicUiEnabled = dataRepository.isDynamicUiEnabled(),
         isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
@@ -179,12 +169,6 @@ class SettingsViewModel(
         localDownloadProgresses = dataRepository.getLocalDownloadProgresses()?.value?.toImmutableMap() ?: persistentMapOf(),
         localDownloadErrors = dataRepository.getLocalDownloadErrors()?.value?.toImmutableMap() ?: persistentMapOf(),
         modelContextTokens = buildModelContextTokensMap(),
-        piperInstalledVoices = dataRepository.getPiperInstalledVoices().toImmutableList(),
-        piperSelectedVoice = dataRepository.getPiperSelectedVoice(),
-        piperVoiceUrl = piperVoiceUrlText,
-        piperDownloadingBase = dataRepository.getPiperDownloadingBaseName()?.value,
-        piperDownloadProgress = dataRepository.getPiperDownloadProgress()?.value,
-        piperDownloadError = dataRepository.getPiperDownloadError()?.value,
     )
 
     // Bound once so downstream Compose skipping works — a new SettingsActions
@@ -198,21 +182,12 @@ class SettingsViewModel(
         onChangeApiKey = ::onChangeApiKey,
         onChangeBaseUrl = ::onChangeBaseUrl,
         onSelectModel = ::onSelectModel,
+        onSelectVisionHelper = ::onSelectVisionHelper,
         onToggleTool = ::onToggleTool,
         onSaveSoul = ::onSaveSoul,
         onChangeAgentMode = ::onChangeAgentMode,
         onChangeSendDelayMs = ::onChangeSendDelayMs,
-        onChangeSttEngine = ::onChangeSttEngine,
-        onChangeTtsEngine = ::onChangeTtsEngine,
-        onChangeSysTtsPitch = ::onChangeSysTtsPitch,
-        onChangeSysTtsRate = ::onChangeSysTtsRate,
-        onChangeCloudSttUrl = ::onChangeCloudSttUrl,
-        onChangeCloudSttKey = ::onChangeCloudSttKey,
-        onChangeCloudSttModel = ::onChangeCloudSttModel,
-        onChangeCloudTtsUrl = ::onChangeCloudTtsUrl,
-        onChangeCloudTtsKey = ::onChangeCloudTtsKey,
-        onChangeCloudTtsModel = ::onChangeCloudTtsModel,
-        onChangeCloudTtsVoice = ::onChangeCloudTtsVoice,
+
         onChangeDistro = ::onChangeDistro,
         onToggleDynamicUi = ::onToggleDynamicUi,
         onToggleAgentVisibility = ::onToggleAgentVisibility,
@@ -223,6 +198,7 @@ class SettingsViewModel(
         onSelectWakeWordModelLang = ::onChangeWakeWordModelLang,
         onToggleWakeWordVibration = ::onToggleWakeWordVibration,
         onToggleWakeWordSound = ::onToggleWakeWordSound,
+
         onToggleWatchIntegration = ::onToggleWatchIntegration,
         onAddQuickAction = ::onAddQuickAction,
         onUpdateQuickAction = ::onUpdateQuickAction,
@@ -288,12 +264,6 @@ class SettingsViewModel(
         onUndoDelete = ::onUndoDelete,
         onChangeHfRepoUrl = ::onChangeHfRepoUrl,
         onFetchHfModels = ::onFetchHfModels,
-        onChangePiperVoiceUrl = ::onChangePiperVoiceUrl,
-        onDownloadPiperVoice = ::onDownloadPiperVoice,
-        onSelectPiperVoice = ::onSelectPiperVoice,
-        onImportPiperVoice = ::onImportPiperVoice,
-        onDeletePiperVoice = ::onDeletePiperVoice,
-        onExportPiperVoice = ::onExportPiperVoice,
     )
 
     private val _state = MutableStateFlow(buildFullState())
@@ -372,20 +342,7 @@ class SettingsViewModel(
             }
         }
 
-        // Keep Piper voice download state live: when a download ends, re-list voices.
-        viewModelScope.launch {
-            combine(
-                dataRepository.getPiperDownloadingBaseName() ?: flowOf(null),
-                dataRepository.getPiperDownloadProgress() ?: flowOf(null),
-                dataRepository.getPiperDownloadError() ?: flowOf(null),
-            ) { base, progress, error ->
-                Triple(base, progress, error)
-            }.collect { (base, progress, error) ->
-                val prevBase = _state.value.piperDownloadingBase
-                _state.update { it.copy(piperDownloadingBase = base, piperDownloadProgress = progress, piperDownloadError = error) }
-                if (prevBase != null && base == null) refreshPiperVoices()
-            }
-        }
+
     }
 
     fun onScreenVisible() {
@@ -417,12 +374,7 @@ class SettingsViewModel(
                 )
             }
         }
-        // Re-check whether the selected TTS engine (e.g. RHVoice) is installed:
-        // the user may have installed it via the market link in Settings and
-        // returned to the app without restarting.
-        _state.update {
-            it.copy(ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()))
-        }
+
     }
 
     private fun fetchSponsors() {
@@ -592,6 +544,11 @@ class SettingsViewModel(
         refreshInstanceModels(instanceId)
     }
 
+    private fun onSelectVisionHelper(instanceId: String?) {
+        appSettings.setVisionHelperInstanceId(instanceId)
+        _state.update { it.copy(visionHelperInstanceId = instanceId) }
+    }
+
     private fun onSaveSoul(text: String) {
         dataRepository.setSoulText(text)
         _state.update { it.copy(soulText = text) }
@@ -607,65 +564,8 @@ class SettingsViewModel(
         _state.update { it.copy(sendDelayMs = delay) }
     }
 
-    private fun onChangeSttEngine(engine: com.katya.app.data.SttEngine) {
-        dataRepository.setSttEngine(engine)
-        _state.update { it.copy(sttEngine = engine) }
-    }
 
-    private fun onChangeTtsEngine(engine: com.katya.app.data.TtsEngine) {
-        dataRepository.setTtsEngine(engine)
-        _state.update { it.copy(ttsEngine = engine, ttsEngineInstalled = isTtsEngineInstalled(engine)) }
-    }
 
-    private fun onChangeSysTtsPitch(pitch: Float) {
-        dataRepository.setSysTtsPitch(pitch)
-        _state.update { it.copy(sysTtsPitch = pitch) }
-    }
-
-    private fun onChangeSysTtsRate(rate: Float) {
-        dataRepository.setSysTtsRate(rate)
-        _state.update { it.copy(sysTtsRate = rate) }
-    }
-
-    private fun onChangeCloudSttUrl(url: String) {
-        dataRepository.setCloudSttUrl(url)
-        _state.update { it.copy(cloudSttUrl = url) }
-    }
-
-    private fun onChangeCloudSttKey(key: String) {
-        dataRepository.setCloudSttKey(key)
-        _state.update { it.copy(cloudSttKey = key) }
-    }
-
-    private fun onChangeCloudSttModel(model: String) {
-        dataRepository.setCloudSttModel(model)
-        _state.update { it.copy(cloudSttModel = model) }
-    }
-
-    private fun onChangeCloudTtsUrl(url: String) {
-        dataRepository.setCloudTtsUrl(url)
-        _state.update { it.copy(cloudTtsUrl = url) }
-    }
-
-    private fun onChangeCloudTtsKey(key: String) {
-        dataRepository.setCloudTtsKey(key)
-        _state.update { it.copy(cloudTtsKey = key) }
-    }
-
-    private fun onChangeCloudTtsModel(model: String) {
-        dataRepository.setCloudTtsModel(model)
-        _state.update { it.copy(cloudTtsModel = model) }
-    }
-
-    private fun onChangeCloudTtsVoice(voice: String) {
-        dataRepository.setCloudTtsVoice(voice)
-        _state.update { it.copy(cloudTtsVoice = voice) }
-    }
-
-    private fun isTtsEngineInstalled(engine: com.katya.app.data.TtsEngine): Boolean = when (engine) {
-        com.katya.app.data.TtsEngine.LOCAL -> true // Since we will ship local voices or download them internally
-        else -> true
-    }
 
     private fun onChangeDistro(distro: com.katya.app.data.Distro) {
         dataRepository.setDistro(distro)
@@ -875,6 +775,8 @@ class SettingsViewModel(
         _state.update { it.copy(isWakeWordVibrationEnabled = enabled) }
     }
 
+
+
     private fun onToggleWakeWordSound(enabled: Boolean) {
         dataRepository.setWakeWordSound(enabled)
         _state.update { it.copy(isWakeWordSoundEnabled = enabled) }
@@ -1061,56 +963,7 @@ class SettingsViewModel(
         _state.update { it.copy(hfRepoUrl = url, hfError = null) }
     }
 
-    private fun onChangePiperVoiceUrl(url: String) {
-        piperVoiceUrlText = url
-        _state.update { it.copy(piperVoiceUrl = url, piperDownloadError = null) }
-    }
 
-    private fun onDownloadPiperVoice(url: String) {
-        if (url.trim().isBlank()) return
-        dataRepository.startPiperVoiceDownload(url.trim())
-    }
-
-    private fun onSelectPiperVoice(baseName: String) {
-        dataRepository.setPiperSelectedVoice(baseName)
-        _state.update { it.copy(piperSelectedVoice = baseName) }
-    }
-
-    private fun onImportPiperVoice(fileName: String, fileBytes: ByteArray) {
-        viewModelScope.launch(backgroundDispatcher) {
-            try {
-                dataRepository.importPiperVoice(fileName, fileBytes)
-                com.katya.app.showToast("Голос импортирован")
-                refreshPiperVoices()
-            } catch (t: Throwable) {
-                if (t is kotlinx.coroutines.CancellationException) throw t
-                com.katya.app.showToast("Не удалось импортировать голос: ${(t.message ?: t::class.simpleName)?.take(120)}")
-            }
-        }
-    }
-
-    private fun onDeletePiperVoice(baseName: String) {
-        viewModelScope.launch(backgroundDispatcher) {
-            dataRepository.deletePiperVoice(baseName)
-            refreshPiperVoices()
-        }
-    }
-
-    private fun onExportPiperVoice(baseName: String) {
-        viewModelScope.launch(backgroundDispatcher) {
-            val ok = dataRepository.exportPiperVoice(baseName)
-            com.katya.app.showToast(if (ok) "Голос сохранён на устройстве" else "Не удалось сохранить голос")
-        }
-    }
-
-    private fun refreshPiperVoices() {
-        _state.update {
-            it.copy(
-                piperInstalledVoices = dataRepository.getPiperInstalledVoices().toImmutableList(),
-                piperSelectedVoice = dataRepository.getPiperSelectedVoice(),
-            )
-        }
-    }
 
     private fun onFetchHfModels() {
         val url = _state.value.hfRepoUrl.trim()

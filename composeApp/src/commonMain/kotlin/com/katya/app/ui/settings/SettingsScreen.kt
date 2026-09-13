@@ -404,9 +404,7 @@ fun SettingsScreenContent(
             }
 
             val visibleTabs = remember {
-                SettingsTab.entries.filter {
-                    it != SettingsTab.Integrations
-                }.toImmutableList()
+                SettingsTab.entries.toImmutableList()
             }
 
             SettingsTabSelector(
@@ -424,7 +422,7 @@ fun SettingsScreenContent(
                     Spacer(Modifier.height(16.dp))
 
                     val maxContentWidth = when (filteredUiState.currentTab) {
-                        SettingsTab.Services -> 500.dp
+                        SettingsTab.Connections -> 500.dp
                         else -> 900.dp
                     }
                     Column(
@@ -440,12 +438,8 @@ fun SettingsScreenContent(
                                 AgentContent(uiState = filteredUiState, actions = actions, textToSpeech = textToSpeech)
                             }
 
-                            SettingsTab.Services -> {
+                            SettingsTab.Connections -> {
                                 ServicesContent(uiState = filteredUiState, actions = actions)
-                            }
-
-                            SettingsTab.Integrations -> {
-                                IntegrationsContent()
                             }
 
                             SettingsTab.Tools -> {
@@ -471,11 +465,8 @@ fun SettingsScreenContent(
                                     browsableSkills = filteredUiState.browsableSkills,
                                     isBrowsingSkills = filteredUiState.isBrowsingSkills,
                                     browseSkillsFailed = filteredUiState.browseSkillsFailed,
+                                    onOpenAppPermissionSettings = actions.onOpenAppPermissionSettings,
                                 )
-                            }
-
-                            SettingsTab.Servers -> {
-                                ServersContent()
                             }
                         }
 
@@ -551,11 +542,8 @@ private fun SettingsTabSelector(
                         text = when (tab) {
                             SettingsTab.General -> stringResource(Res.string.settings_tab_general)
                             SettingsTab.Agent -> stringResource(Res.string.settings_tab_agent)
-                            SettingsTab.Services -> stringResource(Res.string.settings_tab_services)
+                            SettingsTab.Connections -> "Подключения"
                             SettingsTab.Tools -> stringResource(Res.string.settings_tab_tools)
-                            SettingsTab.Integrations -> "Интеграции"
-                            SettingsTab.Servers -> "Серверы"
-                            else -> ""
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                         color = MaterialTheme.colorScheme.primary,

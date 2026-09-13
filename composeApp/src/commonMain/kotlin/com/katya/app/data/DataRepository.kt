@@ -47,6 +47,7 @@ interface DataRepository {
         uiSubmission: UiSubmission? = null,
         activeSkillId: String? = null,
     )
+    suspend fun askVisionHelper(instanceId: String, files: List<com.katya.app.data.KatyaFile>): String
     fun clearHistory()
     fun currentService(): Service
     fun isUsingSharedKey(): Boolean
@@ -334,15 +335,4 @@ interface DataRepository {
     suspend fun deleteLocalModel(modelId: String)
     suspend fun saveLocalModelToDevice(modelId: String): Boolean
 
-    // Piper conversational voices
-    fun getPiperInstalledVoices(): List<com.katya.app.tts.PiperVoiceInfo>
-    fun getPiperSelectedVoice(): String?
-    fun setPiperSelectedVoice(baseName: String)
-    fun getPiperDownloadingBaseName(): StateFlow<String?>?
-    fun getPiperDownloadProgress(): StateFlow<Float?>?
-    fun getPiperDownloadError(): StateFlow<String?>?
-    fun startPiperVoiceDownload(modelUrl: String)
-    suspend fun importPiperVoice(fileName: String, fileBytes: ByteArray)
-    suspend fun deletePiperVoice(baseName: String)
-    suspend fun exportPiperVoice(baseName: String): Boolean
 }

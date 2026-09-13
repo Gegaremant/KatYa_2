@@ -9,7 +9,7 @@ import com.katya.app.data.AppSettings
 import com.katya.app.data.ConversationStorage
 import com.katya.app.data.Distro
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.cio.CIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -73,7 +73,7 @@ class LinuxSandboxManager(
     val prootPath: String get() = File(context.applicationInfo.nativeLibraryDir, "libproot.so").absolutePath
     val nativeLibDir: String get() = context.applicationInfo.nativeLibraryDir
 
-    private val downloader = RootfsDownloader(HttpClient(Android))
+    private val downloader = RootfsDownloader(HttpClient(CIO))
 
     init {
         checkExistingInstallation()

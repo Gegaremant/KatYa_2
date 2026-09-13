@@ -40,6 +40,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -209,6 +211,70 @@ private fun TrustAgentSection(
 }
 
 @Composable
+private fun VisionHelperCard(
+    configuredServices: List<ConfiguredServiceEntry>,
+    visionHelperInstanceId: String?,
+    onSelectVisionHelper: (String?) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = "Вспомогательная Vision-модель",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = "Эта модель будет описывать картинки текстом для основной модели, если та 'слепая' (например, DeepSeek).",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+        val selectedService = configuredServices.find { it.instanceId == visionHelperInstanceId }
+
+        androidx.compose.foundation.layout.Box(modifier = Modifier.fillMaxWidth()) {
+            androidx.compose.material3.OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                )
+            ) {
+                Text(
+                    text = if (selectedService != null) selectedService.service.displayName else "Не задана",
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            androidx.compose.material3.DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.fillMaxWidth(0.9f)
+            ) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Не задана", color = MaterialTheme.colorScheme.onSurface) },
+                    onClick = {
+                        onSelectVisionHelper(null)
+                        expanded = false
+                    }
+                )
+                configuredServices.forEach { serviceEntry ->
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(serviceEntry.service.displayName, color = MaterialTheme.colorScheme.onSurface) },
+                        onClick = {
+                            onSelectVisionHelper(serviceEntry.instanceId)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun AgentModeCard(
     agentMode: com.katya.app.data.AgentMode,
     onChangeAgentMode: (com.katya.app.data.AgentMode) -> Unit,
@@ -283,340 +349,113 @@ internal fun AgentContent(
     actions: SettingsActions,
     textToSpeech: com.katya.app.tts.SpeechEngine? = null,
 ) {
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val useStaggered = maxWidth >= 600.dp
-        if (useStaggered) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+    var isSystemPromptsExpanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    Column(
+        modifier = androidx.compose.ui.Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // --- Настройки агента ---
+        SettingsCard {
+            Column(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Настройки агента",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = androidx.compose.ui.Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                
+                VisionHelperCard(
+                    configuredServices = uiState.configuredServices,
+                    visionHelperInstanceId = uiState.visionHelperInstanceId,
+                    onSelectVisionHelper = actions.onSelectVisionHelper,
+                )
+                
+                Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+                
+                AgentModeCard(
+                    agentMode = uiState.agentMode,
+                    onChangeAgentMode = actions.onChangeAgentMode,
+                )
+
+                Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+
+                if (uiState.showUiScale) {
+                    UiScaleSection(
+                        uiScale = uiState.uiScale,
+                        onChangeUiScale = actions.onChangeUiScale,
+                    )
+                }
+
+                Spacer(modifier = androidx.compose.ui.Modifier.height(8.dp))
+                
+                QuickActionsSection(
+                    quickActions = uiState.quickActions,
+                    onAddQuickAction = actions.onAddQuickAction,
+                    onUpdateQuickAction = actions.onUpdateQuickAction,
+                    onDeleteQuickAction = actions.onDeleteQuickAction,
+                )
+            }
+        }
+
+        // --- Системные промпты (spoiler) ---
+        SettingsCard {
+            Column(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = androidx.compose.ui.Modifier.fillMaxWidth().clickable { isSystemPromptsExpanded = !isSystemPromptsExpanded }.padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SettingsCard {
+                    Text(
+                        text = "Системные промпты",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Icon(
+                        imageVector = if (isSystemPromptsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Развернуть",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                AnimatedVisibility(visible = isSystemPromptsExpanded) {
+                    Column(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
                         SoulEditor(
                             soulText = uiState.soulText,
                             onSaveSoul = actions.onSaveSoul,
                         )
                     }
-                    SettingsCard {
-                        AgentModeCard(
-                            agentMode = uiState.agentMode,
-                            onChangeAgentMode = actions.onChangeAgentMode,
-                        )
-                    }
-                    SettingsCard {
-                        DeviceAdminSection(
-                            isDeviceAdmin = uiState.isDeviceAdmin,
-                            onOpenSettings = actions.onOpenDeviceAdminSettings,
-                        )
-                    }
-                    SettingsCard {
-                        TrustAgentSection(
-                            onOpenSettings = actions.onOpenTrustAgentSettings,
-                        )
-                    }
-                    SettingsCard {
-                        AudioEnginesCard(
-                            sttEngine = uiState.sttEngine,
-                            ttsEngine = uiState.ttsEngine,
-                            ttsEngineInstalled = uiState.ttsEngineInstalled,
-                            textToSpeech = textToSpeech,
-                            isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
-                            onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
-                            sendDelayMs = uiState.sendDelayMs,
-                            onChangeSendDelayMs = actions.onChangeSendDelayMs,
-                            isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
-                            onToggleVoiceResponse = actions.onToggleVoiceResponse,
-                            onChangeSttEngine = actions.onChangeSttEngine,
-                            onChangeTtsEngine = actions.onChangeTtsEngine,
-                            sysTtsPitch = uiState.sysTtsPitch,
-                            sysTtsRate = uiState.sysTtsRate,
-                            onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
-                            onChangeSysTtsRate = actions.onChangeSysTtsRate,
-                            cloudSttUrl = uiState.cloudSttUrl,
-                            cloudSttKey = uiState.cloudSttKey,
-                            cloudSttModel = uiState.cloudSttModel,
-                            cloudTtsUrl = uiState.cloudTtsUrl,
-                            cloudTtsKey = uiState.cloudTtsKey,
-                            cloudTtsModel = uiState.cloudTtsModel,
-                            cloudTtsVoice = uiState.cloudTtsVoice,
-                            onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
-                            onChangeCloudSttKey = actions.onChangeCloudSttKey,
-                            onChangeCloudSttModel = actions.onChangeCloudSttModel,
-                            onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
-                            onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
-                            onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
-                            onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
-                            piperInstalledVoices = uiState.piperInstalledVoices,
-                            piperSelectedVoice = uiState.piperSelectedVoice,
-                            piperVoiceUrl = uiState.piperVoiceUrl,
-                            piperDownloadingBase = uiState.piperDownloadingBase,
-                            piperDownloadProgress = uiState.piperDownloadProgress,
-                            piperDownloadError = uiState.piperDownloadError,
-                            onChangePiperVoiceUrl = actions.onChangePiperVoiceUrl,
-                            onDownloadPiperVoice = actions.onDownloadPiperVoice,
-                            onSelectPiperVoice = actions.onSelectPiperVoice,
-                            onImportPiperVoice = actions.onImportPiperVoice,
-                            onDeletePiperVoice = actions.onDeletePiperVoice,
-                            onExportPiperVoice = actions.onExportPiperVoice,
-                            isVoskReady = uiState.isVoskReady,
-                            isVoskDownloading = uiState.isVoskDownloading,
-                            voskDownloadProgress = uiState.voskDownloadProgress,
-                            onDownloadVosk = actions.onDownloadVosk,
-                        )
-
-                        SandboxDistroCard(
-                            distro = uiState.distro,
-                            onChangeDistro = actions.onChangeDistro,
-                        )
-                    }
-
-                    SettingsCard {
-                        ScheduledTaskList(
-                            tasks = uiState.scheduledTasks,
-                            heartbeatLog = uiState.heartbeatLog,
-                            onCancelTask = actions.onCancelTask,
-                            onAddScheduledTask = actions.onAddScheduledTask,
-                            onUpdateScheduledTask = actions.onUpdateScheduledTask,
-                            isSchedulingEnabled = uiState.isSchedulingEnabled,
-                            onToggleScheduling = actions.onToggleScheduling,
-                        )
-                    }
-                    SettingsCard {
-                        MemoryList(
-                            memories = uiState.memories,
-                            onDeleteMemory = actions.onDeleteMemory,
-                            onUpdateMemory = actions.onUpdateMemory,
-                            onAddMemory = actions.onAddMemory,
-                            isMemoryEnabled = uiState.isMemoryEnabled,
-                            onToggleMemory = actions.onToggleMemory,
-                        )
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    SettingsCard {
-                        HeartbeatSection(
-                            isHeartbeatEnabled = uiState.isHeartbeatEnabled,
-                            heartbeatIntervalMinutes = uiState.heartbeatIntervalMinutes,
-                            activeHoursStart = uiState.heartbeatActiveHoursStart,
-                            activeHoursEnd = uiState.heartbeatActiveHoursEnd,
-                            heartbeatPrompt = uiState.heartbeatPrompt,
-                            heartbeatLog = uiState.heartbeatLog,
-                            heartbeatServiceEntries = uiState.heartbeatServiceEntries,
-                            heartbeatSelectedInstanceId = uiState.heartbeatSelectedInstanceId,
-                            isRefreshing = uiState.isRefreshingHeartbeat,
-                            onToggleHeartbeat = actions.onToggleHeartbeat,
-                            onChangeInterval = actions.onChangeHeartbeatInterval,
-                            onChangeActiveHours = actions.onChangeHeartbeatActiveHours,
-                            onSaveHeartbeatPrompt = actions.onSaveHeartbeatPrompt,
-                            onChangeHeartbeatService = actions.onChangeHeartbeatService,
-                            onRefresh = actions.onRefreshHeartbeat,
-                        )
-                    }
-                    if (uiState.showEmailToggle) {
-                        SettingsCard {
-                            EmailSection(
-                                isEmailEnabled = uiState.isEmailEnabled,
-                                emailAccounts = uiState.emailAccounts,
-                                pollIntervalMinutes = uiState.emailPollIntervalMinutes,
-                                pendingCount = uiState.emailPendingCount,
-                                syncStates = uiState.emailSyncStates,
-                                refreshingAccountIds = uiState.refreshingEmailAccountIds,
-                                onToggleEmail = actions.onToggleEmail,
-                                onAddAccount = actions.onAddEmailAccount,
-                                onRemoveAccount = actions.onRemoveEmailAccount,
-                                onChangePollInterval = actions.onChangeEmailPollInterval,
-                                onRefreshAccount = actions.onRefreshEmailAccount,
-                            )
-                        }
-                    }
-                    if (uiState.showSmsSection) {
-                        SettingsCard {
-                            SmsSection(
-                                isSmsEnabled = uiState.isSmsEnabled,
-                                permissionGranted = uiState.smsPermissionGranted,
-                                pollIntervalMinutes = uiState.smsPollIntervalMinutes,
-                                pendingCount = uiState.smsPendingCount,
-                                syncState = uiState.smsSyncState,
-                                isRefreshing = uiState.isRefreshingSms,
-                                isSmsSendEnabled = uiState.isSmsSendEnabled,
-                                sendPermissionGranted = uiState.smsSendPermissionGranted,
-                                onToggleSms = actions.onToggleSms,
-                                onChangePollInterval = actions.onChangeSmsPollInterval,
-                                onRefresh = actions.onRefreshSms,
-                                onToggleSmsSend = actions.onToggleSmsSend,
-                            )
-                        }
-                    }
-                    if (uiState.showNotificationsSection) {
-                        SettingsCard {
-                            NotificationsSection(
-                                isEnabled = uiState.isNotificationsEnabled,
-                                accessGranted = uiState.notificationListenerAccessGranted,
-                                listenerBound = uiState.notificationListenerBound,
-                                pendingCount = uiState.notificationPendingCount,
-                                onToggle = actions.onToggleNotifications,
-                                onOpenAccessSettings = actions.onOpenNotificationListenerSettings,
-                                onClearPending = actions.onClearPendingNotifications,
-                            )
-                        }
-                    }
-                }
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SettingsCard {
-                    SoulEditor(
-                        soulText = uiState.soulText,
-                        onSaveSoul = actions.onSaveSoul,
-                    )
-                }
-                SettingsCard {
-                    AgentModeCard(
-                        agentMode = uiState.agentMode,
-                        onChangeAgentMode = actions.onChangeAgentMode,
-                    )
-                }
-                SettingsCard {
-                    AudioEnginesCard(
-                        sttEngine = uiState.sttEngine,
-                        ttsEngine = uiState.ttsEngine,
-                        ttsEngineInstalled = uiState.ttsEngineInstalled,
-                        textToSpeech = textToSpeech,
-                        isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
-                        onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
-                        sendDelayMs = uiState.sendDelayMs,
-                        onChangeSendDelayMs = actions.onChangeSendDelayMs,
-                        isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
-                        onToggleVoiceResponse = actions.onToggleVoiceResponse,
-                        onChangeSttEngine = actions.onChangeSttEngine,
-                        onChangeTtsEngine = actions.onChangeTtsEngine,
-                        sysTtsPitch = uiState.sysTtsPitch,
-                        sysTtsRate = uiState.sysTtsRate,
-                        onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
-                        onChangeSysTtsRate = actions.onChangeSysTtsRate,
-                        cloudSttUrl = uiState.cloudSttUrl,
-                        cloudSttKey = uiState.cloudSttKey,
-                        cloudSttModel = uiState.cloudSttModel,
-                        cloudTtsUrl = uiState.cloudTtsUrl,
-                        cloudTtsKey = uiState.cloudTtsKey,
-                        cloudTtsModel = uiState.cloudTtsModel,
-                        cloudTtsVoice = uiState.cloudTtsVoice,
-                        onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
-                        onChangeCloudSttKey = actions.onChangeCloudSttKey,
-                        onChangeCloudSttModel = actions.onChangeCloudSttModel,
-                        onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
-                        onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
-                        onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
-                        onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
-                        isVoskReady = uiState.isVoskReady,
-                        isVoskDownloading = uiState.isVoskDownloading,
-                        voskDownloadProgress = uiState.voskDownloadProgress,
-                        onDownloadVosk = actions.onDownloadVosk,
-                    )
-
-                    SandboxDistroCard(
-                        distro = uiState.distro,
-                        onChangeDistro = actions.onChangeDistro,
-                    )
-                }
-                SettingsCard {
-                    MemoryList(
-                        memories = uiState.memories,
-                        onDeleteMemory = actions.onDeleteMemory,
-                        onUpdateMemory = actions.onUpdateMemory,
-                        onAddMemory = actions.onAddMemory,
-                        isMemoryEnabled = uiState.isMemoryEnabled,
-                        onToggleMemory = actions.onToggleMemory,
-                    )
-                }
-                SettingsCard {
-                    ScheduledTaskList(
-                        tasks = uiState.scheduledTasks,
-                        heartbeatLog = uiState.heartbeatLog,
-                        onCancelTask = actions.onCancelTask,
-                        onAddScheduledTask = actions.onAddScheduledTask,
-                        onUpdateScheduledTask = actions.onUpdateScheduledTask,
-                        isSchedulingEnabled = uiState.isSchedulingEnabled,
-                        onToggleScheduling = actions.onToggleScheduling,
-                    )
-                }
-                SettingsCard {
-                    HeartbeatSection(
-                        isHeartbeatEnabled = uiState.isHeartbeatEnabled,
-                        heartbeatIntervalMinutes = uiState.heartbeatIntervalMinutes,
-                        activeHoursStart = uiState.heartbeatActiveHoursStart,
-                        activeHoursEnd = uiState.heartbeatActiveHoursEnd,
-                        heartbeatPrompt = uiState.heartbeatPrompt,
-                        heartbeatLog = uiState.heartbeatLog,
-                        heartbeatServiceEntries = uiState.heartbeatServiceEntries,
-                        heartbeatSelectedInstanceId = uiState.heartbeatSelectedInstanceId,
-                        isRefreshing = uiState.isRefreshingHeartbeat,
-                        onToggleHeartbeat = actions.onToggleHeartbeat,
-                        onChangeInterval = actions.onChangeHeartbeatInterval,
-                        onChangeActiveHours = actions.onChangeHeartbeatActiveHours,
-                        onSaveHeartbeatPrompt = actions.onSaveHeartbeatPrompt,
-                        onChangeHeartbeatService = actions.onChangeHeartbeatService,
-                        onRefresh = actions.onRefreshHeartbeat,
-                    )
-                }
-                if (uiState.showEmailToggle) {
-                    SettingsCard {
-                        EmailSection(
-                            isEmailEnabled = uiState.isEmailEnabled,
-                            emailAccounts = uiState.emailAccounts,
-                            pollIntervalMinutes = uiState.emailPollIntervalMinutes,
-                            pendingCount = uiState.emailPendingCount,
-                            syncStates = uiState.emailSyncStates,
-                            refreshingAccountIds = uiState.refreshingEmailAccountIds,
-                            onToggleEmail = actions.onToggleEmail,
-                            onAddAccount = actions.onAddEmailAccount,
-                            onRemoveAccount = actions.onRemoveEmailAccount,
-                            onChangePollInterval = actions.onChangeEmailPollInterval,
-                            onRefreshAccount = actions.onRefreshEmailAccount,
-                        )
-                    }
-                }
-                if (uiState.showSmsSection) {
-                    SettingsCard {
-                        SmsSection(
-                            isSmsEnabled = uiState.isSmsEnabled,
-                            permissionGranted = uiState.smsPermissionGranted,
-                            pollIntervalMinutes = uiState.smsPollIntervalMinutes,
-                            pendingCount = uiState.smsPendingCount,
-                            syncState = uiState.smsSyncState,
-                            isRefreshing = uiState.isRefreshingSms,
-                            isSmsSendEnabled = uiState.isSmsSendEnabled,
-                            sendPermissionGranted = uiState.smsSendPermissionGranted,
-                            onToggleSms = actions.onToggleSms,
-                            onChangePollInterval = actions.onChangeSmsPollInterval,
-                            onRefresh = actions.onRefreshSms,
-                            onToggleSmsSend = actions.onToggleSmsSend,
-                        )
-                    }
-                }
-                if (uiState.showNotificationsSection) {
-                    SettingsCard {
-                        NotificationsSection(
-                            isEnabled = uiState.isNotificationsEnabled,
-                            accessGranted = uiState.notificationListenerAccessGranted,
-                            listenerBound = uiState.notificationListenerBound,
-                            pendingCount = uiState.notificationPendingCount,
-                            onToggle = actions.onToggleNotifications,
-                            onOpenAccessSettings = actions.onOpenNotificationListenerSettings,
-                            onClearPending = actions.onClearPendingNotifications,
-                        )
-                    }
                 }
             }
         }
+        
+        // Retain memories and scheduled tasks
+        SettingsCard {
+            ScheduledTaskList(
+                tasks = uiState.scheduledTasks,
+                heartbeatLog = uiState.heartbeatLog,
+                onCancelTask = actions.onCancelTask,
+                onAddScheduledTask = actions.onAddScheduledTask,
+                onUpdateScheduledTask = actions.onUpdateScheduledTask,
+                isSchedulingEnabled = uiState.isSchedulingEnabled,
+                onToggleScheduling = actions.onToggleScheduling,
+            )
+        }
+
+        SettingsCard {
+            MemoryList(
+                memories = uiState.memories,
+                onAddMemory = actions.onAddMemory,
+                isMemoryEnabled = uiState.isMemoryEnabled,
+                onToggleMemory = actions.onToggleMemory,
+                onDeleteMemory = actions.onDeleteMemory,
+                onUpdateMemory = actions.onUpdateMemory,
+            )
+        }
     }
 }
+
 
 @Composable
 private fun SoulEditor(
@@ -1668,18 +1507,6 @@ private fun AudioEnginesCard(
     onChangeCloudTtsKey: (String) -> Unit = {},
     onChangeCloudTtsModel: (String) -> Unit = {},
     onChangeCloudTtsVoice: (String) -> Unit = {},
-    piperInstalledVoices: ImmutableList<com.katya.app.tts.PiperVoiceInfo> = persistentListOf(),
-    piperSelectedVoice: String? = null,
-    piperVoiceUrl: String = "",
-    piperDownloadingBase: String? = null,
-    piperDownloadProgress: Float? = null,
-    piperDownloadError: String? = null,
-    onChangePiperVoiceUrl: (String) -> Unit = {},
-    onDownloadPiperVoice: (String) -> Unit = {},
-    onSelectPiperVoice: (String) -> Unit = {},
-    onImportPiperVoice: (String, ByteArray) -> Unit = { _, _ -> },
-    onDeletePiperVoice: (String) -> Unit = {},
-    onExportPiperVoice: (String) -> Unit = {},
     isVoskReady: Boolean = false,
     isVoskDownloading: Boolean = false,
     voskDownloadProgress: Float? = null,
@@ -1858,84 +1685,7 @@ private fun AudioEnginesCard(
                 onCheckedChange = onToggleVoiceResponse,
             )
 
-            if (isVoiceResponseEnabled) {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val headingColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
-                    Text(
-                        text = "Синтез речи (Голос)",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = headingColor,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    com.katya.app.data.TtsEngine.entries.forEach { engine ->
-                        val name = when (engine) {
-                            com.katya.app.data.TtsEngine.SYSTEM -> "По умолчанию (Android)"
-                            com.katya.app.data.TtsEngine.LOCAL -> "Локальный"
-                            com.katya.app.data.TtsEngine.CLOUD -> "Cloud API"
-                        }
-                        val isCloudTts = engine == com.katya.app.data.TtsEngine.CLOUD
-                        val isLocalTts = engine == com.katya.app.data.TtsEngine.LOCAL
-                        val isTtsDisabled = isCloudTts || (isLocalTts && !ttsEngineInstalled)
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !isTtsDisabled) { onChangeTtsEngine(engine) },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.RadioButton(
-                                selected = ttsEngine == engine,
-                                onClick = { onChangeTtsEngine(engine) },
-                                enabled = !isTtsDisabled,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = name, style = MaterialTheme.typography.bodyMedium, color = if (isTtsDisabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface)
-                        }
 
-                        if (engine == com.katya.app.data.TtsEngine.LOCAL) {
-                            if (!ttsEngineInstalled) {
-                                Text(
-                                    text = "Для локального голоса необходимо скачать модель с внешнего ресурса",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .padding(start = 48.dp, bottom = 8.dp)
-                                        .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") }
-                                )
-                            } else {
-                                Column(modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp)) {
-                                    val textColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
-                                    Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium, color = textColor)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
-                                    androidx.compose.material3.Slider(
-                                        value = sysTtsPitch,
-                                        onValueChange = onChangeSysTtsPitch,
-                                        onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                                        valueRange = 0.5f..2f,
-                                    )
-                                    Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
-                                    androidx.compose.material3.Slider(
-                                        value = sysTtsRate,
-                                        onValueChange = onChangeSysTtsRate,
-                                        onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                                        valueRange = 0.5f..2f,
-                                    )
-                                }
-                            }
-                        }
-
-                        if (engine == com.katya.app.data.TtsEngine.CLOUD) {
-                            Text(
-                                text = "(в разработке)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
-                            )
-                        }
-
-                        // Piper is removed
-                    }
-                }
-            }
         }
     }
 }
@@ -2114,185 +1864,3 @@ private fun SandboxDistroCard(
     }
 }
 
-@Composable
-private fun PiperVoicesCard(
-    modifier: Modifier = Modifier,
-    voices: ImmutableList<com.katya.app.tts.PiperVoiceInfo> = persistentListOf(),
-    selectedVoice: String? = null,
-    voiceUrl: String = "",
-    downloadingBase: String? = null,
-    downloadProgress: Float? = null,
-    downloadError: String? = null,
-    onChangeVoiceUrl: (String) -> Unit = {},
-    onDownloadVoice: (String) -> Unit = {},
-    onSelectVoice: (String) -> Unit = {},
-    onImportVoice: (String, ByteArray) -> Unit = { _, _ -> },
-    onDeleteVoice: (String) -> Unit = {},
-    onExportVoice: (String) -> Unit = {},
-    onOpenHuggingFace: () -> Unit = {},
-) {
-    val scope = rememberCoroutineScope()
-    val importPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(extensions = listOf("tflite", "json", "zip")),
-    ) { picked ->
-        if (picked != null) {
-            scope.launch {
-                runCatching {
-                    onImportVoice(picked.name, picked.readBytes())
-                }.onFailure {
-                    com.katya.app.showToast("Не удалось прочитать выбранный файл")
-                }
-            }
-        }
-    }
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(
-            text = "Голоса Piper",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "Установленные голоса (движок синтеза речи на устройстве). " +
-                "Голос хранится как .tflite файл (с опциональным .json дескриптором) в папке моделей Кати.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        if (voices.isEmpty()) {
-            Text(
-                text = "Голоса не установлены. Скачайте .tflite голос по прямой ссылке или импортируйте файл.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-                    .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                voices.forEach { voice ->
-                    val isSelected = voice.baseName == selectedVoice
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(enabled = !isSelected) { onSelectVoice(voice.baseName) }
-                            .padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(
-                            selected = isSelected,
-                            onClick = { onSelectVoice(voice.baseName) },
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = voice.baseName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Text(
-                                text = "${formatFileSize(voice.sizeBytes)} · ${voice.sampleRate / 1000} кГц${if (voice.hasConfigJson) " · c дескриптором" else ""}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        if (downloadingBase == voice.baseName) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            IconButton(
-                                onClick = { onExportVoice(voice.baseName) },
-                                modifier = Modifier.handCursor(),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Folder,
-                                    contentDescription = "Сохранить голос на устройство",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                            IconButton(
-                                onClick = { onDeleteVoice(voice.baseName) },
-                                modifier = Modifier.handCursor(),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Удалить голос",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Download from a direct URL
-        KaiOutlinedTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = voiceUrl,
-            onValueChange = onChangeVoiceUrl,
-            placeholder = { Text("https://…/мой-голос.onnx.tflite") },
-            label = { Text("Прямая ссылка на .tflite голос", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-            trailingIcon = {
-                OutlinedButton(
-                    onClick = { onDownloadVoice(voiceUrl) },
-                    enabled = voiceUrl.isNotBlank() && downloadingBase == null,
-                    modifier = Modifier.handCursor().padding(end = 4.dp),
-                ) {
-                    Text("Скачать")
-                }
-            },
-        )
-        if (downloadingBase != null) {
-            LinearProgressIndicator(
-                progress = { downloadProgress ?: 0f },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-        if (downloadError != null) {
-            Text(
-                text = downloadError,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        Text(
-            text = "Сначала найдите голос на HuggingFace, откройте файл .tflite (не .onnx) и скопируйте прямую ссылку. " +
-                "Например: https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/…onx.tflite",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "Русские голоса Piper",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier
-                .handCursor()
-                .clickable(onClick = onOpenHuggingFace)
-                .padding(vertical = 4.dp),
-        )
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton(
-                onClick = { importPicker.launch() },
-                enabled = downloadingBase == null,
-                modifier = Modifier.handCursor(),
-            ) {
-                Text("Импортировать .tflite / .json / .zip")
-            }
-        }
-    }
-}
