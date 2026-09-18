@@ -87,6 +87,15 @@ fun AppSettings.setInstanceApiKey(instanceId: String, apiKey: String) {
     settings.putString("instance_${instanceId}_api_key", apiKey)
 }
 
+// Full DeepSeek web session (JSON): token + cookie + hif_dliq/hif_leim + wasmUrl.
+// The api key above only stores the token; the anti-bot headers and full cookie
+// live here so FreeDeepSeekManager can write a complete deepseek-auth.json.
+fun AppSettings.getInstanceDeepSeekSession(instanceId: String): String = settings.getString("instance_${instanceId}_deepseek_session", "")
+
+fun AppSettings.setInstanceDeepSeekSession(instanceId: String, sessionJson: String) {
+    settings.putString("instance_${instanceId}_deepseek_session", sessionJson)
+}
+
 fun AppSettings.getInstanceModelId(instanceId: String): String = settings.getString("instance_${instanceId}_model_id", "")
 
 fun AppSettings.setInstanceModelId(instanceId: String, modelId: String) {
@@ -103,6 +112,7 @@ fun AppSettings.removeInstanceSettings(instanceId: String) {
     settings.remove("instance_${instanceId}_api_key")
     settings.remove("instance_${instanceId}_model_id")
     settings.remove("instance_${instanceId}_base_url")
+    settings.remove("instance_${instanceId}_deepseek_session")
 }
 
 fun AppSettings.generateInstanceId(serviceId: String): String {

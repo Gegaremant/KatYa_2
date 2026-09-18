@@ -263,6 +263,11 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
     var showAddServiceSheet by remember { mutableStateOf(false) }
     var serviceFilter by remember { mutableStateOf<ServiceFilter?>(null) }
 
+    // Repository is injected here (composable scope) so the DeepSeek dialog lambda
+    // below can persist the full session without calling koinInject() from a
+    // non-composable context.
+    val servicesDataRepository: com.katya.app.data.DataRepository = org.koin.compose.koinInject()
+
     // Configured services list
     val entries = uiState.configuredServices
     ReorderableColumn(
@@ -457,10 +462,21 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
 
     if (uiState.showDeepSeekAuthDialog) {
         PlatformDeepSeekAuthDialog(
-            onTokenExtracted = { token ->
+            onTokenExtracted = { session ->
                 val instance = uiState.configuredServices.find { it.service is Service.FreeDeepSeekProxy }
                 if (instance != null) {
-                    actions.onChangeApiKey(instance.instanceId, token)
+                    actions.onChangeApiKey(instance.instanceId, session.token)
+                    // Persist the full session (cookie + anti-bot headers) next to the
+                    // api key so FreeDeepSeekManager can write a complete deepseek-auth.json.
+                    try {
+                        val sessionJson = kotlinx.serialization.json.Json.encodeToString(
+                            DeepSeekAuthSession.serializer(),
+                            session,
+                        )
+                        servicesDataRepository.updateInstanceDeepSeekSession(instance.instanceId, sessionJson)
+                    } catch (e: Exception) {
+                        com.katya.app.tools.AppLogger.e("ServicesSettings", "Failed to persist DeepSeek session: ${e.message}")
+                    }
                 }
                 actions.onShowDeepSeekAuthDialog(false)
             },

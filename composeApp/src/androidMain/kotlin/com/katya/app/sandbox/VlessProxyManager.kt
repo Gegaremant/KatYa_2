@@ -8,6 +8,8 @@ import com.katya.app.tools.VlessParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -21,6 +23,17 @@ class VlessProxyManager(
     private var rootProcess: Process? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
+    private companion object {
+        /**
+         * Cap on consecutive transport restarts within one proxy session. If the config or
+         * network is fundamentally broken, we stop hammering the binary and let the next
+         * explicit start() try again — otherwise a dead config relaunches forever.
+         */
+        const val MAX_CONSECUTIVE_RECOVERIES = 3
+    }
+
+    private var recoveryCount = 0
+
     fun start(force: Boolean = false) {
         if (!force && proxyJob?.isActive == true) {
             AppLogger.d("VlessProxyManager", "Already running or starting, skipping start()")
@@ -28,10 +41,17 @@ class VlessProxyManager(
         }
         stop()
 
-        if (!dataRepository.isVlessEnabled()) return
+        if (!dataRepository.isVlessEnabled()) {
+            AppLogger.d("VlessProxyManager", "VLESS disabled — not starting proxy")
+            return
+        }
         val uri = dataRepository.getVlessUri()
-        if (uri.isBlank()) return
+        if (uri.isBlank()) {
+            AppLogger.e("VlessProxyManager", "VLESS URI is blank — not starting proxy")
+            return
+        }
         AppLogger.d("VlessProxyManager", "VLESS URI (truncated): ${uri.take(100)}")
+        recoveryCount = 0
 
         proxyJob = scope.launch {
             try {
@@ -59,47 +79,11 @@ class VlessProxyManager(
                     AppLogger.d("VlessProxyManager", "Using direct proxy $directProxy, skipping xray launch")
                     appSettings.setSystemStatus("Использую прямой SOCKS/HTTP прокси")
                     launchConnectionLoop()
-                    return@launch
+                    // Keep the job alive until cancelled; the connection loop owns liveness.
+                    awaitCancellation()
                 }
 
-                var finalUri = uri
-                if (!uri.startsWith("vless://") && !uri.startsWith("http://") && !uri.startsWith("https://")) {
-                    finalUri = "http://$uri"
-                    AppLogger.d("VlessProxyManager", "Prepended http:// to URI: $finalUri")
-                }
-
-                if (finalUri.startsWith("http://") || finalUri.startsWith("https://")) {
-                    finalUri = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                        try {
-                            val urlObj = java.net.URL(finalUri)
-                            val connection = urlObj.openConnection() as java.net.HttpURLConnection
-                            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                            connection.connectTimeout = 10000 // 10 seconds
-                            connection.readTimeout = 10000 // 10 seconds
-                            val response = connection.inputStream.bufferedReader().use { it.readText() }
-                            AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100)}")
-
-                            var decoded = response
-                            try {
-                                if (!response.contains("://")) {
-                                    decoded = String(android.util.Base64.decode(response.trim(), android.util.Base64.DEFAULT))
-                                }
-                            } catch (e: Exception) {}
-
-                            val foundVless = decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim()
-                            if (foundVless == null) {
-                                AppLogger.e("VlessProxyManager", "Could not find vless:// link in subscription response")
-                            }
-                            foundVless ?: uri
-                        } catch (e: Exception) {
-                            AppLogger.e("VlessProxyManager", "Failed to fetch subscription: ${e.message}")
-                            uri
-                        }
-                    }
-                }
-                AppLogger.d("VlessProxyManager", "Final URI after processing: ${finalUri.take(100)}")
-
-                // Generate config.json
+                val finalUri = resolveFinalUri(uri)
                 appSettings.setSystemStatus("Настраиваю туннель VLESS...")
                 val configJson = VlessParser.generateXrayConfig(finalUri)
                 AppLogger.d("VlessProxyManager", "Generated config JSON length: ${configJson.length}")
@@ -107,44 +91,18 @@ class VlessProxyManager(
                 configFilePath.writeText(configJson)
                 AppLogger.d("VlessProxyManager", "Config written to: ${configFilePath.absolutePath}")
 
-                val nativeLibDir = linuxSandboxManager.nativeLibDir
-                val xrayNativeBinary = File(nativeLibDir, "libxray.so")
-                
                 launchConnectionLoop()
 
-                // Check for root
-                val isRooted = try {
-                    val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-                    process.waitFor() == 0
-                } catch (e: Exception) {
-                    false
+                // Transport process lifecycle: run xray, and when it exits (crash/kill)
+                // relaunch it after a short pause — without tearing down the sandbox or
+                // the whole proxy job (the old recovery called start(force=true), which
+                // produced endless "Stopping VLESS proxy" log pairs and airplane-mode toggles).
+                while (isActive) {
+                    launchXrayProcess(configFilePath)
+                    kotlinx.coroutines.delay(5000)
                 }
-                
-                
-                if (isRooted) {
-                    AppLogger.d("VlessProxyManager", "Starting xray with root privileges natively")
-                    appSettings.setSystemStatus("Запрашиваю root-права для VLESS")
-                    val command = "${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
-                    AppLogger.d("VlessProxyManager", "Root command: $command")
-                    
-                    rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-                    rootProcess?.waitFor()
-                } else {
-                    AppLogger.d("VlessProxyManager", "Starting xray natively (non-root)")
-                    val command = arrayOf(xrayNativeBinary.absolutePath, "-c", configFilePath.absolutePath)
-                    AppLogger.d("VlessProxyManager", "Non-root command: ${command.joinToString(" ")}")
-                    
-                    rootProcess = ProcessBuilder(*command)
-                        .redirectErrorStream(true)
-                        .start()
-                    
-                    val reader = java.io.BufferedReader(java.io.InputStreamReader(rootProcess!!.inputStream))
-                    var line: String?
-                    while (reader.readLine().also { line = it } != null) {
-                        AppLogger.d("XrayOut", line ?: "")
-                    }
-                    rootProcess?.waitFor()
-                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 AppLogger.e("VlessProxyManager", "Error starting VLESS proxy: ${e.message}\n${e.stackTraceToString()}")
             } finally {
@@ -152,6 +110,97 @@ class VlessProxyManager(
                 appSettings.setVlessConnected(false)
             }
         }
+    }
+
+    /**
+     * Resolves a bare HTTP(S) subscription URL into an actual vless:// link.
+     * Falls back to the original URI when fetching or parsing fails.
+     */
+    private suspend fun resolveFinalUri(uri: String): String {
+        var finalUri = uri
+        if (!uri.startsWith("vless://") && !uri.startsWith("http://") && !uri.startsWith("https://")) {
+            finalUri = "http://$uri"
+            AppLogger.d("VlessProxyManager", "Prepended http:// to URI: $finalUri")
+        }
+
+        if (finalUri.startsWith("http://") || finalUri.startsWith("https://")) {
+            finalUri = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                try {
+                    val urlObj = java.net.URL(finalUri)
+                    val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    connection.connectTimeout = 10000 // 10 seconds
+                    connection.readTimeout = 10000 // 10 seconds
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100)}")
+
+                    var decoded = response
+                    try {
+                        if (!response.contains("://")) {
+                            decoded = String(android.util.Base64.decode(response.trim(), android.util.Base64.DEFAULT))
+                        }
+                    } catch (e: Exception) {}
+
+                    val foundVless = decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim()
+                    if (foundVless == null) {
+                        AppLogger.e("VlessProxyManager", "Could not find vless:// link in subscription response")
+                    }
+                    foundVless ?: uri
+                } catch (e: Exception) {
+                    AppLogger.e("VlessProxyManager", "Failed to fetch subscription: ${e.message}")
+                    uri
+                }
+            }
+        }
+        AppLogger.d("VlessProxyManager", "Final URI after processing: ${finalUri.take(100)}")
+        return finalUri
+    }
+
+    /**
+     * Starts (or restarts) the xray transport process using the already-generated config.
+     * Blocks until the process exits; the caller's loop decides whether to relaunch.
+     * Works for both rooted (su) and non-rooted devices.
+     */
+    private suspend fun launchXrayProcess(configFilePath: File) {
+        rootProcess?.destroyForcibly()
+        rootProcess = null
+
+        val nativeLibDir = linuxSandboxManager.nativeLibDir
+        val xrayNativeBinary = File(nativeLibDir, "libxray.so")
+        if (!xrayNativeBinary.exists()) {
+            AppLogger.e("VlessProxyManager", "xray binary not found at ${xrayNativeBinary.absolutePath}")
+            return
+        }
+
+        val isRooted = try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            process.waitFor() == 0
+        } catch (e: Exception) {
+            false
+        }
+
+        if (isRooted) {
+            AppLogger.d("VlessProxyManager", "Starting xray with root privileges natively")
+            appSettings.setSystemStatus("Запрашиваю root-права для VLESS")
+            val command = "${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
+            AppLogger.d("VlessProxyManager", "Root command: $command")
+            rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+            rootProcess?.waitFor()
+        } else {
+            AppLogger.d("VlessProxyManager", "Starting xray natively (non-root)")
+            val command = arrayOf(xrayNativeBinary.absolutePath, "-c", configFilePath.absolutePath)
+            AppLogger.d("VlessProxyManager", "Non-root command: ${command.joinToString(" ")}")
+            rootProcess = ProcessBuilder(*command)
+                .redirectErrorStream(true)
+                .start()
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(rootProcess!!.inputStream))
+            var line: String?
+            while (reader.readLine().also { line = it } != null) {
+                AppLogger.d("XrayOut", line ?: "")
+            }
+            rootProcess?.waitFor()
+        }
+        rootProcess = null
     }
 
     fun stop() {
@@ -190,25 +239,30 @@ class VlessProxyManager(
         }
     }
 
+    /**
+     * Restarts only the xray transport process. Deliberately does NOT call start(force=true):
+     * that used to cancel the whole proxy job, relaunch the connection loop and (on rooted
+     * devices) toggle airplane mode — turning a flaky network into an endless
+     * "Stopping VLESS proxy / airplane mode toggle" cycle.
+     */
     private suspend fun attemptRecovery() {
         try {
-            val isRooted = try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "id")).waitFor() == 0
-            } catch (e: Exception) {
-                false
+            if (rootProcess?.isAlive == true) {
+                AppLogger.d("VlessProxyManager", "Xray process alive, skipping recovery")
+                return
             }
-
-            if (isRooted) {
-                AppLogger.d("VlessProxyManager", "Toggling Airplane mode...")
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 1; am broadcast -a android.intent.action.AIRPLANE_MODE")).waitFor()
-                kotlinx.coroutines.delay(2000)
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put global airplane_mode_on 0; am broadcast -a android.intent.action.AIRPLANE_MODE")).waitFor()
-                kotlinx.coroutines.delay(5000) // wait for network to reconnect
-                start(force = true)
-            } else {
-                AppLogger.d("VlessProxyManager", "No root, cannot toggle airplane mode. Restarting proxy...")
-                start(force = true)
+            val configFilePath = File(linuxSandboxManager.homePath, "xray_config.json")
+            if (!configFilePath.exists()) {
+                AppLogger.e("VlessProxyManager", "Recovery skipped: no config file yet")
+                return
             }
+            if (recoveryCount >= MAX_CONSECUTIVE_RECOVERIES) {
+                AppLogger.e("VlessProxyManager", "Recovery limit reached ($MAX_CONSECUTIVE_RECOVERIES) — waiting for the next explicit start()")
+                return
+            }
+            recoveryCount++
+            AppLogger.d("VlessProxyManager", "Restarting xray transport (attempt $recoveryCount/$MAX_CONSECUTIVE_RECOVERIES)")
+            launchXrayProcess(configFilePath)
         } catch (e: Exception) {
             AppLogger.e("VlessProxyManager", "Recovery failed: ${e.message}")
         }

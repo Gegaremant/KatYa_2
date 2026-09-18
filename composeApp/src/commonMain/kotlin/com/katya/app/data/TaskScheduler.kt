@@ -67,6 +67,15 @@ class TaskScheduler(
     private var activeJob: Job? = null
 
     /**
+     * Re-entrancy guard for [runDueTasksNow]. The Android alarm receiver may fire again
+     * within seconds while a long AI call from the previous pass is still in flight; a
+     * second concurrent pass would re-run the same due tasks. The foreground chat sets
+     * [isLoadingCheck] to pause execution, but the daemon-only path can't rely on it.
+     */
+    @Volatile
+    private var dueTasksRunning = false
+
+    /**
      * Predicate the loop consults before executing a task, to avoid racing with an
      * in-flight foreground API call. Assigned by the UI layer (`ChatViewModel`) while it
      * is alive and reset to `{ false }` when it's cleared. Default = "nothing loading",
@@ -100,26 +109,7 @@ class TaskScheduler(
                 delay(POLL_INTERVAL_MS.milliseconds)
                 if (!appSettings.isSchedulingEnabled()) continue
 
-                val dueTasks = taskStore.getDueTasks()
-                for (task in dueTasks) {
-                    if (isLoadingCheck()) break
-
-                    try {
-                        // Bind tool calls to the heartbeat conversation's sandbox session
-                        // — the scheduled-task result also lands in that conversation
-                        // (see `addAssistantMessage`), so routing its shell commands
-                        // there too keeps shell state coherent with the visible output.
-                        val taskConversationId = dataRepository.getOrCreateHeartbeatConversationId()
-                        val response = dataRepository.askWithTools(task.prompt, conversationIdOverride = taskConversationId)
-                        if (response.isNotBlank()) {
-                            val header = task.description.ifBlank { "Scheduled task" }
-                            dataRepository.addAssistantMessage("**$header**\n\n$response")
-                        }
-                        handleTaskCompletion(task)
-                    } catch (e: Exception) {
-                        handleTaskFailure(task, formatException(e))
-                    }
-                }
+                runDueTasksNow()
 
                 if (!isLoadingCheck() && heartbeatManager?.isHeartbeatDue() == true) {
                     runHeartbeat()
@@ -136,6 +126,42 @@ class TaskScheduler(
                     checkNewSms()
                 }
             }
+        }
+    }
+
+    /**
+     * Runs every scheduled task whose time has come. Called by the in-process poll loop
+     * and by the Android alarm receiver when the OS wakes the (possibly killed) process
+     * for the nearest pending task.
+     */
+    suspend fun runDueTasksNow() {
+        if (!enabled || taskStore == null || appSettings == null) return
+        if (!appSettings.isSchedulingEnabled()) return
+        if (dueTasksRunning) return
+        dueTasksRunning = true
+        try {
+            val dueTasks = taskStore.getDueTasks()
+            for (task in dueTasks) {
+                if (isLoadingCheck()) break
+
+                try {
+                    // Bind tool calls to the heartbeat conversation's sandbox session
+                    // — the scheduled-task result also lands in that conversation
+                    // (see `addAssistantMessage`), so routing its shell commands
+                    // there too keeps shell state coherent with the visible output.
+                    val taskConversationId = dataRepository.getOrCreateHeartbeatConversationId()
+                    val response = dataRepository.askWithTools(task.prompt, conversationIdOverride = taskConversationId)
+                    if (response.isNotBlank()) {
+                        val header = task.description.ifBlank { "Scheduled task" }
+                        dataRepository.addAssistantMessage("**$header**\n\n$response")
+                    }
+                    handleTaskCompletion(task)
+                } catch (e: Exception) {
+                    handleTaskFailure(task, formatException(e))
+                }
+            }
+        } finally {
+            dueTasksRunning = false
         }
     }
 

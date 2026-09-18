@@ -366,10 +366,14 @@ class AndroidSttController : SttController {
 
         // Restart WakeWord if it is enabled
         if (dataRepository.isWakeWordEnabled()) {
-            val modelLang = dataRepository.getWakeWordModelLang()
-            val url = getModelUrl(modelLang)
-            val trigger = dataRepository.getWakeWordTrigger()
-            wakeWordPlatform.startListening(url, trigger)
+            runCatching {
+                val modelLang = dataRepository.getWakeWordModelLang()
+                val url = getModelUrl(modelLang)
+                val trigger = dataRepository.getWakeWordTrigger()
+                wakeWordPlatform.startListening(url, trigger)
+            }.onFailure { e ->
+                com.katya.app.tools.AppLogger.e("WakeWord", "Failed to restart wake word after audio focus: ${e.message}")
+            }
         }
     }
 }

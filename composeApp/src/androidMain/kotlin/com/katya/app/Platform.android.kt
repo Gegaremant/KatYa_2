@@ -65,7 +65,7 @@ import io.github.vinceglb.filekit.dialogs.openFileSaver
 import io.github.vinceglb.filekit.write
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
-import io.ktor.client.engine.android.Android
+import io.ktor.client.engine.okhttp.OkHttp
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.tool_create_calendar_event_description
 import katya.composeapp.generated.resources.tool_create_calendar_event_name
@@ -117,7 +117,7 @@ private fun setupDefaultProxySelector() {
     }
 }
 
-actual fun httpClient(config: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(Android) {
+actual fun httpClient(config: HttpClientConfig<*>.() -> Unit): HttpClient = HttpClient(OkHttp) {
     config(this)
     setupDefaultProxySelector()
 }

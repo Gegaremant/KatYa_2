@@ -274,6 +274,12 @@ class RemoteDataRepository(
         appSettings.setInstanceApiKey(instanceId, apiKey)
     }
 
+    override fun getInstanceDeepSeekSession(instanceId: String): String = appSettings.getInstanceDeepSeekSession(instanceId)
+
+    override fun updateInstanceDeepSeekSession(instanceId: String, sessionJson: String) {
+        appSettings.setInstanceDeepSeekSession(instanceId, sessionJson)
+    }
+
     override fun getInstanceBaseUrl(instanceId: String, service: Service): String {
         val url = appSettings.getInstanceBaseUrl(instanceId)
         return url.ifBlank { if (service is Service.OpenAICompatible) Service.DEFAULT_OPENAI_COMPATIBLE_BASE_URL else "" }

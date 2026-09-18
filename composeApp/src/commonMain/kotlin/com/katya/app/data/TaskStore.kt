@@ -1,5 +1,6 @@
 package com.katya.app.data
 
+import com.katya.app.TaskAlarmScheduler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +18,10 @@ data class PendingTaskPartition(
 )
 
 @OptIn(ExperimentalTime::class, ExperimentalUuidApi::class)
-class TaskStore(private val appSettings: AppSettings) {
+class TaskStore(
+    private val appSettings: AppSettings,
+    private val taskAlarmScheduler: TaskAlarmScheduler? = null,
+) {
 
     private val json = SharedJson
     private val mutex = Mutex()
@@ -97,6 +101,7 @@ class TaskStore(private val appSettings: AppSettings) {
         tasks.add(task)
         saveTasks(tasks)
         publish()
+        taskAlarmScheduler?.scheduleNext()
         task
     }
 
@@ -131,6 +136,7 @@ class TaskStore(private val appSettings: AppSettings) {
             saveTasks(tasks)
             publish()
         }
+        taskAlarmScheduler?.scheduleNext()
         task
     }
 
@@ -141,6 +147,7 @@ class TaskStore(private val appSettings: AppSettings) {
             saveTasks(tasks)
             publish()
         }
+        taskAlarmScheduler?.scheduleNext()
         removed
     }
 

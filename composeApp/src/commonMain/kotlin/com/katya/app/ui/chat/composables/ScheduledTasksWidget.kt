@@ -49,7 +49,7 @@ fun ScheduledTasksWidget(
     modifier: Modifier = Modifier,
 ) {
     val pending = tasks.filter {
-        it.status == TaskStatus.PENDING && it.trigger != TaskTrigger.HEARTBEAT
+        it.status == TaskStatus.PENDING
     }
     if (pending.isEmpty()) return
 

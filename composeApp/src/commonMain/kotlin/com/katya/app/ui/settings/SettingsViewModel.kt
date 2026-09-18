@@ -320,8 +320,15 @@ class SettingsViewModel(
             }
         }
 
-        if (_state.value.isWakeWordEnabled) {
-            wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), _state.value.wakeWordTrigger)
+        runCatching {
+            if (_state.value.isWakeWordEnabled) {
+                wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), _state.value.wakeWordTrigger)
+            }
+        }.onFailure { e ->
+            com.katya.app.tools.AppLogger.e(
+                "WakeWord",
+                "Wake-word init failed in SettingsViewModel, continuing without it: ${e.message}",
+            )
         }
 
         viewModelScope.launch {
@@ -864,7 +871,13 @@ class SettingsViewModel(
         dataRepository.setWakeWordEnabled(enabled)
         _state.update { it.copy(isWakeWordEnabled = enabled) }
         if (enabled) {
-            wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), _state.value.wakeWordTrigger)
+            runCatching {
+                wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), _state.value.wakeWordTrigger)
+            }.onFailure { e ->
+                com.katya.app.tools.AppLogger.e("WakeWord", "Failed to start wake word: ${e.message}")
+                _state.update { it.copy(isWakeWordEnabled = false) }
+                dataRepository.setWakeWordEnabled(false)
+            }
         } else {
             wakeWordPlatform.stopListening()
         }
@@ -884,8 +897,12 @@ class SettingsViewModel(
         dataRepository.setWakeWordTrigger(trigger)
         _state.update { it.copy(wakeWordTrigger = trigger) }
         if (_state.value.isWakeWordEnabled) {
-            wakeWordPlatform.stopListening()
-            wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), trigger)
+            runCatching {
+                wakeWordPlatform.stopListening()
+                wakeWordPlatform.startListening(getModelUrl(_state.value.wakeWordModelLang), trigger)
+            }.onFailure { e ->
+                com.katya.app.tools.AppLogger.e("WakeWord", "Failed to restart wake word: ${e.message}")
+            }
         }
     }
 
@@ -898,8 +915,12 @@ class SettingsViewModel(
             )
         }
         if (_state.value.isWakeWordEnabled) {
-            wakeWordPlatform.stopListening()
-            wakeWordPlatform.startListening(getModelUrl(lang), _state.value.wakeWordTrigger)
+            runCatching {
+                wakeWordPlatform.stopListening()
+                wakeWordPlatform.startListening(getModelUrl(lang), _state.value.wakeWordTrigger)
+            }.onFailure { e ->
+                com.katya.app.tools.AppLogger.e("WakeWord", "Failed to restart wake word: ${e.message}")
+            }
         }
     }
 

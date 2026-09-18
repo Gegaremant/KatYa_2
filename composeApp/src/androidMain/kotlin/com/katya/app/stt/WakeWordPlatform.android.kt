@@ -50,6 +50,11 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
     private var speechService: SpeechService? = null
     private var activeModel: Model? = null
 
+    // Set once the JNA/Vosk native bridge fails to load (missing libjnidispatch on this
+    // device/ABI). After that every start() is a no-op instead of a hard crash.
+    @Volatile
+    private var voskUnavailable = false
+
     private fun getModelDirectory(url: String): File {
         val modelName = url.substringAfterLast("/").substringBeforeLast(".zip")
         return File(context.filesDir, "vosk/$modelName")
@@ -183,6 +188,7 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
 
     private fun startVoskService(modelUrl: String, triggerWord: String) {
         if (modelUrl.isEmpty() || !isModelReady(modelUrl)) return
+        if (voskUnavailable) return
         currentModelUrl = modelUrl
 
         try {
@@ -215,9 +221,24 @@ class VoskWakeWordManager(private val context: Context) : WakeWordPlatform {
                 _isListeningToSpeech.value = true
                 _partialSttResults.value = ""
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (e: UnsatisfiedLinkError) {
+            // libvosk -> JNA -> libjnidispatch.so not found. This is an Error, not an
+            // Exception, so it used to kill the whole app on the main thread.
+            // Disable wake word for this process instead of crashing.
+            voskUnavailable = true
+            activeModel = null
             _isListeningToSpeech.value = false
+            com.katya.app.tools.AppLogger.e(
+                "WakeWord",
+                "Vosk native bridge unavailable, wake word disabled: ${e.message}",
+            )
+        } catch (e: Throwable) {
+            activeModel = null
+            _isListeningToSpeech.value = false
+            com.katya.app.tools.AppLogger.e(
+                "WakeWord",
+                "startVoskService failed: ${e.message}\n${e.stackTraceToString()}",
+            )
         }
     }
 

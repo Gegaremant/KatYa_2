@@ -34,6 +34,8 @@ interface DataRepository {
     // Per-instance settings
     fun getInstanceApiKey(instanceId: String): String
     fun updateInstanceApiKey(instanceId: String, apiKey: String)
+    fun getInstanceDeepSeekSession(instanceId: String): String
+    fun updateInstanceDeepSeekSession(instanceId: String, sessionJson: String)
     fun getInstanceBaseUrl(instanceId: String, service: Service): String
     fun updateInstanceBaseUrl(instanceId: String, baseUrl: String)
     fun getInstanceModels(instanceId: String, service: Service): StateFlow<List<SettingsModel>>

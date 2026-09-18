@@ -23,6 +23,7 @@ class DaemonService : Service() {
 
     private val taskScheduler: TaskScheduler by inject()
     private val heartbeatManager: HeartbeatManager by inject()
+    private val taskStore: com.katya.app.data.TaskStore by inject()
     private val vlessProxyManager: VlessProxyManager by inject()
     private val freeDeepSeekManager: com.katya.app.sandbox.FreeDeepSeekManager by inject()
     private val sttController: com.katya.app.stt.SttController by inject()
@@ -86,6 +87,9 @@ class DaemonService : Service() {
         // call start() again — idempotent no-op if the loop is already running.
         taskScheduler.start()
         HeartbeatAlarmReceiver.scheduleNext(this, heartbeatManager)
+        // Arm the exact alarm for the nearest pending scheduled task so tasks fire even
+        // if the OS kills this process (the in-memory poll loop disappears with it).
+        ScheduledTaskAlarmReceiver.scheduleNext(this, taskStore)
         vlessProxyManager.start()
         freeDeepSeekManager.start()
     }
@@ -112,6 +116,7 @@ class DaemonService : Service() {
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         HeartbeatAlarmReceiver.cancel(this)
+        ScheduledTaskAlarmReceiver.cancel(this)
         vlessProxyManager.stop()
         freeDeepSeekManager.stop()
         super.onDestroy()

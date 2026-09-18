@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import java.io.File
 
 sealed class DeepSeekProxyState {
@@ -33,8 +34,8 @@ class FreeDeepSeekManager(
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun start(force: Boolean = false) {
-        if (!force && (_state.value is DeepSeekProxyState.Running || _state.value is DeepSeekProxyState.Starting || _state.value is DeepSeekProxyState.Installing)) {
-            AppLogger.d("FreeDeepSeekManager", "Already running or starting (state=${_state.value}), skipping start()")
+        if (!force && proxyJob?.isActive == true) {
+            AppLogger.d("FreeDeepSeekManager", "Already running or starting (job active, state=${_state.value}), skipping start()")
             return
         }
         stop()
@@ -91,16 +92,20 @@ class FreeDeepSeekManager(
 
                 _state.value = DeepSeekProxyState.Starting
 
-                // Retrieve the DeepSeek session token (if any) to pre-populate auth file
+                // Retrieve the DeepSeek session (if any) to pre-populate auth file.
+                // The api key stores the bare token; the per-instance session JSON
+                // carries the full cookie + anti-bot headers (x-hif-dliq/x-hif-leim)
+                // required by newer FreeDeepseekAPI builds.
                 val sessionToken = dataRepository.getInstanceApiKey(instance.instanceId)
+                val sessionJson = dataRepository.getInstanceDeepSeekSession(instance.instanceId)
 
                 // Write deepseek-auth.json via Android File API:
                 // homePath is bind-mounted as /root inside proot, so:
                 // <homePath>/FreeDeepSeekAPI/deepseek-auth.json == /root/FreeDeepSeekAPI/deepseek-auth.json inside proot
-                if (sessionToken.isNotBlank() && !sessionToken.startsWith("{")) {
+                val authContent = buildDeepSeekAuthJson(sessionToken, sessionJson)
+                if (authContent != null) {
                     val authFile = File(linuxSandboxManager.homePath, "FreeDeepSeekAPI/deepseek-auth.json")
                     authFile.parentFile?.mkdirs()
-                    val authContent = """{"token":"$sessionToken","cookie":"user_session=$sessionToken","wasmUrl":"https://fe-static.deepseek.com/chat/static/sha3_wasm_bg.7b9ca65ddd.wasm"}"""
                     authFile.writeText(authContent)
                     AppLogger.d("FreeDeepSeekManager", "Wrote auth file to: ${authFile.absolutePath}, exists=${authFile.exists()}, size=${authFile.length()}")
                 } else {
@@ -120,8 +125,12 @@ class FreeDeepSeekManager(
                 }
 
                 prootHandle = executor.executeStreaming(
-                    // Pass '4' to select "Запустить прокси" from the menu; use PORT/HOST env vars
-                    command = "cd $repoPath && echo '4' | ${proxyEnv}PORT=11434 HOST=127.0.0.1 npm start",
+                    // Non-interactive: skip the startup menu entirely (menu semantics changed
+                    // between FreeDeepseekAPI versions, so echoing a menu number is fragile).
+                    // PORT/HOST env vars pick the listening address. Requires deepseek-auth.json,
+                    // which we pre-write above when a token is set; otherwise the server exits
+                    // fatally instead of hanging on the interactive menu in the background.
+                    command = "cd $repoPath && ${proxyEnv}NON_INTERACTIVE=1 PORT=11434 HOST=127.0.0.1 npm start",
                     onStdout = {
                         AppLogger.d("DeepSeekOut", it)
                         if (it.contains("running on") || it.contains("listening") || it.contains("started")) {
@@ -140,13 +149,16 @@ class FreeDeepSeekManager(
     }
 
     fun stop() {
-        AppLogger.d("FreeDeepSeekManager", "Stopping DeepSeek proxy")
+        val wasActive = proxyJob?.isActive == true || prootHandle != null
         proxyJob?.cancel()
         proxyJob = null
 
         prootHandle?.cancel()
         prootHandle = null
         _state.value = DeepSeekProxyState.Stopped
+        // Keep logs quiet on fresh cold starts where there is nothing to stop yet;
+        // the noisy "Stopping DeepSeek proxy" pairs in the log were causing confusion.
+        if (wasActive) AppLogger.d("FreeDeepSeekManager", "Stopping DeepSeek proxy")
     }
 
     suspend fun runDoctor(): String = kotlinx.coroutines.withContext(Dispatchers.IO) {
@@ -168,5 +180,57 @@ class FreeDeepSeekManager(
             AppLogger.e("FreeDeepSeekManager", "Doctor failed: ${e.message}")
             "Error: ${e.message}"
         }
+    }
+
+    /**
+     * Builds `deepseek-auth.json` for FreeDeepseekAPI.
+     *
+     * Priority: full JSON session (token+cookie+hif+wasmUrl) if the user went
+     * through the in-app DeepSeek dialog; otherwise falls back to the bare api
+     * key (token only) for backwards compatibility.
+     *
+     * JSON is built with kotlinx.serialization so token/cookie strings with
+     * quotes or backslashes can't corrupt the file. Returns null when there is
+     * no usable token.
+     */
+    private fun buildDeepSeekAuthJson(sessionToken: String, sessionJson: String): String? {
+        var token = sessionToken
+        var cookie = "user_session=$sessionToken"
+        var hifDliq = ""
+        var hifLeim = ""
+        var wasmUrl = "https://fe-static.deepseek.com/chat/static/sha3_wasm_bg.7b9ca65ddd.wasm"
+
+        val parsed = sessionJson.trim().takeIf { it.startsWith("{") }?.let { raw ->
+            try {
+                Json { ignoreUnknownKeys = true }.decodeFromString(
+                    com.katya.app.ui.settings.DeepSeekAuthSession.serializer(),
+                    raw,
+                )
+            } catch (e: Exception) {
+                AppLogger.w("FreeDeepSeekManager", "Stored DeepSeek session is not valid JSON: ${e.message}")
+                null
+            }
+        }
+        if (parsed != null) {
+            if (parsed.token.isNotBlank()) token = parsed.token
+            if (parsed.cookie.isNotBlank()) cookie = parsed.cookie
+            hifDliq = parsed.hifDliq.orEmpty()
+            hifLeim = parsed.hifLeim.orEmpty()
+            if (parsed.wasmUrl.isNotBlank()) wasmUrl = parsed.wasmUrl
+        }
+
+        if (token.isBlank() || token.startsWith("{")) return null
+
+        val session = com.katya.app.ui.settings.DeepSeekAuthSession(
+            token = token,
+            cookie = cookie,
+            hifDliq = hifDliq,
+            hifLeim = hifLeim,
+            wasmUrl = wasmUrl,
+        )
+        return Json.encodeToString(
+            com.katya.app.ui.settings.DeepSeekAuthSession.serializer(),
+            session,
+        )
     }
 }

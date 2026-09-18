@@ -122,15 +122,24 @@ class ChatViewModel(
             dataRepository.restoreCurrentConversation()
             presetInteractiveModeForCurrentConversation()
 
-            // Start Wake Word listening if enabled
-            if (dataRepository.isWakeWordEnabled()) {
-                val lang = dataRepository.getWakeWordModelLang()
-                val url = when (lang) {
-                    "ru" -> "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
-                    "en" -> "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
-                    else -> "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+            // Start Wake Word listening if enabled. Fully guarded: a native-library
+            // failure inside Vosk/JNA must never take down ViewModel construction —
+            // this exact path caused a restart crash-loop in 3.1.7.
+            runCatching {
+                if (dataRepository.isWakeWordEnabled()) {
+                    val lang = dataRepository.getWakeWordModelLang()
+                    val url = when (lang) {
+                        "ru" -> "https://alphacephei.com/vosk/models/vosk-model-small-ru-0.22.zip"
+                        "en" -> "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+                        else -> "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+                    }
+                    wakeWordPlatform.startListening(url, dataRepository.getWakeWordTrigger())
                 }
-                wakeWordPlatform.startListening(url, dataRepository.getWakeWordTrigger())
+            }.onFailure { e ->
+                com.katya.app.tools.AppLogger.e(
+                    "WakeWord",
+                    "Wake-word startup failed, continuing without it: ${e.message}",
+                )
             }
 
             _state.update { it.copy(isRestoring = false) }

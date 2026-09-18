@@ -83,9 +83,14 @@ fun ServersContent(
                     if (isChecked) {
                         connectionMode = "VLESS"
                         appSettings.setActiveConnectionMode("VLESS")
+                        // The proxy manager, the global proxy selector and the daemon all
+                        // gate on vless_enabled — the connection mode alone leaves the
+                        // tunnel permanently "disabled" in their eyes.
+                        appSettings.setVlessEnabled(true)
                     } else {
                         connectionMode = "NONE"
                         appSettings.setActiveConnectionMode("NONE")
+                        appSettings.setVlessEnabled(false)
                     }
                 },
             )
@@ -194,6 +199,7 @@ fun ServersContent(
                                                 val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
 
                                                 appSettings.setActiveConnectionMode("VLESS")
+                                                appSettings.setVlessEnabled(true)
                                                 appSettings.setVlessUri(newUri)
                                                 daemon.start()
 
@@ -233,6 +239,40 @@ fun ServersContent(
                             }
                         }
                     }
+                }
+            }
+
+            // Индикатор подключения туннеля — виден всегда на карточке VLESS.
+            // Это общий транспорт для всего приложения (DeepSeek, Telegram,
+            // «замедленные» сайты), поэтому живой статус нужен прямо тут.
+            val vlessConnected by appSettings.isVlessConnectedFlow.collectAsState()
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = if (vlessConnected) StatusColorConnected else StatusColorError,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (vlessConnected)
+                        "VLESS-туннель подключён"
+                    else
+                        "VLESS-туннель не подключён",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (connectionMode == "VLESS" && !vlessConnected) {
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = "проверка или ошибка",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

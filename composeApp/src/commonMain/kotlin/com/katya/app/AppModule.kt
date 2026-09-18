@@ -86,7 +86,7 @@ val appModule = module {
         MemoryStore(get(), get())
     }
     single<TaskStore> {
-        TaskStore(get())
+        TaskStore(get(), get())
     }
     single<EmailStore> {
         EmailStore(get())
@@ -166,6 +166,7 @@ val appModule = module {
     single<SshTunnelService> { createTunnelService() }
     single<MonitorService> { createMonitorService() }
     single<DaemonController> { createDaemonController() }
+    single<TaskAlarmScheduler> { createTaskAlarmScheduler() }
     viewModel { SettingsViewModel(get<com.katya.app.data.AppSettings>(), get<com.katya.app.stt.WakeWordPlatform>(), get<DataRepository>(), get<DaemonController>(), get<NotificationPermissionController>(), get<TaskScheduler>(), localNetworkPermissionController = get<LocalNetworkPermissionController>()) }
     viewModel { SplinterlandsViewModel(get<DataRepository>(), get(), get(), get<SplinterlandsApi>()) }
     viewModel { ChatViewModel(get<DataRepository>(), get<TaskScheduler>(), get<MonitorService>(), get<com.katya.app.stt.WakeWordPlatform>(), get<AppSettings>(), localNetworkPermissionController = get<LocalNetworkPermissionController>()) }

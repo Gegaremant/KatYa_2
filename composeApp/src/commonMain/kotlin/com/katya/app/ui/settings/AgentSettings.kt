@@ -1890,37 +1890,15 @@ private fun AudioEnginesCard(
                             Text(text = name, style = MaterialTheme.typography.bodyMedium, color = if (isTtsDisabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface)
                         }
 
-                        if (engine == com.katya.app.data.TtsEngine.LOCAL) {
-                            if (!ttsEngineInstalled) {
-                                Text(
-                                    text = "Для локального голоса необходимо скачать модель с внешнего ресурса",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier
-                                        .padding(start = 48.dp, bottom = 8.dp)
-                                        .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") }
-                                )
-                            } else {
-                                Column(modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp)) {
-                                    val textColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
-                                    Text("Предустановленные голоса", style = MaterialTheme.typography.labelMedium, color = textColor)
-                                    Spacer(Modifier.height(8.dp))
-                                    Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
-                                    androidx.compose.material3.Slider(
-                                        value = sysTtsPitch,
-                                        onValueChange = onChangeSysTtsPitch,
-                                        onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                                        valueRange = 0.5f..2f,
-                                    )
-                                    Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
-                                    androidx.compose.material3.Slider(
-                                        value = sysTtsRate,
-                                        onValueChange = onChangeSysTtsRate,
-                                        onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                                        valueRange = 0.5f..2f,
-                                    )
-                                }
-                            }
+                        if (engine == com.katya.app.data.TtsEngine.LOCAL && !ttsEngineInstalled) {
+                            Text(
+                                text = "Для локального голоса необходимо скачать модель с внешнего ресурса",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .padding(start = 48.dp, bottom = 8.dp)
+                                    .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") }
+                            )
                         }
 
                         if (engine == com.katya.app.data.TtsEngine.CLOUD) {
@@ -1932,7 +1910,25 @@ private fun AudioEnginesCard(
                             )
                         }
 
-                        // Piper is removed
+                    }
+
+                    // Pitch/rate apply to any engine (system TTS or local).
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                        val textColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+                        Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
+                        androidx.compose.material3.Slider(
+                            value = sysTtsPitch,
+                            onValueChange = onChangeSysTtsPitch,
+                            onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
+                            valueRange = 0.5f..2f,
+                        )
+                        Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
+                        androidx.compose.material3.Slider(
+                            value = sysTtsRate,
+                            onValueChange = onChangeSysTtsRate,
+                            onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
+                            valueRange = 0.5f..2f,
+                        )
                     }
                 }
             }

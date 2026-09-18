@@ -33,10 +33,10 @@ class RootfsDownloader(private val httpClient: HttpClient) {
     // The exact asset names depend on the project's CI; keep them here so the URL
     // can be maintained without touching the extraction logic.
     private val debianRootfsUrls = mapOf(
-        "aarch64" to "https://github.com/termux/proot-distro/releases/latest/download/debian-aarch64.tar.xz",
-        "armhf" to "https://github.com/termux/proot-distro/releases/latest/download/debian-arm.tar.xz",
-        "x86_64" to "https://github.com/termux/proot-distro/releases/latest/download/debian-x86_64.tar.xz",
-        "x86" to "https://github.com/termux/proot-distro/releases/latest/download/debian-i686.tar.xz",
+        "aarch64" to "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-aarch64-pd-v4.29.0.tar.xz",
+        "armhf" to "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-arm-pd-v4.29.0.tar.xz",
+        "x86_64" to "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-x86_64-pd-v4.29.0.tar.xz",
+        "x86" to "https://github.com/termux/proot-distro/releases/download/v4.29.0/debian-trixie-i686-pd-v4.29.0.tar.xz",
     )
 
     fun getDownloadUrls(arch: String, distro: Distro): List<String> {
@@ -172,6 +172,18 @@ class RootfsDownloader(private val httpClient: HttpClient) {
                 val outFile = File(targetDir, name)
                 if (entry.isDirectory) {
                     outFile.mkdirs()
+                } else if (entry.isSymbolicLink) {
+                    // Debian rootfs uses /bin -> usr/bin symlinks (usrmerge); without
+                    // creating them, `/bin/bash` (and friends) silently vanish and proot
+                    // reports "/bin/bash not found" while the file is in /usr/bin.
+                    outFile.parentFile?.mkdirs()
+                    try {
+                        if (outFile.exists()) outFile.delete()
+                        val target = java.nio.file.Paths.get(entry.linkName)
+                        java.nio.file.Files.createSymbolicLink(outFile.toPath(), target)
+                    } catch (e: Exception) {
+                        android.util.Log.w("RootfsDownloader", "Failed to create symlink $name -> ${entry.linkName}: ${e.message}")
+                    }
                 } else {
                     outFile.parentFile?.mkdirs()
                     FileOutputStream(outFile).use { output -> tis.copyTo(output) }

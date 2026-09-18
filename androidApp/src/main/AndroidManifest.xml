@@ -110,6 +110,7 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
         <receiver android:name="com.katya.app.HeartbeatAlarmReceiver" android:exported="false" />
+        <receiver android:name="com.katya.app.ScheduledTaskAlarmReceiver" android:exported="false" />
         
         <service
             android:name="com.katya.app.voice.KatyaVoiceInteractionService"

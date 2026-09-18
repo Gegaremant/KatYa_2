@@ -150,20 +150,33 @@ class ProotExecutor(
                 "/data/data/com.termux/files/usr/bin/sh", "-c", command,
             )
 
-            Distro.DEBIAN -> arrayOf(
-                prootPath,
-                "--bind=$rootfsPath:/",
-                "--bind=$homePath:/root",
-                "--bind=$tmpPath:/tmp",
-                "--bind=/dev",
-                "--bind=/proc",
-                "--bind=/sys",
-                "--bind=/sdcard",
-                "--bind=/storage",
-                "-0",
-                "-w", workingDir,
-                "/bin/bash", "-c", command,
-            )
+            Distro.DEBIAN -> {
+                // Pick the first shell that actually exists inside the rootfs.
+                // Debian's /bin is a usrmerge symlink; even though extractTar now
+                // creates symlinks, some devices may block them — fall back to
+                // whatever bash/sh path survived rather than hardcoding /bin/bash.
+                val candidates = listOf(
+                    "usr/bin/bash",
+                    "bin/bash",
+                    "usr/bin/sh",
+                    "bin/sh",
+                )
+                val shell = candidates.firstOrNull { File(rootfsPath, it).exists() } ?: "bin/sh"
+                arrayOf(
+                    prootPath,
+                    "--bind=$rootfsPath:/",
+                    "--bind=$homePath:/root",
+                    "--bind=$tmpPath:/tmp",
+                    "--bind=/dev",
+                    "--bind=/proc",
+                    "--bind=/sys",
+                    "--bind=/sdcard",
+                    "--bind=/storage",
+                    "-0",
+                    "-w", workingDir,
+                    "/$shell", "-c", command,
+                )
+            }
         }
     }
 
