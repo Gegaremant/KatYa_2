@@ -68,6 +68,16 @@ actual fun PlatformDeepSeekAuthDialog(
         var hifDliq by remember { mutableStateOf("") }
         var hifLeim by remember { mutableStateOf("") }
 
+        // Token that was already sitting in localStorage when the dialog opened.
+        // DeepSeek persists the JWT across sessions, so a dialog opened later finds
+        // yesterday's token and previously reported it as a successful fresh login —
+        // but the WebView had no real user_session cookie, so the backend rejected
+        // the extracted session ("токен якобы получен, но не работает"). We snapshot
+        // the stale value and require a token that is NOT it, i.e. written by a real
+        // login that happened inside THIS dialog session.
+        var staleTokenSnapshot by remember { mutableStateOf<String?>(null) }
+        var cloudflareHintShown by remember { mutableStateOf(false) }
+
         var isDoctorRunning by remember { mutableStateOf(false) }
         var doctorLog by remember { mutableStateOf<String?>(null) }
 
@@ -356,6 +366,14 @@ actual fun PlatformDeepSeekAuthDialog(
                                                         )
                                                     }
                                                 }
+                                                // A black/tinted screen + challenges.cloudflare.com means
+                                                // Turnstile is blocking the page. No JS-hook can fix that —
+                                                // tell the user to solve it manually in the visible WebView.
+                                                val dbgHost2 = request?.url?.host ?: ""
+                                                if (dbgHost2.contains("challenges.cloudflare.com") && !cloudflareHintShown) {
+                                                    cloudflareHintShown = true
+                                                    statusText = "⚠️ DeepSeek показывает проверку Cloudflare (Turnstile). Решите её в окне вручную — автологин продолжит после этого."
+                                                }
                                                 return super.shouldInterceptRequest(view, request)
                                             }
 
@@ -431,6 +449,62 @@ actual fun PlatformDeepSeekAuthDialog(
                     // of spinning forever.
                     val TOTAL_TIMEOUT_MS = 60_000L
                     val startTime = System.currentTimeMillis()
+
+                    // Snapshot the token already present in localStorage before any
+                    // fresh login can happen. This value will be treated as STALE and
+                    // rejected later, so we only report a token written by an actual
+                    // login inside this dialog window (see step 3 below).
+                    if (staleTokenSnapshot == null) {
+                        // First wait a moment: the dialog was just opened, the WebView
+                        // may still be settling. A quick retry loop is cheap.
+                        repeat(5) { i ->
+                            delay(300)
+                            if (staleTokenSnapshot != null) return@repeat
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                val snapJs = """
+                                    (function() {
+                                        try {
+                                            var keys = ['userToken','token','auth_token','access_token',
+                                                        'Authorization','authorization','jwt','id_token',
+                                                        'user_token','session_token','ds_token',
+                                                        'deepseek_token','chat_token','login_token'];
+                                            for (var i = 0; i < keys.length; i++) {
+                                                var val = localStorage.getItem(keys[i]);
+                                                if (val && val !== 'null' && val.length > 20) {
+                                                    try {
+                                                        var j = JSON.parse(val);
+                                                        if (j && typeof j === 'object') {
+                                                            var extracted = j.value || j.token || j.access_token || j.jwt || j.id_token;
+                                                            if (extracted && typeof extracted === 'string' && extracted.length > 20) {
+                                                                return 'SNAP:' + extracted;
+                                                            }
+                                                            continue;
+                                                        }
+                                                    } catch(e) {}
+                                                    return 'SNAP:' + val;
+                                                }
+                                            }
+                                            return 'SNAP:';
+                                        } catch(e) { return 'SNAP:'; }
+                                    })();
+                                """.trimIndent()
+                                webViewRef?.evaluateJavascript(snapJs) { result: String? ->
+                                    val clean = result?.trim('"') ?: ""
+                                    if (clean.startsWith("SNAP:")) {
+                                        val snap = clean.substringAfter("SNAP:", "")
+                                        if (snap.length > 20) {
+                                            staleTokenSnapshot = snap
+                                            android.util.Log.d(
+                                                "DeepSeekAuth",
+                                                "Stale localStorage token snapshot: ${snap.take(20)}... (will reject it, need a FRESH login)",
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     while ((extractedToken == null || (hifDeadline != null && System.currentTimeMillis() < hifDeadline)) && !useManualMode) {
                         delay(1500)
                         attempt++
@@ -536,13 +610,25 @@ actual fun PlatformDeepSeekAuthDialog(
                                             if (extractedToken == null && clean.startsWith("LSKEY:")) {
                                                 val token = clean.substringAfter(":")
                                                 if (token.length > 20 && !token.startsWith("{")) {
-                                                    extractedToken = token
-                                                    isLoggedIn = true
-                                                    hifDeadline = System.currentTimeMillis() + HIF_GRACE_MS
-                                                    statusText = if (hifDliq.isBlank() || hifLeim.isBlank())
-                                                        "✅ Токен найден! Ждём антибот-хедеры..."
-                                                    else
-                                                        "✅ Сессия получена! Закрываем..."
+                                                    if (token == staleTokenSnapshot) {
+                                                        // Same token that was already present when the dialog
+                                                        // opened — no fresh login happened. Reject it and keep
+                                                        // waiting, otherwise we'd report a fake success with a
+                                                        // token the backend no longer recognises.
+                                                        android.util.Log.d(
+                                                            "DeepSeekAuth",
+                                                            "REJECTING stale localStorage token (matches dialog-open snapshot): ${token.take(20)}... keep waiting for fresh login",
+                                                        )
+                                                        statusText = "Токен из localStorage устарел. Войдите в DeepSeek заново — ждём свежий вход..."
+                                                    } else {
+                                                        extractedToken = token
+                                                        isLoggedIn = true
+                                                        hifDeadline = System.currentTimeMillis() + HIF_GRACE_MS
+                                                        statusText = if (hifDliq.isBlank() || hifLeim.isBlank())
+                                                            "✅ Токен найден! Ждём антибот-хедеры..."
+                                                        else
+                                                            "✅ Сессия получена! Закрываем..."
+                                                    }
                                                 }
                                             }
                                         }

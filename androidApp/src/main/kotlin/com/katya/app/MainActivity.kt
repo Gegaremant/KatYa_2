@@ -107,23 +107,25 @@ class MainActivity : ComponentActivity() {
             }
             // Unify all voice backends behind SpeechEngine so cloud TTS (and later
             // Piper) speak through the same entry point as the system TTS stack.
-            val cloudTts: com.katya.app.tts.CloudTtsSpeechEngine? = remember {
-                try {
-                    org.koin.core.context.GlobalContext.get().get()
-                } catch (_: Exception) {
-                    null
-                }
-            }
-            val piperTts: com.katya.app.tts.PiperTtsSpeechEngine? = remember {
-                try {
-                    org.koin.core.context.GlobalContext.get().get()
-                } catch (_: Exception) {
-                    null
-                }
-            }
+            // Resolve the engine lazily — only instantiate the one the user actually
+            // selected. Instantiating all of them eagerly made the Piper engine load
+            // (and emit "Piper engine loaded") at every startup even when TTS was set
+            // to SYSTEM, and kept a 200+ MB RHVoice/Piper stack alive for nothing.
             val speechEngine: com.katya.app.tts.SpeechEngine? = when (ttsEngineSetting) {
-                com.katya.app.data.TtsEngine.CLOUD -> cloudTts
-                com.katya.app.data.TtsEngine.LOCAL -> piperTts
+                com.katya.app.data.TtsEngine.CLOUD -> remember(ttsEngineSetting) {
+                    try {
+                        org.koin.core.context.GlobalContext.get().get<com.katya.app.tts.CloudTtsSpeechEngine>()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                com.katya.app.data.TtsEngine.LOCAL -> remember(ttsEngineSetting) {
+                    try {
+                        org.koin.core.context.GlobalContext.get().get<com.katya.app.tts.PiperTtsSpeechEngine>()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
                 else -> textToSpeech?.let { com.katya.app.tts.SystemTtsSpeechEngine(it) }
             }
             App(

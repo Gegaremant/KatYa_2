@@ -34,8 +34,15 @@ class FreeDeepSeekManager(
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun start(force: Boolean = false) {
-        if (!force && proxyJob?.isActive == true) {
-            AppLogger.d("FreeDeepSeekManager", "Already running or starting (job active, state=${_state.value}), skipping start()")
+        // A job can be "active" while its coroutine is in its dying breath
+        // (state already flipped to Stopped/Error after awaitExit). Restarting
+        // then is the right thing to do — only skip while actually live.
+        val live = proxyJob?.isActive == true &&
+            (_state.value is DeepSeekProxyState.Installing ||
+                _state.value is DeepSeekProxyState.Starting ||
+                _state.value is DeepSeekProxyState.Running)
+        if (!force && live) {
+            AppLogger.d("FreeDeepSeekManager", "Already running or starting (state=${_state.value}), skipping start()")
             return
         }
         stop()

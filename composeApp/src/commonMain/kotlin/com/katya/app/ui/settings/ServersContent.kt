@@ -92,6 +92,14 @@ fun ServersContent(
                         appSettings.setActiveConnectionMode("NONE")
                         appSettings.setVlessEnabled(false)
                     }
+                    // Restart the daemon so the VLESS proxy manager actually starts (or,
+                    // when toggled off, stops) the tunnel. Without this the flag was set
+                    // but no process ever listened on 127.0.0.1:10809 — requests routed
+                    // into a dead port and VLESS "не подключался".
+                    scope.launch {
+                        val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
+                        daemon.start()
+                    }
                 },
             )
 

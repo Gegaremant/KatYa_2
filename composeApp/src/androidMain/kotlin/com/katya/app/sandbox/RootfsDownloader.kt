@@ -159,12 +159,40 @@ class RootfsDownloader(private val httpClient: HttpClient) {
 
             else -> TarArchiveInputStream(buffered)
         }
+        // Published proot-distro tarballs (e.g. debian-trixie-aarch64-pd-v4.29.0.tar.xz)
+        // wrap the whole rootfs in one top-level directory whose exact name varies
+        // (distro-arch/version). Without stripping that single leading component the
+        // rootfs lands one level too deep: /bin/bash, /usr/bin/sh etc. simply don't
+        // exist at the expected paths and proot reports "/bin/sh not found" for every
+        // command. Detect the prefix from the first entry and drop it for the rest.
+        var topPrefix: String? = null
         input.use { tis ->
             var entry = tis.nextEntry
             while (entry != null) {
-                val rawName = entry.name.removePrefix("./")
+                val stripped = entry.name.removePrefix("./")
+                if (topPrefix == null && stripped.isNotEmpty() && !entry.isDirectory) {
+                    // A tar stream can start with a "." entry; only look at real entries.
+                    topPrefix = ""
+                }
+                if (topPrefix == null) {
+                    val first = stripped.substringBefore('/')
+                    if (first.isNotEmpty() && first != "." && stripped != first) {
+                        topPrefix = first
+                        entry = tis.nextEntry
+                        continue
+                    }
+                    topPrefix = ""
+                }
                 // Guard against path traversal in an untrusted rootfs tarball.
-                val name = rawName.split("/").filter { it.isNotEmpty() && it != ".." && it != "." }.joinToString("/")
+                val strippedName = if (topPrefix.isNullOrEmpty()) {
+                    stripped
+                } else if (stripped.startsWith("$topPrefix/")) {
+                    stripped.removePrefix("$topPrefix/")
+                } else {
+                    // Fall back to the raw name — a parallel top-level entry.
+                    stripped
+                }
+                val name = strippedName.split("/").filter { it.isNotEmpty() && it != ".." && it != "." }.joinToString("/")
                 if (name.isEmpty()) {
                     entry = tis.nextEntry
                     continue

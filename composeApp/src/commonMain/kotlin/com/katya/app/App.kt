@@ -162,7 +162,10 @@ private fun AppContent(
     // The voice list is populated asynchronously right after TTS init, so a
     // one-shot lookup usually sees an empty list and silently keeps the engine's
     // default (which often is a male voice). Retry a few times until voices are
-    // ready, then force a female voice — Katya's greeting must not sound male.
+    // ready, then prefer a female voice — Katya's greeting must not sound male.
+    // Important: if no female voice is found, do NOT force any voice — leave the
+    // engine's default (i.e. the one the user chose in the Android TTS settings).
+    // Forcing matchingVoices.firstOrNull() there swallowed the Android voice pick.
     @OptIn(ExperimentalVoiceApi::class)
     LaunchedEffect(speechEngine) {
         val instance = (speechEngine as? SystemTtsSpeechEngine)?.instance ?: return@LaunchedEffect
@@ -171,15 +174,18 @@ private fun AppContent(
             val voices = runCatching { instance.voices.toList() }.getOrDefault(emptyList())
             if (voices.isNotEmpty()) {
                 val matchingVoices = voices.filter { it.languageTag.startsWith(systemLanguage) }
+                // If the matching set is empty (unusual locale mapping), fall back to
+                // the full list so a proper female voice is still preferred.
+                val pool = matchingVoices.ifEmpty { voices }
 
-                // Katya default voice must be female
-                val femaleVoice = matchingVoices.firstOrNull { it.isFemaleVoice() }
+                val femaleVoice = pool.firstOrNull { it.isFemaleVoice() }
                     ?: voices.firstOrNull { it.isFemaleVoice() }
-                    ?: matchingVoices.firstOrNull()
 
                 if (femaleVoice != null) {
                     instance.currentVoice = femaleVoice
                 }
+                // No female voice available → keep the engine default (user's Android
+                // TTS pick) instead of overriding it with a male voice.
                 return@LaunchedEffect
             }
             delay(300)
@@ -305,12 +311,33 @@ private fun nl.marc_apps.tts.Voice.isFemaleVoice(): Boolean {
     val name = name.lowercase()
     return name.contains("female") ||
         name.contains("woman") ||
-        // RHVoice female voices (ru-ru): Elena (dfc), Alena (dfa), Arina (dfd), Natasha (dft)
-        name.contains("d-fc") || name.contains("d-fa") ||
-        name.contains("d-fd") || name.contains("d-ft") ||
-        // Common female voice names
+        // RHVoice female short codes (ru-ru): Elena (dfc), Alena (dfa),
+        // Arina (dfd), Natasha (dft), Irina (dfa-2?) — keep a loose "d-f" prefix
+        // so future female builds still match without updating this list.
+        name.contains("d-f") ||
+        // Common female voice names (RHVoice, Google, various TTS providers)
         name.contains("elena") || name.contains("alena") ||
         name.contains("arina") || name.contains("milena") ||
         name.contains("natasha") || name.contains("tanya") ||
-        name.contains("sonja") || name.contains("koroleva")
+        name.contains("tanja") || name.contains("sonja") ||
+        name.contains("sonya") || name.contains("koroleva") ||
+        name.contains("irina") || name.contains("iriska") ||
+        name.contains("anna") || name.contains("julia") ||
+        name.contains("julie") || name.contains("kate") ||
+        name.contains("katya") || name.contains("katia") ||
+        name.contains("lena") || name.contains("olga") ||
+        name.contains("maria") || name.contains("masha") ||
+        name.contains("dasha") || name.contains("vera") ||
+        name.contains("sveta") || name.contains("zina") ||
+        name.contains("ava") || name.contains("emma") ||
+        name.contains("mia") || name.contains("zoey") ||
+        name.contains("samantha") || name.contains("victoria") ||
+        name.contains("serena") || name.contains("susan") ||
+        name.contains("sarah") || name.contains("amy") ||
+        name.contains("alice") || name.contains("monica") ||
+        name.contains("lisa") || name.contains("jane") ||
+        name.contains("lucy") || name.contains("lily") ||
+        name.contains("hazel") || name.contains("evelyn") ||
+        name.contains("aubrey") || name.contains("audrey") ||
+        name.contains("genevieve") || name.contains("georgie")
 }

@@ -106,6 +106,40 @@ class LinuxSandboxManager(
         return appSettings.getDistro()
     }
 
+    /**
+     * proot-distro tarballs (debian-*-pd-*.tar.xz) wrap the whole rootfs in a
+     * single top-level directory (e.g. `debian-trixie-aarch64/`). Old builds
+     * extracted them one level too deep, leaving `/bin/bash`, `/usr/bin/sh` etc.
+     * missing at the expected paths — proot then fails with "'/bin/sh' not found"
+     * for every command. Detect such a nested rootfs and move its contents up into
+     * [rootfsDir] so existing installs recover without re-downloading hundreds of MB.
+     * Returns true when the rootfs was flattened (or was already flat).
+     */
+    private fun flattenNestedRootfs(rootfsDir: File): Boolean {
+        if (!rootfsDir.isDirectory) return false
+        val entries = rootfsDir.listFiles() ?: return false
+        if (entries.size != 1) return true
+        val nested = entries[0]
+        if (!nested.isDirectory) return true
+        val hasShell =
+            File(nested, "bin/bash").exists() ||
+                File(nested, "usr/bin/bash").exists() ||
+                File(nested, "bin/sh").exists() ||
+                File(nested, "usr/bin/sh").exists()
+        if (!hasShell) return false
+        val children = nested.listFiles() ?: return false
+        for (child in children) {
+            val dest = File(rootfsDir, child.name)
+            if (dest.exists()) dest.deleteRecursively()
+            if (!child.renameTo(dest)) {
+                android.util.Log.w("LinuxSandbox", "Flatten rootfs: failed to move ${child.name}")
+                return false
+            }
+        }
+        runCatching { nested.delete() }
+        return true
+    }
+
     private fun getLinuxArch(): String {
         val abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
         return when {
@@ -151,7 +185,15 @@ class LinuxSandboxManager(
             throw IllegalStateException("Proot binary not found at $prootPath.")
         }
 
-        File(sandboxDir, "rootfs").deleteRecursively()
+        // Older builds wrote the whole proot-distro tarball one level deep
+        // (debian-trixie-aarch64/ inside rootfs), which broke every shell call.
+        // Flatten it so an existing install is re-used instead of being wiped
+        // and re-downloaded (hundreds of MB) on every old device.
+        val rootfsDir = File(sandboxDir, "rootfs")
+        val flattened = flattenNestedRootfs(rootfsDir)
+        if (!flattened || !rootfsDir.isDirectory) {
+            rootfsDir.deleteRecursively()
+        }
         File(sandboxDir, "home").deleteRecursively()
         File(sandboxDir, "tmp").deleteRecursively()
 
@@ -161,7 +203,6 @@ class LinuxSandboxManager(
         copyLibtalloc()
         copyXrayBinary()
 
-        val rootfsDir = File(sandboxDir, "rootfs")
         if (!rootfsDir.isDirectory) {
             val archiveFile = File(sandboxDir, "rootfs-download")
             try {

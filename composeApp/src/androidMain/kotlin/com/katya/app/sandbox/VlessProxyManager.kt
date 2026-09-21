@@ -35,7 +35,11 @@ class VlessProxyManager(
     private var recoveryCount = 0
 
     fun start(force: Boolean = false) {
-        if (!force && proxyJob?.isActive == true) {
+        // If the proxy is already running and VLESS is still enabled, keep it as is.
+        // But if the user just turned VLESS OFF, "already running" must not skip the
+        // stop() below — otherwise the tunnel keeps serving a disabled config while
+        // the global ProxySelector already stopped routing through it.
+        if (!force && proxyJob?.isActive == true && dataRepository.isVlessEnabled()) {
             AppLogger.d("VlessProxyManager", "Already running or starting, skipping start()")
             return
         }
