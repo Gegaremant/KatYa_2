@@ -1,6 +1,6 @@
 package com.katya.app.network
 
-import com.katya.app.AppVersion
+import com.katya.app.Version
 import com.katya.app.currentPlatform
 import com.katya.app.data.Service
 import com.katya.app.httpClient
@@ -77,7 +77,7 @@ class Requests {
             )
         }
         install(UserAgent) {
-            agent = "Kai/${AppVersion.APP_VERSION} (${currentPlatform.displayName})"
+            agent = "Kai/${Version.appVersion} (${currentPlatform.displayName})"
         }
         install(HttpTimeout) {
             requestTimeoutMillis = 60.seconds.inWholeMilliseconds

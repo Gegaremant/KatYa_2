@@ -105,7 +105,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.katya.app.AppVersion
+import com.katya.app.Version
 import com.katya.app.BackIcon
 import com.katya.app.data.EmailAccount
 import com.katya.app.data.HeartbeatLogEntry
@@ -586,7 +586,7 @@ private fun BottomInfo() {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            stringResource(Res.string.settings_version, AppVersion.APP_VERSION),
+            stringResource(Res.string.settings_version, Version.appVersion),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onBackground,
         )

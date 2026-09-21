@@ -26,6 +26,9 @@ android {
                 .get()
                 .toInt()
         versionName = libs.versions.appVersion.get()
+        // Launcher label carries the version too, e.g. "KatYa 3.1.11",
+        // so you always see which build is installed.
+        manifestPlaceholders["appLabel"] = "KatYa ${libs.versions.appVersion.get()}"
     }
 
     flavorDimensions += "distribution"

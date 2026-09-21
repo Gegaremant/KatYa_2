@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">KatYa</string>
+    <!-- android:label is provided via resValue in androidApp/build.gradle.kts so the
+         launcher shows the exact app version, e.g. "KatYa 3.1.11". -->
 </resources>
