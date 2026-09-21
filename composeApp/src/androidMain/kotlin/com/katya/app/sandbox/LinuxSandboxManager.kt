@@ -113,20 +113,31 @@ class LinuxSandboxManager(
      * missing at the expected paths — proot then fails with "'/bin/sh' not found"
      * for every command. Detect such a nested rootfs and move its contents up into
      * [rootfsDir] so existing installs recover without re-downloading hundreds of MB.
-     * Returns true when the rootfs was flattened (or was already flat).
+     *
+     * Returns true only if [rootfsDir] is usable as-is afterwards (flat with a shell,
+     * or flattened successfully). Returns false when the rootfs exists but is broken
+     * (no shell anywhere, mixed garbage entries) — the caller must wipe and reinstall.
      */
     private fun flattenNestedRootfs(rootfsDir: File): Boolean {
-        if (!rootfsDir.isDirectory) return false
+        if (!rootfsDir.isDirectory) return true // nothing to do; caller will download
+        val hasShellHere =
+            File(rootfsDir, "bin/bash").exists() ||
+                File(rootfsDir, "usr/bin/bash").exists() ||
+                File(rootfsDir, "bin/sh").exists() ||
+                File(rootfsDir, "usr/bin/sh").exists()
+        if (hasShellHere) return true // already flat and usable
+
         val entries = rootfsDir.listFiles() ?: return false
-        if (entries.size != 1) return true
+        if (entries.size != 1) return false
         val nested = entries[0]
-        if (!nested.isDirectory) return true
-        val hasShell =
+        if (!nested.isDirectory) return false
+        val hasShellNested =
             File(nested, "bin/bash").exists() ||
                 File(nested, "usr/bin/bash").exists() ||
                 File(nested, "bin/sh").exists() ||
                 File(nested, "usr/bin/sh").exists()
-        if (!hasShell) return false
+        if (!hasShellNested) return false
+
         val children = nested.listFiles() ?: return false
         for (child in children) {
             val dest = File(rootfsDir, child.name)

@@ -54,14 +54,19 @@ class FreeDeepSeekManager(
         }
         proxyJob = scope.launch {
             try {
-                // Wait for sandbox
+                // Wait for sandbox. Fresh rootfs download can take minutes, so poll
+                // with a generous ceiling instead of a fixed 30s window.
                 if (linuxSandboxManager.state.value !is SandboxState.Ready) {
                     linuxSandboxManager.setup()
-                    var waitCount = 0
-                    while (linuxSandboxManager.state.value !is SandboxState.Ready && waitCount < 30) {
-                        if (linuxSandboxManager.state.value is SandboxState.Error) break
-                        kotlinx.coroutines.delay(1000)
-                        waitCount++
+                    val started = System.currentTimeMillis()
+                    while (System.currentTimeMillis() - started < 15 * 60 * 1000L) {
+                        val s = linuxSandboxManager.state.value
+                        if (s is SandboxState.Ready) break
+                        if (s is SandboxState.Error) {
+                            _state.value = DeepSeekProxyState.Error("Sandbox error: $s")
+                            return@launch
+                        }
+                        kotlinx.coroutines.delay(2000)
                     }
                     if (linuxSandboxManager.state.value !is SandboxState.Ready) {
                         _state.value = DeepSeekProxyState.Error("Sandbox not ready: ${linuxSandboxManager.state.value}")

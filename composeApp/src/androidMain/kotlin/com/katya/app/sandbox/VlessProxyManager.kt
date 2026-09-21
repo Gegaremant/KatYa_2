@@ -30,6 +30,9 @@ class VlessProxyManager(
          * explicit start() try again — otherwise a dead config relaunches forever.
          */
         const val MAX_CONSECUTIVE_RECOVERIES = 3
+
+        /** Ceiling for waiting on a fresh rootfs download/install at first run. */
+        const val MAX_SANDBOX_WAIT_MS = 15 * 60 * 1000L
     }
 
     private var recoveryCount = 0
@@ -59,18 +62,20 @@ class VlessProxyManager(
 
         proxyJob = scope.launch {
             try {
-                // Wait for sandbox to be ready
+                // Wait for sandbox to be ready. A fresh Debian rootfs download can
+                // take minutes — polling a fixed 30s would abort every first start.
+                // Keep waiting until Ready/Error with a generous ceiling.
                 if (linuxSandboxManager.state.value !is SandboxState.Ready) {
                     linuxSandboxManager.setup()
-                    // Wait for it to become ready
-                    var waitCount = 0
-                    while (linuxSandboxManager.state.value !is SandboxState.Ready && waitCount < 30) {
-                        if (linuxSandboxManager.state.value is SandboxState.Error) {
-                            AppLogger.e("VlessProxyManager", "Sandbox error: ${linuxSandboxManager.state.value}")
+                    val started = System.currentTimeMillis()
+                    while (System.currentTimeMillis() - started < MAX_SANDBOX_WAIT_MS) {
+                        val s = linuxSandboxManager.state.value
+                        if (s is SandboxState.Ready) break
+                        if (s is SandboxState.Error) {
+                            AppLogger.e("VlessProxyManager", "Sandbox error: $s")
                             break
                         }
-                        kotlinx.coroutines.delay(1000)
-                        waitCount++
+                        kotlinx.coroutines.delay(2000)
                     }
                     if (linuxSandboxManager.state.value !is SandboxState.Ready) {
                         AppLogger.e("VlessProxyManager", "Sandbox not ready, aborting proxy start")
