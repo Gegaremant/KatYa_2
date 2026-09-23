@@ -130,11 +130,24 @@ fun StartupPermissionFlow(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // Voice greeting for the "Давай познакомимся" step. Skippable: the user can
+    // stop it, collapse the intro card, or disable it entirely (persisted).
+    var introSkipped by remember { mutableStateOf(false) }
+    var introVoiceDisabled by remember { mutableStateOf(appSettings.isIntroVoiceDisabled()) }
+    val introSpeech = "Привет! Я Катя, твой личный цифровой помощник. Давай познакомимся. " +
+        "Я умею отвечать на вопросы и вести диалог, работать с файлами и документами, " +
+        "управлять серверами и устройствами, ставить напоминания и следить за событиями. " +
+        "Со мной можно общаться голосом или текстом. Мой голос и скорость речи можно поменять " +
+        "в настройках — нажми кнопку со звёздочкой вверху экрана. " +
+        "Сейчас выбери режим работы и выдай нужные разрешения, чтобы я могла тебе помогать."
+    val dataRepository: com.katya.app.data.DataRepository = koinInject()
+
     // Voice Greeting
     LaunchedEffect(textToSpeech) {
         val tts = textToSpeech ?: return@LaunchedEffect
+        if (introVoiceDisabled) return@LaunchedEffect
         try {
-            tts.speak("Привет, я цифровой помощник Катя. Чтобы мне быть максимально полезной тебе, мне нужны следующие доступы")
+            tts.speak(introSpeech)
         } catch (_: Exception) {
             // Ignore speech synthesis failures
         }
@@ -189,6 +202,123 @@ fun StartupPermissionFlow(
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
                 )
+
+                Spacer(Modifier.height(20.dp))
+
+                // ----- "Давай познакомимся" (first-run intro, skippable) -----
+                if (!introSkipped) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                text = "Давай познакомимся!",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Я Катя — твой личный цифровой помощник. Умею отвечать на вопросы, " +
+                                    "работать с файлами, управлять серверами и устройствами, ставить напоминания. " +
+                                    "Со мной можно общаться голосом или текстом, а голос и скорость речи настраиваются " +
+                                    "во вкладке со звёздочкой вверху главного экрана.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f),
+                                textAlign = TextAlign.Center,
+                            )
+
+                            Spacer(Modifier.height(12.dp))
+
+                            // Default model for the very first chat — guaranteed-free options
+                            // that work without any account or API key. DeepSeek/VLESS and
+                            // other services can be added later from Settings.
+                            Text(
+                                text = "Модель для старта:",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                            )
+                            val currentMode = dataRepository.getFreeMode()
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { dataRepository.setFreeMode(com.katya.app.data.FreeMode.FAST) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = currentMode == com.katya.app.data.FreeMode.FAST,
+                                    onClick = { dataRepository.setFreeMode(com.katya.app.data.FreeMode.FAST) },
+                                )
+                                Text("Бесплатная быстрая", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth().clickable { dataRepository.setFreeMode(com.katya.app.data.FreeMode.EXPERT) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                RadioButton(
+                                    selected = currentMode == com.katya.app.data.FreeMode.EXPERT,
+                                    onClick = { dataRepository.setFreeMode(com.katya.app.data.FreeMode.EXPERT) },
+                                )
+                                Text("Бесплатная экспертная", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                            }
+
+                            Spacer(Modifier.height(12.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = {
+                                        introVoiceDisabled = false
+                                        appSettings.setIntroVoiceDisabled(false)
+                                        textToSpeech?.also {
+                                            it.stop()
+                                            it.speak(introSpeech)
+                                        }
+                                    },
+                                ) {
+                                    Text("🔊 Познакомиться")
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        textToSpeech?.stop()
+                                        introSkipped = true
+                                    },
+                                ) {
+                                    Text("Пропустить")
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        introVoiceDisabled = !introVoiceDisabled
+                                        appSettings.setIntroVoiceDisabled(introVoiceDisabled)
+                                        if (introVoiceDisabled) textToSpeech?.stop()
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(
+                                    checked = introVoiceDisabled,
+                                    onCheckedChange = { checked ->
+                                        introVoiceDisabled = checked
+                                        appSettings.setIntroVoiceDisabled(checked)
+                                        if (checked) textToSpeech?.stop()
+                                    },
+                                )
+                                Text(
+                                    text = "Не озвучивать знакомство",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(24.dp))
 

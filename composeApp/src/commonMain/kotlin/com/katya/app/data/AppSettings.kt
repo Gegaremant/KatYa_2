@@ -444,7 +444,7 @@ class AppSettings(internal val settings: Settings) {
     private val _sysTtsPitchFlow = MutableStateFlow(getSysTtsPitch())
     val sysTtsPitchFlow: StateFlow<Float> = _sysTtsPitchFlow
 
-    fun getSysTtsRate(): Float = settings.getFloat("sys_tts_rate", 1.0f)
+    fun getSysTtsRate(): Float = settings.getFloat("sys_tts_rate", 1.2f)
     fun setSysTtsRate(rate: Float) {
         settings.putFloat("sys_tts_rate", rate)
         _sysTtsRateFlow.value = rate
@@ -643,6 +643,13 @@ class AppSettings(internal val settings: Settings) {
 
     fun setOnboardingCompleted(completed: Boolean) {
         settings.putBoolean(AppSettingsKeys.KEY_ONBOARDING_COMPLETED, completed)
+    }
+
+    // First-run "Давай познакомимся" voice intro (preference flow). The user can
+    // skip the spoken intro without losing the rest of the onboarding.
+    fun isIntroVoiceDisabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_INTRO_VOICE_DISABLED, false)
+    fun setIntroVoiceDisabled(disabled: Boolean) {
+        settings.putBoolean(AppSettingsKeys.KEY_INTRO_VOICE_DISABLED, disabled)
     }
 
     // Agent Visibility (showing operations in UI)

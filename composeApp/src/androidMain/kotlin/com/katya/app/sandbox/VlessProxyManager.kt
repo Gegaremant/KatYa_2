@@ -135,24 +135,33 @@ class VlessProxyManager(
         if (finalUri.startsWith("http://") || finalUri.startsWith("https://")) {
             finalUri = kotlinx.coroutines.withContext(Dispatchers.IO) {
                 try {
-                    val urlObj = java.net.URL(finalUri)
-                    val connection = urlObj.openConnection() as java.net.HttpURLConnection
-                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    connection.connectTimeout = 10000 // 10 seconds
-                    connection.readTimeout = 10000 // 10 seconds
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100)}")
+                    // Android's HttpURLConnection does not reliably follow cross-scheme
+                    // (http -> https) 307 redirects, which our subscription endpoints emit.
+                    // Walk the redirect chain manually instead.
+                    val response = fetchWithRedirects(finalUri)
+                    AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100).replace('\n', ' ')}")
 
-                    var decoded = response
-                    try {
-                        if (!response.contains("://")) {
-                            decoded = String(android.util.Base64.decode(response.trim(), android.util.Base64.DEFAULT))
-                        }
-                    } catch (e: Exception) {}
+                    // 1) Plain-text vless:// lines — the common subscription format.
+                    val lines = response.lines().map { it.trim().removePrefix("\uFEFF") }
+                    var foundVless = lines.firstOrNull { it.startsWith("vless://") }
+                    val linkCount = lines.count { it.startsWith("vless://") }
 
-                    val foundVless = decoded.lines().firstOrNull { it.trim().startsWith("vless://") }?.trim()
+                    // 2) Some servers base64-encode the whole payload.
                     if (foundVless == null) {
-                        AppLogger.e("VlessProxyManager", "Could not find vless:// link in subscription response")
+                        try {
+                            val decoded = String(android.util.Base64.decode(response.trim(), android.util.Base64.DEFAULT))
+                            foundVless = decoded.lines().map { it.trim().removePrefix("\uFEFF") }
+                                .firstOrNull { it.startsWith("vless://") }
+                        } catch (e: Exception) {}
+                    }
+
+                    if (foundVless == null) {
+                        AppLogger.e(
+                            "VlessProxyManager",
+                            "Could not find vless:// link in subscription response (lines=${lines.size}, sample=${response.take(120).replace('\n', ' ')})",
+                        )
+                    } else {
+                        AppLogger.d("VlessProxyManager", "Subscription parsed OK: ${foundVless.take(80)}... ($linkCount vless links)")
                     }
                     foundVless ?: uri
                 } catch (e: Exception) {
@@ -299,6 +308,49 @@ class VlessProxyManager(
     }
 
     private var lastCheckErrorLogMs = 0L
+
+    /**
+     * Fetches a URL body, manually following up to [maxRedirects] redirects (including
+     * http -> https 307s that HttpURLConnection's built-in follower skips). Throws on
+     * non-2xx status or when the redirect chain is too long.
+     */
+    private fun fetchWithRedirects(startUrl: String, maxRedirects: Int = 6): String {
+        var currentUrl = startUrl
+        repeat(maxRedirects) {
+            val connection = java.net.URL(currentUrl).openConnection() as java.net.HttpURLConnection
+            connection.setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Mobile Safari/537.36",
+            )
+            connection.setRequestProperty("Accept", "text/plain, application/octet-stream, */*")
+            connection.instanceFollowRedirects = false
+            connection.connectTimeout = 10_000
+            connection.readTimeout = 10_000
+            try {
+                val code = connection.responseCode
+                if (code in 300..399) {
+                    val location = connection.getHeaderField("Location")?.trim().orEmpty()
+                    if (location.isEmpty()) throw RuntimeException("Redirect ($code) without Location header")
+                    currentUrl = if (location.startsWith("http://") || location.startsWith("https://")) {
+                        location
+                    } else {
+                        java.net.URI(currentUrl).resolve(location).toString()
+                    }
+                    AppLogger.d("VlessProxyManager", "Subscription redirect $code -> $currentUrl")
+                    return@repeat
+                }
+                if (code !in 200..299) {
+                    // Drain the error stream so the connection can be reused/closed cleanly.
+                    connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    throw RuntimeException("Subscription HTTP $code")
+                }
+                return connection.inputStream.bufferedReader().use { it.readText() }
+            } finally {
+                connection.disconnect()
+            }
+        }
+        throw RuntimeException("Too many redirects for subscription URL")
+    }
 
     private fun checkConnection(): Boolean = try {
         val uri = dataRepository.getVlessUri()

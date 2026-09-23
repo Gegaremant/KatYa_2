@@ -1913,19 +1913,21 @@ private fun AudioEnginesCard(
                     }
 
                     // Pitch/rate apply to any engine (system TTS or local).
+                    // Speed comes first (that's what people tweak most); pitch below it.
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                         val textColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
-                        Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
-                        androidx.compose.material3.Slider(
-                            value = sysTtsPitch,
-                            onValueChange = onChangeSysTtsPitch,
-                            onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                            valueRange = 0.5f..2f,
-                        )
                         Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
                         androidx.compose.material3.Slider(
                             value = sysTtsRate,
                             onValueChange = onChangeSysTtsRate,
+                            onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
+                            // Wider range towards "fast": Katya should be able to talk briskly.
+                            valueRange = 0.5f..3f,
+                        )
+                        Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
+                        androidx.compose.material3.Slider(
+                            value = sysTtsPitch,
+                            onValueChange = onChangeSysTtsPitch,
                             onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
                             valueRange = 0.5f..2f,
                         )

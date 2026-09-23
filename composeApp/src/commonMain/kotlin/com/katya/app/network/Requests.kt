@@ -193,7 +193,11 @@ class Requests {
         tools: List<Tool> = emptyList(),
         customHeaders: Map<String, String> = emptyMap(),
         requestTimeoutMs: Long? = null,
-    ): Result<OpenAICompatibleChatResponseDto> = withRetry {
+    ): Result<OpenAICompatibleChatResponseDto> = withRetry(
+        // Free/keyless endpoints (kai9000 etc.) report upstream outages as 500 with a
+        // message — retrying those wastes ~30s per model and reads as "spinning forever".
+        avoidProviderRetries = !service.requiresApiKey,
+    ) {
         try {
             val apiKey = getApiKeyOrThrow(service, credentials)
             val model = credentials.modelId.ifEmpty { null }
@@ -477,7 +481,7 @@ class Requests {
 
     // region Helpers
 
-    private suspend fun <T> withRetry(block: suspend () -> Result<T>): Result<T> {
+    private suspend fun <T> withRetry(avoidProviderRetries: Boolean = false, block: suspend () -> Result<T>): Result<T> {
         var retryCount = 0
         val maxRetries = 5
         while (true) {
@@ -486,9 +490,14 @@ class Requests {
 
             val e = result.exceptionOrNull()
             val name = e?.let { it::class.simpleName.orEmpty() } ?: ""
+            // A ProviderError means the upstream answered with a 500/502 carrying a real
+            // message (e.g. kai9000's "All free providers failed"). For keyless/free
+            // endpoints that's a permanent condition — retrying just makes the UI look
+            // frozen for another ~30s, so let it fail fast and move down the fallback chain.
+            val providerError = name.contains("ProviderError", ignoreCase = true)
             val isNetworkOrServerError = name.contains("Connection", ignoreCase = true) ||
                 name.contains("Timeout", ignoreCase = true) ||
-                name.contains("ProviderError", ignoreCase = true) ||
+                (providerError && !avoidProviderRetries) ||
                 name.contains("ServiceUnavailable", ignoreCase = true) ||
                 name.contains("Overloaded", ignoreCase = true) ||
                 name.contains("IOException", ignoreCase = true) ||

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.katya.app.BackIcon
 import com.katya.app.TerminalLine
+import com.katya.app.data.FallbackStatus
 import com.katya.app.data.Service
 import com.katya.app.data.supportsAgenticFlows
 import com.katya.app.getBackgroundDispatcher
@@ -586,6 +589,11 @@ private fun ChatModeScreen(
                 )
             }
 
+            // Honest model status: shown each time a model in the fallback chain fails
+            // and the next one is being tried, so the user can see that the app hasn't
+            // frozen — it's moving down the queue.
+            FallbackStatusBanner(fallbackStatus = uiState.fallbackStatus)
+
             Box(Modifier.weight(1f)) {
                 var isDropping by remember {
                     mutableStateOf(false)
@@ -710,12 +718,6 @@ private fun ChatModeScreen(
                         val frozenByAssistantId = pairings.first
                         val userIdByAssistantId = pairings.second
                         val executingToolsState = rememberExecutingTools(uiState.history)
-
-                        val fallbackStatusText = uiState.fallbackStatus?.let { status ->
-                            val failed = stringResource(Res.string.fallback_service_failed, status.serviceName, uiErrorText(status.errorReason))
-                            val next = status.nextServiceName?.let { stringResource(Res.string.fallback_trying_next, it) }
-                            if (next != null) "$failed\n$next" else failed
-                        }
 
                         // Group every reasoning segment in a response (intermediate tool-call /
                         // thinking-only turns plus the final answer's own reasoning) under the
@@ -1017,4 +1019,39 @@ private fun rememberExecutingTools(history: ImmutableList<History>): ExecutingTo
         }
     }
     return state
+}
+
+@Composable
+private fun FallbackStatusBanner(fallbackStatus: FallbackStatus?) {
+    if (fallbackStatus == null) return
+
+    val failed = stringResource(Res.string.fallback_service_failed, fallbackStatus.serviceName, uiErrorText(fallbackStatus.errorReason))
+    val next = fallbackStatus.nextServiceName?.let { stringResource(Res.string.fallback_trying_next, it) }
+    val text = if (next != null) "$failed\n$next" else failed
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
 }

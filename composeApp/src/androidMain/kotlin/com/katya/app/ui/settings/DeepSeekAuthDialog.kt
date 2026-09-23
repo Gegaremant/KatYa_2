@@ -79,6 +79,17 @@ actual fun PlatformDeepSeekAuthDialog(
         var isDoctorRunning by remember { mutableStateOf(false) }
         var doctorLog by remember { mutableStateOf<String?>(null) }
 
+        // Ticker + hoisted anti-bot deadline so the UI can render a live countdown
+        // while we wait for x-hif-dliq/x-hif-leim.
+        var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+        var hifDeadlineUi by remember { mutableStateOf<Long?>(null) }
+        LaunchedEffect(Unit) {
+            while (true) {
+                nowMs = System.currentTimeMillis()
+                delay(500)
+            }
+        }
+
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -118,6 +129,11 @@ actual fun PlatformDeepSeekAuthDialog(
                                     onClick = { useManualMode = !useManualMode },
                                 ) {
                                     Text(if (useManualMode) "Авто" else "Вручную")
+                                }
+                                TextButton(
+                                    onClick = { webViewRef?.reload() },
+                                ) {
+                                    Text("⟳ Обновить")
                                 }
                             }
                         }
@@ -259,7 +275,16 @@ actual fun PlatformDeepSeekAuthDialog(
                                 ) {
                                     Text(
                                         text = if (extractedToken != null) {
-                                            "✅ Токен/сессия получены! Закрываем..."
+                                            val remainingSec = hifDeadlineUi?.let { (it - nowMs) / 1000 } ?: 0L
+                                            if (hifDliq.isBlank() || hifLeim.isBlank()) {
+                                                if (remainingSec > 0) {
+                                                    "✅ Токен/сессия получены! Ждём антибот-хедеры... осталось $remainingSec с"
+                                                } else {
+                                                    "✅ Сессия получена! Закрываем..."
+                                                }
+                                            } else {
+                                                "✅ Сессия получена! Закрываем..."
+                                            }
                                         } else {
                                             statusText
                                         },
@@ -291,6 +316,14 @@ actual fun PlatformDeepSeekAuthDialog(
                                         settings.mixedContentMode =
                                             android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                                         layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
+
+                                        // The black screen some users saw on the second open was a
+                                        // combination of a cached WebView surface and the default
+                                        // (dark) canvas. Force white rendering + no cache so the
+                                        // page actually re-draws every time the dialog is opened.
+                                        setBackgroundColor(android.graphics.Color.WHITE)
+                                        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+                                        clearCache(true)
 
                                         // Remove "wv" from user agent so DeepSeek doesn't detect WebView
                                         val defaultAgent = settings.userAgentString
@@ -417,12 +450,18 @@ actual fun PlatformDeepSeekAuthDialog(
                     }
                 }
 
-                // Close button
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 8.dp),
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = "Close")
+                // Close button. Hidden while the autopilot runs or we're waiting for the
+                // anti-bot headers — killing the dialog mid-flight wastes the session.
+                // The wait is bounded (totalTimeoutMs / hifGraceMs) and a countdown is
+                // shown, so the user is never stuck without an exit.
+                val hideCloseDuringWait = autoLoginTriggered || extractedToken != null
+                if (!hideCloseDuringWait) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 8.dp),
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
                 }
 
                 if (doctorLog != null) {
@@ -536,6 +575,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                 extractedToken = token
                                 isLoggedIn = true
                                 hifDeadline = System.currentTimeMillis() + hifGraceMs
+                                hifDeadlineUi = hifDeadline
                                 statusText = if (hifDliq.isBlank() || hifLeim.isBlank()) {
                                     "✅ Токен получен! Ждём антибот-хедеры..."
                                 } else {
@@ -633,6 +673,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                                         extractedToken = token
                                                         isLoggedIn = true
                                                         hifDeadline = System.currentTimeMillis() + hifGraceMs
+                                                        hifDeadlineUi = hifDeadline
                                                         statusText = if (hifDliq.isBlank() || hifLeim.isBlank()) {
                                                             "✅ Токен найден! Ждём антибот-хедеры..."
                                                         } else {

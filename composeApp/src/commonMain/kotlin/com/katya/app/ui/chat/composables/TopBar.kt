@@ -2,12 +2,6 @@ package com.katya.app.ui.chat.composables
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +28,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.katya.app.tts.SpeechEngine
 import com.katya.app.ui.chat.ChatActions
@@ -177,34 +170,9 @@ private fun LeadingButtons(
         }
     }
 
-    // Working/reasoning indicator — three pulsing dots while the model processes.
-    if (isThinking) {
-        val pulse = rememberInfiniteTransition(label = "thinking-pulse")
-        val progress = pulse.animateFloat(
-            initialValue = 0f,
-            targetValue = 1f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 900, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "thinking-progress",
-        ).value
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            repeat(3) { i ->
-                val alpha = 0.35f + 0.65f * ((progress + i / 3f) % 1f)
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 2.dp)
-                        .size(6.dp)
-                        .graphicsLayer { this.alpha = alpha }
-                        .background(MaterialTheme.colorScheme.primary, CircleShape),
-                )
-            }
-        }
-    }
+    // Working/reasoning indicator. The old three-pulsing-dots row was removed: it read as
+    // a connection/availability status and never conveyed what the model was actually doing.
+    // Honest model status now lives in the status banner tied to fallbackStatus instead.
 
     if (hasSavedConversations) {
         IconButton(

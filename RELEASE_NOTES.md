@@ -20,6 +20,13 @@
 - VLESS status indicator now reflects the real tunnel state (red/green/gray).
 - SSH tunnel retry storm (exactly 3 attempts, throttled error logs).
 
+### Feedback round (field tests)
+- **VLESS subscription parsing:** subscriptions that redirect with HTTP 307 (http→https) are now followed manually; BOM/CR stripped, first `vless://` link picked, base64 payloads still supported. The app no longer fails with "Could not find vless:// link".
+- **Model status honesty:** removed the three blinking dots from the top bar; when a model fails, a visible banner shows which one failed, why, and the next model being tried. Free/keyless endpoints (kai9000) fail fast instead of spinning through ~30s of blind retries.
+- **DeepSeek auth dialog:** close button hidden while the autopilot or anti-bot-header wait is in progress (with a live countdown instead), WebView renders white with no cache (no more black screen on the second open), added a "⟳ Обновить" button.
+- **TTS defaults:** Speed slider moved to the top, Pitch below; speed range widened to 0.5–3.0 and the default rate raised to 1.2 so Katya speaks noticeably faster on a fresh install.
+- **First-run "Давай познакомимся":** skippable spoken intro with a default-model picker (Free Fast / Free Expert), a "Пропустить" button and a persistent "Не озвучивать знакомство" option.
+
 ## v3.1.6-git
 ### Added & Improved
 - **README Update:** Полностью переработан README, добавлено описание проекта, структура, инструкция по сборке, переключатель RU/EN.
