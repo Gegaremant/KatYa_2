@@ -99,6 +99,22 @@ class LinuxSandboxManager(
     /** Публичный вызов после установки rootfs/нативных компонентов — обновляет состояние. */
     fun recheckInstallation() {
         checkExistingInstallation()
+        val rootfs = File(sandboxDir, "rootfs")
+        if (rootfs.isDirectory) {
+            val d = currentDistro()
+            val bashExists = when (d) {
+                Distro.TERMUX -> File(rootfs, "usr/bin/bash").exists()
+                Distro.DEBIAN -> File(rootfs, "bin/bash").exists() || File(rootfs, "usr/bin/bash").exists()
+            }
+            // Подтягиваем каталог: чтобы галочка в UI не врала, если rootfs уже лежит
+            // на диске (например, остался от предыдущей версии с вшитыми компонентами).
+            if (bashExists) {
+                componentsRepository.markInstalled(componentsRepository.currentRootfsId())
+            }
+        }
+        if (File(prootPath).exists()) {
+            componentsRepository.markInstalled("native_${com.katya.app.components.currentAbi()}")
+        }
         if (_state.value !is SandboxState.Ready) {
             AppLogger.d("LinuxSandbox", "Rootfs/native установлены, но песочница не собрана (нужен запуск setup)")
         }
