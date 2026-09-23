@@ -1,5 +1,25 @@
 # Release Notes
 
+## v3.2.2
+### Added & Improved
+- **Downloadable Components Registry:** Sandbox stack (Debian rootfs + native proot/xray binaries) now lives in a component registry with per-ABI seeds, background downloads with progress in the notification, and editable "Alternative links" on the Servers tab.
+- **Slim APK:** native binaries moved out of the APK (downloaded on demand per ABI) — much smaller install.
+- **Working default URLs:** Debian rootfs links fixed for proot-distro v4.29.0 (`arm` instead of `armhf`) and native binaries now point to release `v3.2.2` — the sandbox installs out of the box.
+- **Corrupted TAR fix:** archive compression is now detected by magic bytes (xz/gz/bz2), not by the temp file name, which read XZ as raw TAR and broke rootfs extraction with "Corrupted TAR archive".
+- **VLESS resilience:** proxy is used only while the tunnel is actually Connected; after 3 failed checks the app announces fallback, stops retrying and shows "VLESS недоступен — стандартный канал"; when the tunnel recovers it switches back. No more dead `127.0.0.1:10809` ECONNREFUSED on every request.
+- **Sandbox auto-repair:** broken/missing rootfs is detected and reinstalled (wipe + reinstall), with a patient wait for a slow first install.
+- **Single source of truth for version** (`gradle/libs.versions.toml` → generated `Version.kt`), label and UI show the same app version.
+- **Agent visibility hint:** "Сначала включите озвучку на вкладке «Агент»" caption with a one-tap shortcut to the Agent tab.
+- **DeepSeek auth:** clicking "Войти" immediately injects the auto-login JS (no need to wait for a page reload).
+- **Vocal modes:** added system-prompt tuning for "Собеседник" (Conversational) and "Сыскун" (Detective) agent modes.
+- **Documentation:** full "How to Use" step-by-step guide in README (RU/EN).
+### Fixed
+- Rootfs download HTTP 404 for armeabi-v7a (wrong arm arch name in proot-distro assets).
+- "Corrupted TAR archive" breaking rootfs extraction for arm64/x86_64.
+- Requests hanging on a dead VLESS proxy instead of falling back to the standard channel.
+- VLESS status indicator now reflects the real tunnel state (red/green/gray).
+- SSH tunnel retry storm (exactly 3 attempts, throttled error logs).
+
 ## v3.1.6-git
 ### Added & Improved
 - **README Update:** Полностью переработан README, добавлено описание проекта, структура, инструкция по сборке, переключатель RU/EN.

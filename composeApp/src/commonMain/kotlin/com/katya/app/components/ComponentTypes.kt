@@ -67,7 +67,7 @@ object ComponentDefaults {
                         componentType = ComponentType.NATIVE,
                         version = "1",
                         abi = abi,
-                        url = "https://github.com/Gegaremant/KatYa_2/releases/download/v3.2.0/native-$abi.zip",
+                        url = "https://github.com/Gegaremant/KatYa_2/releases/download/v3.2.2/native-$abi.zip",
                     ),
                 )
             }
