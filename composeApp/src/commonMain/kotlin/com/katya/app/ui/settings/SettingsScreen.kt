@@ -105,8 +105,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.katya.app.Version
 import com.katya.app.BackIcon
+import com.katya.app.Version
 import com.katya.app.data.EmailAccount
 import com.katya.app.data.HeartbeatLogEntry
 import com.katya.app.data.ImportSection

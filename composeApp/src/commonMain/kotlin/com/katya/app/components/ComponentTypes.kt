@@ -9,11 +9,11 @@ enum class ComponentType(val dbValue: String) {
     NATIVE("native"),
 
     /** Модели (STT/TTS/LLM). */
-    MODEL("model");
+    MODEL("model"),
+    ;
 
     companion object {
-        fun from(value: String): ComponentType =
-            entries.firstOrNull { it.dbValue == value } ?: MODEL
+        fun from(value: String): ComponentType = entries.firstOrNull { it.dbValue == value } ?: MODEL
     }
 }
 

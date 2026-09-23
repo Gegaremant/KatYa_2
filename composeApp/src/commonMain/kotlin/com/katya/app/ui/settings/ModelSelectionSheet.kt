@@ -198,7 +198,7 @@ private fun ModelCard(model: SettingsModel, isSelected: Boolean, onClick: () -> 
     } else {
         rawTitle
     }
-    
+
     val displayName = model.displayName?.takeIf { it.isNotBlank() && it != model.id }
     val secondary = if (displayName == null && model.subtitle.isNotBlank()) model.subtitle else null
     val contextText = model.contextWindow?.let { formatContextWindow(it) }

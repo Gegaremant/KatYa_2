@@ -191,7 +191,7 @@ class ProotExecutor(
                 tallocOrig.copyTo(tallocLink, overwrite = true)
             }
         }
-        
+
         val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
         val baseEnv = when (distro) {
             Distro.TERMUX -> arrayOf(

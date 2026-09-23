@@ -10,8 +10,8 @@ import com.katya.app.data.ScheduledTask
 import com.katya.app.data.Service
 import com.katya.app.data.ServiceEntry
 import com.katya.app.data.TaskScheduler
-import com.katya.app.data.modelSupportsImages
 import com.katya.app.data.UiSubmission
+import com.katya.app.data.modelSupportsImages
 import com.katya.app.device.DeviceInfoProvider
 import com.katya.app.device.NetworkStatusProvider
 import com.katya.app.device.createDeviceInfoProvider

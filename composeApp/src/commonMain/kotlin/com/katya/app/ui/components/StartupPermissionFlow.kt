@@ -331,8 +331,8 @@ fun StartupPermissionFlow(
                                         hasAccessibility = accessibilityController.hasPermission()
                                         hasNotifications = notificationController.hasPermission()
                                         hasGodModePack = smsController.hasPermission() &&
-                                                smsSendController.hasPermission() &&
-                                                calendarController.hasPermission()
+                                            smsSendController.hasPermission() &&
+                                            calendarController.hasPermission()
                                     }
                                     isCheckingRoot = false
                                 }

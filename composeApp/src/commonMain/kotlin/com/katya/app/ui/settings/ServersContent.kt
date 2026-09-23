@@ -553,8 +553,6 @@ fun ServersContent(
 
         Spacer(Modifier.height(16.dp))
 
-
-
         // Logging
         SettingsCard {
             ToggleableHeadline(

@@ -40,8 +40,6 @@ import androidx.webkit.WebViewCompat
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-
-
 @Composable
 actual fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (DeepSeekAuthSession) -> Unit,
@@ -57,7 +55,7 @@ actual fun PlatformDeepSeekAuthDialog(
         var isLoggedIn by remember { mutableStateOf(false) }
         var manualToken by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
         var useManualMode by remember { mutableStateOf(false) }
-        
+
         var dsEmail by remember { mutableStateOf("") }
         var dsPassword by remember { mutableStateOf("") }
         var autoLoginTriggered by remember { mutableStateOf(false) }
@@ -252,22 +250,25 @@ actual fun PlatformDeepSeekAuthDialog(
                                 // While the WebView autopilot is running, replace the native
                                 // fields with a status banner so the user knows what's happening.
                                 Surface(
-                                    color = if (extractedToken != null)
+                                    color = if (extractedToken != null) {
                                         MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.secondaryContainer,
+                                    } else {
+                                        MaterialTheme.colorScheme.secondaryContainer
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
-                                        text = if (extractedToken != null)
+                                        text = if (extractedToken != null) {
                                             "✅ Токен/сессия получены! Закрываем..."
-                                        else
-                                            statusText,
+                                        } else {
+                                            statusText
+                                        },
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (extractedToken != null)
+                                        color = if (extractedToken != null) {
                                             MaterialTheme.colorScheme.onPrimaryContainer
-                                        else
-                                            MaterialTheme.colorScheme.onSecondaryContainer,
+                                        } else {
+                                            MaterialTheme.colorScheme.onSecondaryContainer
+                                        },
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                                     )
                                 }
@@ -360,10 +361,12 @@ actual fun PlatformDeepSeekAuthDialog(
                                                     for ((k, v) in headers) {
                                                         val lk = k.lowercase()
                                                         if (lk == "x-hif-dliq" && v.isNotBlank() && hifDliq.isBlank()) {
-                                                            hifDliq = v; hit = true
+                                                            hifDliq = v
+                                                            hit = true
                                                         }
                                                         if (lk == "x-hif-leim" && v.isNotBlank() && hifLeim.isBlank()) {
-                                                            hifLeim = v; hit = true
+                                                            hifLeim = v
+                                                            hit = true
                                                         }
                                                     }
                                                     if (hit) {
@@ -414,8 +417,6 @@ actual fun PlatformDeepSeekAuthDialog(
                     }
                 }
 
-
-
                 // Close button
                 IconButton(
                     onClick = onDismiss,
@@ -450,11 +451,11 @@ actual fun PlatformDeepSeekAuthDialog(
                     var attempt = 0
                     // After the token appears we wait a short grace period so the
                     // web client can fire requests carrying x-hif-dliq/x-hif-leim.
-                    val HIF_GRACE_MS = 30_000L
+                    val hifGraceMs = 30_000L
                     // Whole-attempt budget: if the autopilot never manages to sign in
                     // (bad creds, DeepSeek layout change, CAPTCHA), fail loudly instead
                     // of spinning forever.
-                    val TOTAL_TIMEOUT_MS = 60_000L
+                    val totalTimeoutMs = 60_000L
                     val startTime = System.currentTimeMillis()
 
                     // Snapshot the token already present in localStorage before any
@@ -516,7 +517,7 @@ actual fun PlatformDeepSeekAuthDialog(
                         delay(1500)
                         attempt++
 
-                        if (System.currentTimeMillis() - startTime > TOTAL_TIMEOUT_MS && extractedToken == null) {
+                        if (System.currentTimeMillis() - startTime > totalTimeoutMs && extractedToken == null) {
                             statusText = "⏱️ Не удалось получить токен за 60 с. Проверьте логин/пароль или включите ручной ввод."
                             delay(2500)
                             onDismiss()
@@ -534,11 +535,12 @@ actual fun PlatformDeepSeekAuthDialog(
                                 android.util.Log.d("DeepSeekAuth", "Cookie token found: ${token.take(20)}...")
                                 extractedToken = token
                                 isLoggedIn = true
-                                hifDeadline = System.currentTimeMillis() + HIF_GRACE_MS
-                                statusText = if (hifDliq.isBlank() || hifLeim.isBlank())
+                                hifDeadline = System.currentTimeMillis() + hifGraceMs
+                                statusText = if (hifDliq.isBlank() || hifLeim.isBlank()) {
                                     "✅ Токен получен! Ждём антибот-хедеры..."
-                                else
+                                } else {
                                     "✅ Сессия получена! Закрываем..."
+                                }
                             }
                         }
 
@@ -630,11 +632,12 @@ actual fun PlatformDeepSeekAuthDialog(
                                                     } else {
                                                         extractedToken = token
                                                         isLoggedIn = true
-                                                        hifDeadline = System.currentTimeMillis() + HIF_GRACE_MS
-                                                        statusText = if (hifDliq.isBlank() || hifLeim.isBlank())
+                                                        hifDeadline = System.currentTimeMillis() + hifGraceMs
+                                                        statusText = if (hifDliq.isBlank() || hifLeim.isBlank()) {
                                                             "✅ Токен найден! Ждём антибот-хедеры..."
-                                                        else
+                                                        } else {
                                                             "✅ Сессия получена! Закрываем..."
+                                                        }
                                                     }
                                                 }
                                             }

@@ -38,9 +38,11 @@ class FreeDeepSeekManager(
         // (state already flipped to Stopped/Error after awaitExit). Restarting
         // then is the right thing to do — only skip while actually live.
         val live = proxyJob?.isActive == true &&
-            (_state.value is DeepSeekProxyState.Installing ||
-                _state.value is DeepSeekProxyState.Starting ||
-                _state.value is DeepSeekProxyState.Running)
+            (
+                _state.value is DeepSeekProxyState.Installing ||
+                    _state.value is DeepSeekProxyState.Starting ||
+                    _state.value is DeepSeekProxyState.Running
+                )
         if (!force && live) {
             AppLogger.d("FreeDeepSeekManager", "Already running or starting (state=${_state.value}), skipping start()")
             return

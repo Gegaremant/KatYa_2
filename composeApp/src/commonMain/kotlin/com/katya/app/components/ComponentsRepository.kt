@@ -63,8 +63,7 @@ class ComponentsRepository(
         )
     }
 
-    fun component(id: String): DownloadableComponent? =
-        queries?.selectComponentById(id)?.executeAsOneOrNull()
+    fun component(id: String): DownloadableComponent? = queries?.selectComponentById(id)?.executeAsOneOrNull()
 
     fun updateUrl(id: String, url: String) {
         queries?.updateComponentUrl(url, now(), id)
@@ -82,14 +81,12 @@ class ComponentsRepository(
         queries?.markComponentFailed(now(), id)
     }
 
-    fun isInstalled(id: String): Boolean =
-        queries?.selectComponentById(id)?.executeAsOneOrNull()?.status == "installed"
+    fun isInstalled(id: String): Boolean = queries?.selectComponentById(id)?.executeAsOneOrNull()?.status == "installed"
 
     /** Id компонента rootfs для текущей ABI. */
     fun currentRootfsId(): String = "debian_${currentAbi()}"
 
-    fun currentRootfsUrl(): String? =
-        queries?.selectComponentById(currentRootfsId())?.executeAsOneOrNull()?.url
+    fun currentRootfsUrl(): String? = queries?.selectComponentById(currentRootfsId())?.executeAsOneOrNull()?.url
 
     /** Компоненты, которые нужны текущему устройству и ещё не установлены. */
     fun missingForCurrentDevice(): List<DownloadableComponent> {

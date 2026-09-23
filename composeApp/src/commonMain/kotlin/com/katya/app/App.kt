@@ -319,11 +319,14 @@ private fun FirstRunComponentsDialog() {
     var dismissed by remember { mutableStateOf(appSettings.isComponentsPromptSkipped()) }
 
     val missing = remember(components, dismissed) {
-        if (dismissed) emptyList()
-        else components.filter { c ->
-            c.id != com.katya.app.components.ComponentsRepository.SEED_MARKER_ID &&
-                (c.abi == null || c.abi == deviceAbi) &&
-                c.status != "installed"
+        if (dismissed) {
+            emptyList()
+        } else {
+            components.filter { c ->
+                c.id != com.katya.app.components.ComponentsRepository.SEED_MARKER_ID &&
+                    (c.abi == null || c.abi == deviceAbi) &&
+                    c.status != "installed"
+            }
         }
     }
 
@@ -341,8 +344,10 @@ private fun FirstRunComponentsDialog() {
                             "Debian, Proot и остальное качается по запросу:",
                     )
                     missing.forEach { c ->
-                        androidx.compose.material3.Text("• ${c.name}",
-                            modifier = androidx.compose.ui.Modifier.padding(start = 8.dp, top = 4.dp))
+                        androidx.compose.material3.Text(
+                            "• ${c.name}",
+                            modifier = androidx.compose.ui.Modifier.padding(start = 8.dp, top = 4.dp),
+                        )
                     }
                 }
             },

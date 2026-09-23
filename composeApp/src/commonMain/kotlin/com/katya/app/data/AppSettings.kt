@@ -696,9 +696,8 @@ class AppSettings(internal val settings: Settings) {
     // VLESS is on when either the explicit flag OR the connection-mode toggle is set.
     // Older builds only wrote active_connection_mode (the VLESS switch in ServersContent
     // now writes both), so a legacy "VLESS" mode must keep the tunnel alive.
-    fun isVlessEnabled(): Boolean =
-        settings.getBoolean(AppSettingsKeys.KEY_VLESS_ENABLED, false) ||
-            settings.getString("active_connection_mode", "NONE") == "VLESS"
+    fun isVlessEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_VLESS_ENABLED, false) ||
+        settings.getString("active_connection_mode", "NONE") == "VLESS"
 
     fun setVlessEnabled(enabled: Boolean) {
         settings.putBoolean(AppSettingsKeys.KEY_VLESS_ENABLED, enabled)

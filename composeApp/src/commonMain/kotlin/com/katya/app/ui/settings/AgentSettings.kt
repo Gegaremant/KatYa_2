@@ -1877,7 +1877,7 @@ private fun AudioEnginesCard(
                         val isCloudTts = engine == com.katya.app.data.TtsEngine.CLOUD
                         val isLocalTts = engine == com.katya.app.data.TtsEngine.LOCAL
                         val isTtsDisabled = isCloudTts || (isLocalTts && !ttsEngineInstalled)
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !isTtsDisabled) { onChangeTtsEngine(engine) },
                             verticalAlignment = Alignment.CenterVertically,
@@ -1898,7 +1898,7 @@ private fun AudioEnginesCard(
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .padding(start = 48.dp, bottom = 8.dp)
-                                    .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") }
+                                    .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") },
                             )
                         }
 
@@ -1910,7 +1910,6 @@ private fun AudioEnginesCard(
                                 modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
                             )
                         }
-
                     }
 
                     // Pitch/rate apply to any engine (system TTS or local).
