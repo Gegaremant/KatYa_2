@@ -24,6 +24,9 @@ class KatyaApplication : Application() {
             androidContext(this@KatyaApplication)
             modules(appModule, sandboxModule, com.katya.app.stt.sttModule, com.katya.app.audio.audioModule)
         }
+        // Отдельные файлы журналов: общий + root-события (запросы на root-права).
+        com.katya.app.tools.AppLogger.setRootLogFilePath(java.io.File(filesDir, "root.log").absolutePath)
+        com.katya.app.tools.AppLogger.action("Приложение KatYa", "запуск")
         // Track app foreground state so the scheduler only pushes a heartbeat notification
         // when the in-app banner isn't visible. ViewModel lifecycle is the wrong signal —
         // it survives backgrounding and only clears on Activity destruction.

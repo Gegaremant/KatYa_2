@@ -57,28 +57,7 @@ class RootfsDownloader(private val httpClient: HttpClient) {
         var lastError: Exception? = null
         for ((index, url) in urls.withIndex()) {
             try {
-                httpClient.prepareGet(url).execute { response ->
-                    if (!response.status.isSuccess()) {
-                        throw IOException("HTTP ${response.status.value} from $url")
-                    }
-                    val totalBytes = response.contentLength() ?: -1L
-                    val channel = response.bodyAsChannel()
-                    val buffer = ByteArray(8192)
-                    var downloadedBytes = 0L
-
-                    targetFile.parentFile?.mkdirs()
-                    FileOutputStream(targetFile).use { output ->
-                        while (!channel.isClosedForRead) {
-                            val bytesRead = channel.readAvailable(buffer)
-                            if (bytesRead <= 0) break
-                            output.write(buffer, 0, bytesRead)
-                            downloadedBytes += bytesRead
-                            if (totalBytes > 0) {
-                                onProgress(downloadedBytes.toFloat() / totalBytes)
-                            }
-                        }
-                    }
-                }
+                downloadDirect(url, targetFile, onProgress)
                 return
             } catch (e: CancellationException) {
                 throw e
@@ -89,6 +68,36 @@ class RootfsDownloader(private val httpClient: HttpClient) {
             }
         }
         throw IOException("Failed to download rootfs", lastError)
+    }
+
+    /** Скачивание по явной ссылке (например, из ComponentsRepository — «Альтернативные ссылки»). */
+    suspend fun downloadDirect(
+        url: String,
+        targetFile: File,
+        onProgress: (Float) -> Unit,
+    ) {
+        httpClient.prepareGet(url).execute { response ->
+            if (!response.status.isSuccess()) {
+                throw IOException("HTTP ${response.status.value} from $url")
+            }
+            val totalBytes = response.contentLength() ?: -1L
+            val channel = response.bodyAsChannel()
+            val buffer = ByteArray(8192)
+            var downloadedBytes = 0L
+
+            targetFile.parentFile?.mkdirs()
+            FileOutputStream(targetFile).use { output ->
+                while (!channel.isClosedForRead) {
+                    val bytesRead = channel.readAvailable(buffer)
+                    if (bytesRead <= 0) break
+                    output.write(buffer, 0, bytesRead)
+                    downloadedBytes += bytesRead
+                    if (totalBytes > 0) {
+                        onProgress(downloadedBytes.toFloat() / totalBytes)
+                    }
+                }
+            }
+        }
     }
 
     fun extract(rootfsFile: File, targetDir: File, distro: Distro) {

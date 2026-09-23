@@ -4,6 +4,7 @@ package com.katya.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -303,6 +305,60 @@ private fun AppContent(
                 }
             }
         }
+        FirstRunComponentsDialog()
+    }
+}
+
+@Composable
+private fun FirstRunComponentsDialog() {
+    val appSettings = koinInject<AppSettings>()
+    val componentsRepository = koinInject<com.katya.app.components.ComponentsRepository>()
+    val launcher = koinInject<com.katya.app.components.ComponentDownloadLauncher>()
+    val components by componentsRepository.components.collectAsStateWithLifecycle()
+    val deviceAbi = com.katya.app.components.currentAbi()
+    var dismissed by remember { mutableStateOf(appSettings.isComponentsPromptSkipped()) }
+
+    val missing = remember(components, dismissed) {
+        if (dismissed) emptyList()
+        else components.filter { c ->
+            c.id != com.katya.app.components.ComponentsRepository.SEED_MARKER_ID &&
+                (c.abi == null || c.abi == deviceAbi) &&
+                c.status != "installed"
+        }
+    }
+
+    if (missing.isNotEmpty() && !appSettings.isComponentsPromptSkipped()) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = {
+                dismissed = true
+                appSettings.setComponentsPromptSkipped(true)
+            },
+            title = { androidx.compose.material3.Text("Доскачать компоненты?") },
+            text = {
+                androidx.compose.foundation.layout.Column {
+                    androidx.compose.material3.Text(
+                        "Катя больше не таскает лишнее в APK — " +
+                            "Debian, Proot и остальное качается по запросу:",
+                    )
+                    missing.forEach { c ->
+                        androidx.compose.material3.Text("• ${c.name}",
+                            modifier = androidx.compose.ui.Modifier.padding(start = 8.dp, top = 4.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    missing.forEach { launcher.startDownload(it.id) }
+                    dismissed = true
+                }) { androidx.compose.material3.Text("Скачать в фоне") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    dismissed = true
+                    appSettings.setComponentsPromptSkipped(true)
+                }) { androidx.compose.material3.Text("Позже") }
+            },
+        )
     }
 }
 

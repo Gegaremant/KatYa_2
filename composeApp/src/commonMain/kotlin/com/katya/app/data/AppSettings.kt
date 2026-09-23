@@ -923,6 +923,12 @@ class AppSettings(internal val settings: Settings) {
         settings.putBoolean(AppSettingsKeys.KEY_LOGGING_ENABLED, enabled)
     }
 
+    fun isComponentsPromptSkipped(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_SKIP_COMPONENTS_PROMPT, false)
+
+    fun setComponentsPromptSkipped(skipped: Boolean) {
+        settings.putBoolean(AppSettingsKeys.KEY_SKIP_COMPONENTS_PROMPT, skipped)
+    }
+
     fun getQuickActionsJson(): String = settings.getString(AppSettingsKeys.KEY_QUICK_ACTIONS, "[]")
 
     fun setQuickActionsJson(json: String) {

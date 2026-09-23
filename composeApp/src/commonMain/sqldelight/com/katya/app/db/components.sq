@@ -1,0 +1,67 @@
+-- Реестр скачиваемых компонентов. Катя больше не таскает тяжёлые части в APK:
+-- debian-rootfs, proot/talloc/xray .so, STT/TTS модели — всё качается по запросу.
+-- Ссылки хранятся в БД и меняются пользователем (вкладка «Сервер» → спойлер
+-- «Альтернативные ссылки»). Структурные изменения — только через пронумерованный
+-- .sqm файл (см. шапку conversation.sq).
+
+CREATE TABLE downloadableComponent (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    componentType TEXT NOT NULL,
+    url TEXT NOT NULL,
+    version TEXT NOT NULL DEFAULT '',
+    abi TEXT,
+    status TEXT NOT NULL DEFAULT 'missing',
+    destinationPath TEXT,
+    downloadedBytes INTEGER NOT NULL DEFAULT 0,
+    totalBytes INTEGER NOT NULL DEFAULT 0,
+    updatedAt INTEGER NOT NULL
+);
+
+selectAllComponents:
+SELECT * FROM downloadableComponent
+ORDER BY name;
+
+selectComponentById:
+SELECT * FROM downloadableComponent
+WHERE id = ?;
+
+selectComponentsByType:
+SELECT * FROM downloadableComponent
+WHERE componentType = ?
+ORDER BY name;
+
+selectComponentsByStatus:
+SELECT * FROM downloadableComponent
+WHERE status = ?
+ORDER BY name;
+
+upsertComponent:
+INSERT OR REPLACE INTO downloadableComponent (
+    id, name, componentType, url, version, abi, status, destinationPath,
+    downloadedBytes, totalBytes, updatedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateComponentUrl:
+UPDATE downloadableComponent
+SET url = ?, updatedAt = ?
+WHERE id = ?;
+
+updateComponentProgress:
+UPDATE downloadableComponent
+SET status = ?, downloadedBytes = ?, totalBytes = ?, updatedAt = ?
+WHERE id = ?;
+
+markComponentInstalled:
+UPDATE downloadableComponent
+SET status = 'installed', downloadedBytes = totalBytes, updatedAt = ?
+WHERE id = ?;
+
+markComponentFailed:
+UPDATE downloadableComponent
+SET status = 'failed', updatedAt = ?
+WHERE id = ?;
+
+deleteComponent:
+DELETE FROM downloadableComponent
+WHERE id = ?;

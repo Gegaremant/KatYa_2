@@ -8,6 +8,7 @@ import com.katya.app.TerminalLine
 import com.katya.app.data.AppSettings
 import com.katya.app.data.ConversationStorage
 import com.katya.app.data.Distro
+import com.katya.app.tools.AppLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +29,7 @@ class LinuxSandboxManager(
     private val context: Context,
     private val conversationStorage: ConversationStorage,
     private val appSettings: AppSettings,
+    private val componentsRepository: com.katya.app.components.ComponentsRepository,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -69,9 +71,10 @@ class LinuxSandboxManager(
 
     val tmpPath: String get() = File(sandboxDir, "tmp").absolutePath
 
-    // Run proot directly from nativeLibraryDir where Android grants execute permission
-    val prootPath: String get() = File(context.applicationInfo.nativeLibraryDir, "libproot.so").absolutePath
-    val nativeLibDir: String get() = context.applicationInfo.nativeLibraryDir
+    // Proot/xray/talloc живут в filesDir/katya-native/{abi} — они НЕ вшиты в APK,
+    // а скачиваются через ComponentsRepository («Альтернативные ссылки»).
+    val nativeLibDir: String get() = File(context.filesDir, "katya-native/${com.katya.app.components.currentAbi()}").absolutePath
+    val prootPath: String get() = File(nativeLibDir, "libproot.so").absolutePath
 
     private val downloader = RootfsDownloader(HttpClient(OkHttp))
 
@@ -90,6 +93,14 @@ class LinuxSandboxManager(
         }
         if (bashExists) {
             _state.value = SandboxState.Ready
+        }
+    }
+
+    /** Публичный вызов после установки rootfs/нативных компонентов — обновляет состояние. */
+    fun recheckInstallation() {
+        checkExistingInstallation()
+        if (_state.value !is SandboxState.Ready) {
+            AppLogger.d("LinuxSandbox", "Rootfs/native установлены, но песочница не собрана (нужен запуск setup)")
         }
     }
 
@@ -218,8 +229,18 @@ class LinuxSandboxManager(
             val archiveFile = File(sandboxDir, "rootfs-download")
             try {
                 _state.value = SandboxState.Downloading(0f)
-                downloader.download(arch, distro, archiveFile) { progress ->
-                    _state.value = SandboxState.Downloading(progress)
+                // Ссылка на rootfs живёт в БД (ComponentsRepository) — её можно менять
+                // в UI без пересборки. Старые встроенные URL остаются запасным путём.
+                val repoRootfsUrl = componentsRepository.currentRootfsUrl()
+                if (distro == Distro.DEBIAN && !repoRootfsUrl.isNullOrBlank()) {
+                    AppLogger.d("LinuxSandbox", "Using rootfs URL from repository")
+                    downloader.downloadDirect(repoRootfsUrl, archiveFile) { progress ->
+                        _state.value = SandboxState.Downloading(progress)
+                    }
+                } else {
+                    downloader.download(arch, distro, archiveFile) { progress ->
+                        _state.value = SandboxState.Downloading(progress)
+                    }
                 }
 
                 _state.value = SandboxState.Extracting

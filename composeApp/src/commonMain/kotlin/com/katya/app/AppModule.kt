@@ -76,6 +76,18 @@ val appModule = module {
         val driver = createConversationSqlDriver()
         if (driver != null) KatyaDatabase(driver) else null
     }
+    single<com.katya.app.components.ComponentsRepository> {
+        com.katya.app.components.ComponentsRepository(
+            get(),
+            kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default,
+            ),
+        ).also { it.seedIfNeeded() }
+    }
+    // Android-реализация регистрируется позже в sandboxModule и перекрывает fallback.
+    single<com.katya.app.components.ComponentDownloadLauncher> {
+        com.katya.app.components.NoopComponentDownloadLauncher()
+    }
     single<ConversationStorage> {
         ConversationStorage(get(), createConversationPersistence(get(), get()))
     }

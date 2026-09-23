@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -23,9 +25,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
+import com.katya.app.components.ComponentDownloadLauncher
+import com.katya.app.components.ComponentsRepository
+import com.katya.app.components.currentAbi
 import com.katya.app.data.AppSettings
 import com.katya.app.data.LocalServerProfile
 import com.katya.app.data.VlessProxyProfile
+import com.katya.app.db.DownloadableComponent
 import com.katya.app.tools.AppLogger
 import com.katya.app.ui.KaiOutlinedTextField
 import kotlinx.coroutines.delay
@@ -57,6 +63,7 @@ fun ServersContent(
     // Logging
     var isLoggingEnabled by remember { mutableStateOf(appSettings.isLoggingEnabled()) }
     var showLogsDialog by remember { mutableStateOf(false) }
+    var showRootLogsDialog by remember { mutableStateOf(false) }
     var logFilePath by remember { mutableStateOf(appSettings.getLogFilePath() ?: "") }
 
     // (LaunchedEffect already added above)
@@ -287,6 +294,74 @@ fun ServersContent(
 
         Spacer(Modifier.height(16.dp))
 
+        // Загрузки компонентов / «Альтернативные ссылки»
+        SettingsCard {
+            var altExpanded by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { altExpanded = !altExpanded }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Загрузки · Альтернативные ссылки",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Icon(
+                    imageVector = if (altExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (altExpanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            AnimatedVisibility(
+                visible = altExpanded,
+                enter = expandVertically(),
+                exit = shrinkVertically(),
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    val componentsRepository = koinInject<ComponentsRepository>()
+                    val components by componentsRepository.components.collectAsState()
+                    val launcher = koinInject<ComponentDownloadLauncher>()
+                    val deviceAbi = currentAbi()
+
+                    if (components.isEmpty()) {
+                        Text(
+                            "Нет компонентов",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    components.forEach { component ->
+                        DownloadableComponentRow(
+                            component = component,
+                            isForThisDevice = component.abi == null || component.abi == deviceAbi,
+                            onUrlChange = { newUrl -> componentsRepository.updateUrl(component.id, newUrl) },
+                            onDownload = { launcher.startDownload(component.id) },
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                    }
+
+                    Text(
+                        "Здесь лежат ссылки на Debian, Proot, Xray и другие компоненты. " +
+                            "В APK они больше не встроены — всё скачивается по запросу и " +
+                            "видно в этой панели. Ссылки можно заменить на свои.",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
         // Local Servers
         SettingsCard {
             val localChecked = connectionMode == "LOCAL"
@@ -488,6 +563,12 @@ fun ServersContent(
                     ) {
                         Text("Посмотреть логи")
                     }
+                    OutlinedButton(
+                        onClick = { showRootLogsDialog = true },
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).fillMaxWidth(),
+                    ) {
+                        Text("Root-логи (запросы root-прав)")
+                    }
                 }
             }
         }
@@ -497,7 +578,137 @@ fun ServersContent(
         if (showLogsDialog) {
             LogsDialog(onDismiss = { showLogsDialog = false })
         }
+
+        if (showRootLogsDialog) {
+            RootLogsDialog(onDismiss = { showRootLogsDialog = false })
+        }
     }
+}
+
+@Composable
+private fun DownloadableComponentRow(
+    component: DownloadableComponent,
+    isForThisDevice: Boolean,
+    onUrlChange: (String) -> Unit,
+    onDownload: () -> Unit,
+) {
+    val isDownloading = component.status == "downloading"
+    val isInstalled = component.status == "installed"
+    val isFailed = component.status == "failed"
+
+    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Icon(
+                imageVector = if (isInstalled) Icons.Default.CheckCircle else Icons.Default.Add,
+                contentDescription = null,
+                tint = if (isInstalled) Color.Green else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = component.name,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (!isForThisDevice) {
+                Text(
+                    text = "другая ABI",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Text(
+                    text = when {
+                        isInstalled -> "установлен"
+                        isDownloading -> "качается"
+                        isFailed -> "ошибка"
+                        else -> "нет"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        if (isDownloading && component.totalBytes > 0) {
+            Spacer(Modifier.height(8.dp))
+            val progress = (component.downloadedBytes.toFloat() / component.totalBytes).coerceIn(0f, 1f)
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "${(progress * 100).toInt()}% · ${component.downloadedBytes / (1024 * 1024)} МБ / ${component.totalBytes / (1024 * 1024)} МБ",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        var urlValue by remember(component.id) { mutableStateOf(component.url) }
+        KaiOutlinedTextField(
+            value = urlValue,
+            onValueChange = { urlValue = it },
+            placeholder = { Text("https://…") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(
+                onClick = { onUrlChange(urlValue.trim()) },
+                enabled = urlValue.trim() != component.url,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Сменить ссылку")
+            }
+            Button(
+                onClick = onDownload,
+                enabled = !isDownloading,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(if (isInstalled) "Переустановить" else "Скачать")
+            }
+        }
+    }
+}
+
+@Composable
+fun RootLogsDialog(onDismiss: () -> Unit) {
+    val logs by AppLogger.rootLogs.collectAsState()
+    val clipboardManager = LocalClipboardManager.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Root-логи (запросы root-прав)") },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                items(logs) { log ->
+                    Text(log, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 2.dp), color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Закрыть")
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = {
+                    clipboardManager.setText(AnnotatedString(logs.joinToString("\n")))
+                }) {
+                    Text("Копировать")
+                }
+                TextButton(onClick = { AppLogger.clearRoot() }) {
+                    Text("Очистить")
+                }
+            }
+        },
+    )
 }
 
 @Composable

@@ -82,6 +82,7 @@ object AppSettingsKeys {
     const val KEY_TUNNEL_PERSISTENT_RECONNECT = "tunnel_persistent_reconnect"
 
     const val KEY_LOGGING_ENABLED = "logging_enabled"
+    const val KEY_SKIP_COMPONENTS_PROMPT = "skip_components_prompt"
     const val DEFAULT_MEMORY_INSTRUCTIONS = ""
 
     const val KEY_WAKE_WORD = "wake_word"

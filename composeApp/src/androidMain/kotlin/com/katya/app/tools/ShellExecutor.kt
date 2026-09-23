@@ -77,19 +77,35 @@ object ShellExecutor {
         useRoot: Boolean = false,
         workDir: String? = null,
         timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-    ): ExecResult = try {
-        val argv = if (useRoot) arrayOf("su", "-c", command) else arrayOf("sh", "-c", command)
-        val builder = ProcessBuilder(*argv)
-        if (workDir != null) {
-            val dir = File(workDir)
-            if (dir.exists() && dir.isDirectory) {
-                builder.directory(dir)
-            }
+    ): ExecResult {
+        val shortCmd = command.take(200)
+        if (useRoot) {
+            com.katya.app.tools.AppLogger.rootAction("Запрос root-прав: $shortCmd", "выполняется")
         }
-        builder.redirectErrorStream(true)
-        runProcess(builder.start(), timeoutMs)
-    } catch (e: Exception) {
-        ExecResult(false, "Execution error: ${e.message}", -1)
+        return try {
+            val argv = if (useRoot) arrayOf("su", "-c", command) else arrayOf("sh", "-c", command)
+            val builder = ProcessBuilder(*argv)
+            if (workDir != null) {
+                val dir = File(workDir)
+                if (dir.exists() && dir.isDirectory) {
+                    builder.directory(dir)
+                }
+            }
+            builder.redirectErrorStream(true)
+            val result = runProcess(builder.start(), timeoutMs)
+            if (useRoot) {
+                com.katya.app.tools.AppLogger.rootAction(
+                    "Результат root-команды: $shortCmd",
+                    if (result.isSuccess && result.exitCode == 0) "OK" else "код ${result.exitCode}, ${result.output.take(120)}",
+                )
+            }
+            result
+        } catch (e: Exception) {
+            if (useRoot) {
+                com.katya.app.tools.AppLogger.rootAction("Root-команда провалена: $shortCmd", "ОШИБКА: ${e.message}")
+            }
+            ExecResult(false, "Execution error: ${e.message}", -1)
+        }
     }
 
     private fun runProcess(process: Process, timeoutMs: Long): ExecResult {

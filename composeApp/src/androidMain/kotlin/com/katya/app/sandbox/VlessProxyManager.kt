@@ -183,8 +183,11 @@ class VlessProxyManager(
 
         val isRooted = try {
             val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
-            process.waitFor() == 0
+            val ok = process.waitFor() == 0
+            AppLogger.rootAction("Запрос root-прав (VLESS/xray)", if (ok) "доступ предоставлен — OK" else "отклонён/нет su")
+            ok
         } catch (e: Exception) {
+            AppLogger.rootAction("Запрос root-прав (VLESS/xray)", "ОШИБКА: ${e.message}")
             false
         }
 
@@ -193,6 +196,7 @@ class VlessProxyManager(
             appSettings.setSystemStatus("Запрашиваю root-права для VLESS")
             val command = "${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
             AppLogger.d("VlessProxyManager", "Root command: $command")
+            AppLogger.rootAction("Запуск xray от root: $command", "выполняется")
             rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
             rootProcess?.waitFor()
         } else {
