@@ -67,7 +67,7 @@ KatYa/
 4. **Песочница (нужна для автономной работы и VLESS)**
    - Вкладка **Сервер** → **Sandbox** → «Скачать песочницу». Приложение само скачает и распакует:
      - **Debian rootfs** (образ Linux для proot);
-     - **нативные библиотеки** (proot, xray) для вашей ABI — URL по умолчанию ведут на релиз v3.2.2 репозитория.
+     - **нативные библиотеки** (proot, xray) для вашей ABI — URL по умолчанию ведут на релиз v3.1.1 репозитория.
    - Ход загрузки виден в уведомлении и на вкладке «Сервер» → «Альтернативные ссылки». Любую ссылку можно заменить вручную (кнопка «Сохранить»), если загрузка не удалась с дефолтной.
 
 5. **Подключение моделей**
@@ -154,7 +154,7 @@ KatYa/
 4. **Sandbox (required for autonomous work and VLESS)**
    - **Servers** tab → **Sandbox** → "Download sandbox". The app downloads and unpacks automatically:
      - **Debian rootfs** (Linux image for proot);
-     - **native binaries** (proot, xray) for your ABI — default URLs point to the v3.2.2 release of this repository.
+     - **native binaries** (proot, xray) for your ABI — default URLs point to the v3.1.1 release of this repository.
    - Progress is shown in a notification and on **Servers** → **Alternative links**. Any link can be replaced manually (Save button) if the default one fails.
 
 5. **Model Connection**

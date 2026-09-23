@@ -1,10 +1,10 @@
 # Release Notes
 
-## v3.2.2
+## v3.1.1
 ### Added & Improved
 - **Downloadable Components Registry:** Sandbox stack (Debian rootfs + native proot/xray binaries) now lives in a component registry with per-ABI seeds, background downloads with progress in the notification, and editable "Alternative links" on the Servers tab.
 - **Slim APK:** native binaries moved out of the APK (downloaded on demand per ABI) — much smaller install.
-- **Working default URLs:** Debian rootfs links fixed for proot-distro v4.29.0 (`arm` instead of `armhf`) and native binaries now point to release `v3.2.2` — the sandbox installs out of the box.
+- **Working default URLs:** Debian rootfs links fixed for proot-distro v4.29.0 (`arm` instead of `armhf`) and native binaries now point to release `v3.1.1` — the sandbox installs out of the box.
 - **Corrupted TAR fix:** archive compression is now detected by magic bytes (xz/gz/bz2), not by the temp file name, which read XZ as raw TAR and broke rootfs extraction with "Corrupted TAR archive".
 - **VLESS resilience:** proxy is used only while the tunnel is actually Connected; after 3 failed checks the app announces fallback, stops retrying and shows "VLESS недоступен — стандартный канал"; when the tunnel recovers it switches back. No more dead `127.0.0.1:10809` ECONNREFUSED on every request.
 - **Sandbox auto-repair:** broken/missing rootfs is detected and reinstalled (wipe + reinstall), with a patient wait for a slow first install.
