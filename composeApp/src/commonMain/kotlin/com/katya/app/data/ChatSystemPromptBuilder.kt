@@ -194,9 +194,31 @@ internal fun buildChatSystemPrompt(
 ): String = buildString {
     append(soul)
 
-    if (agentMode == com.katya.app.data.AgentMode.SHORT) {
-        if (isNotEmpty()) append("\n\n")
-        append("SHORT MODE ACTIVE: Keep your responses as brief and direct as possible. Avoid conversational filler, pleasantries, or long explanations unless explicitly requested. Provide just the answer.")
+    when (agentMode) {
+        com.katya.app.data.AgentMode.SHORT -> {
+            if (isNotEmpty()) append("\n\n")
+            append(
+                "SHORT MODE ACTIVE: Keep your responses as brief and direct as possible. " +
+                    "Avoid conversational filler, pleasantries, or long explanations unless explicitly requested. Provide just the answer.",
+            )
+        }
+        com.katya.app.data.AgentMode.CONVERSATIONAL -> {
+            if (isNotEmpty()) append("\n\n")
+            append(
+                "CONVERSATIONAL MODE ACTIVE: Be a warm conversational partner, not a search engine. " +
+                    "Explain your reasoning in plain words, ask clarifying questions when the request is ambiguous, " +
+                    "share relevant details you know, and naturally continue the discussion instead of stopping after the first answer.",
+            )
+        }
+        com.katya.app.data.AgentMode.DETECTIVE -> {
+            if (isNotEmpty()) append("\n\n")
+            append(
+                "DETECTIVE MODE ACTIVE: You are investigating the user's request like a detective. " +
+                    "Probe ambiguities with targeted questions, verify facts with the available tools, " +
+                    "quote sources with links when you can, and deliver findings without small talk. " +
+                    "If something cannot be confirmed, say so explicitly instead of guessing.",
+            )
+        }
     }
 
     if (isNotEmpty()) append("\n\n")

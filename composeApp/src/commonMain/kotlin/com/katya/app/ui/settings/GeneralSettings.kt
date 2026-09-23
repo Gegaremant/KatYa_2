@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -104,6 +105,7 @@ internal fun GeneralContent(
                         AgentVisibilityToggle(
                             isAgentVisibilityEnabled = uiState.isAgentVisibilityEnabled,
                             onToggleAgentVisibility = actions.onToggleAgentVisibility,
+                            onNavigateToAgent = { actions.onSelectTab(SettingsTab.Agent) },
                         )
                         WatchIntegrationToggle(
                             isWatchIntegrationEnabled = uiState.isWatchIntegrationEnabled,
@@ -164,6 +166,7 @@ internal fun GeneralContent(
                     AgentVisibilityToggle(
                         isAgentVisibilityEnabled = uiState.isAgentVisibilityEnabled,
                         onToggleAgentVisibility = actions.onToggleAgentVisibility,
+                        onNavigateToAgent = { actions.onSelectTab(SettingsTab.Agent) },
                     )
                     WatchIntegrationToggle(
                         isWatchIntegrationEnabled = uiState.isWatchIntegrationEnabled,
@@ -254,6 +257,7 @@ private fun DynamicUiToggle(
 private fun AgentVisibilityToggle(
     isAgentVisibilityEnabled: Boolean,
     onToggleAgentVisibility: (Boolean) -> Unit,
+    onNavigateToAgent: () -> Unit,
 ) {
     val appSettings = org.koin.compose.koinInject<com.katya.app.data.AppSettings>()
     var voiceThoughts by remember { mutableStateOf(appSettings.isShowAndVoiceThoughtsEnabled()) }
@@ -277,6 +281,32 @@ private fun AgentVisibilityToggle(
                 appSettings.setShowAndVoiceThoughtsEnabled(it)
             },
         )
+        if (!isVoiceResponseEnabled) {
+            // Toggle is greyed out until the TTS switch on the Agent tab is on —
+            // say where it lives instead of leaving a dead control silent.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 52.dp, top = 2.dp, bottom = 4.dp)
+                    .clickable(onClick = onNavigateToAgent)
+                    .handCursor(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Сначала включите озвучку на вкладке «Агент»",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                )
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+        }
     }
 }
 

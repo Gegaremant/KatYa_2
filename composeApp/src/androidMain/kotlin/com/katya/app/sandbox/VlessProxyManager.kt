@@ -233,6 +233,7 @@ class VlessProxyManager(
     private fun CoroutineScope.launchConnectionLoop() {
         launch {
             var failureCount = 0
+            var announcedFallback = false
             while (kotlin.coroutines.coroutineContext[Job]?.isActive == true) {
                 kotlinx.coroutines.delay(2000) // wait 2s for xray/network
                 val ok = checkConnection()
@@ -243,9 +244,25 @@ class VlessProxyManager(
                         AppLogger.e("VlessProxyManager", "Connection failed 3 times, attempting recovery...")
                         attemptRecovery()
                         failureCount = 0
+                        // Three strikes: don't keep hammering the tunnel for every request.
+                        // isVlessConnected stays false, so the ProxySelector and the sandbox
+                        // DeepSeek server fall back to the standard direct channel. Recovery
+                        // itself is capped at MAX_CONSECUTIVE_RECOVERIES — after that the next
+                        // attempt only comes from an explicit start().
+                        if (!announcedFallback) {
+                            AppLogger.e(
+                                "VlessProxyManager",
+                                "Туннель не поднялся после 3 проверок — ошибка записана, " +
+                                    "запросы идут через стандартный канал. Мучать прокси больше не будем.",
+                            )
+                            appSettings.setSystemStatus("VLESS недоступен — стандартный канал")
+                            announcedFallback = true
+                        }
                     }
                 } else {
                     failureCount = 0
+                    if (announcedFallback) appSettings.setSystemStatus(null)
+                    announcedFallback = false
                 }
                 kotlinx.coroutines.delay(10000) // check every 10s
             }
@@ -281,6 +298,8 @@ class VlessProxyManager(
         }
     }
 
+    private var lastCheckErrorLogMs = 0L
+
     private fun checkConnection(): Boolean = try {
         val uri = dataRepository.getVlessUri()
         val proxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri)
@@ -295,7 +314,13 @@ class VlessProxyManager(
         AppLogger.d("VlessProxyManager", "Connection check response code: $code")
         code in 200..399
     } catch (e: Exception) {
-        AppLogger.e("VlessProxyManager", "Connection check failed: ${e.message}\n${e.stackTraceToString()}")
+        // The loop re-checks every ~12s — a full stack trace per tick floods the log
+        // without adding information. One concise line per 30s is enough to diagnose.
+        val now = System.currentTimeMillis()
+        if (now - lastCheckErrorLogMs > 30_000L) {
+            AppLogger.e("VlessProxyManager", "Connection check failed: ${e.message}")
+            lastCheckErrorLogMs = now
+        }
         false
     }
 }

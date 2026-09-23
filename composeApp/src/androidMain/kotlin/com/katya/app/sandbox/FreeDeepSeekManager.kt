@@ -130,11 +130,7 @@ class FreeDeepSeekManager(
                 val verifyContent = verifyResult["stdout"]?.toString()?.take(80)
                 AppLogger.d("FreeDeepSeekManager", "Auth file inside proot: exit_code=$verifyExit, content=$verifyContent")
 
-                val proxyEnv = if (dataRepository.isVlessEnabled()) {
-                    "HTTP_PROXY=http://127.0.0.1:10809 HTTPS_PROXY=http://127.0.0.1:10809 http_proxy=http://127.0.0.1:10809 https_proxy=http://127.0.0.1:10809 ALL_PROXY=socks5://127.0.0.1:10808 all_proxy=socks5://127.0.0.1:10808 "
-                } else {
-                    ""
-                }
+                val proxyEnv = vlessProxyEnvOrEmpty()
 
                 prootHandle = executor.executeStreaming(
                     // Non-interactive: skip the startup menu entirely (menu semantics changed
@@ -173,15 +169,38 @@ class FreeDeepSeekManager(
         if (wasActive) AppLogger.d("FreeDeepSeekManager", "Stopping DeepSeek proxy")
     }
 
+    /**
+     * Proxy env for the sandboxed DeepSeek server — but only while the VLESS tunnel is
+     * actually up. The old check used the toggle alone, so with "VLESS" enabled and the
+     * tunnel dead the server pointed every request at a dead 127.0.0.1:10809 and models
+     * became unreachable. Tunnel down → empty env → the standard direct channel, while
+     * the VLESS connection loop keeps retrying in the background and re-enables the
+     * proxy env on the next restart once it reports Connected.
+     */
+    private fun vlessProxyEnvOrEmpty(): String {
+        if (!dataRepository.isVlessEnabled()) return ""
+        val connected = try {
+            org.koin.core.context.GlobalContext.get().get<com.katya.app.data.AppSettings>()
+                .isVlessConnected()
+        } catch (e: Exception) {
+            false
+        }
+        return if (connected) {
+            "HTTP_PROXY=http://127.0.0.1:10809 HTTPS_PROXY=http://127.0.0.1:10809 http_proxy=http://127.0.0.1:10809 https_proxy=http://127.0.0.1:10809 ALL_PROXY=socks5://127.0.0.1:10808 all_proxy=socks5://127.0.0.1:10808 "
+        } else {
+            AppLogger.w(
+                "FreeDeepSeekManager",
+                "VLESS включён, но туннель не поднялся — запускаю DeepSeek без прокси (стандартный канал)",
+            )
+            ""
+        }
+    }
+
     suspend fun runDoctor(): String = kotlinx.coroutines.withContext(Dispatchers.IO) {
         try {
             val executor = linuxSandboxManager.createProotExecutor()
             val repoPath = "/root/FreeDeepSeekAPI"
-            val proxyEnv = if (dataRepository.isVlessEnabled()) {
-                "HTTP_PROXY=http://127.0.0.1:10809 HTTPS_PROXY=http://127.0.0.1:10809 http_proxy=http://127.0.0.1:10809 https_proxy=http://127.0.0.1:10809 ALL_PROXY=socks5://127.0.0.1:10808 all_proxy=socks5://127.0.0.1:10808 "
-            } else {
-                ""
-            }
+            val proxyEnv = vlessProxyEnvOrEmpty()
             AppLogger.d("FreeDeepSeekManager", "Running npm run doctor...")
             val result = executor.execute("cd $repoPath && ${proxyEnv}npm run doctor")
             val out = result["stdout"]?.toString() ?: ""

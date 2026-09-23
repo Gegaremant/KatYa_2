@@ -36,9 +36,11 @@ class JschTunnelService : SshTunnelService {
         tunnelJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 var retryCount = 0
-                val maxRetries = if (persistentReconnect) Int.MAX_VALUE else 5
+                // Same policy as the VLESS connection loop: 3 attempts, then a clear
+                // error and the standard channel — don't torture a dead endpoint.
+                val maxRetries = if (persistentReconnect) Int.MAX_VALUE else 3
 
-                while (retryCount <= maxRetries && isActive) {
+                while (retryCount < maxRetries && isActive) {
                     try {
                         if (session != null && session!!.isConnected) {
                             session?.disconnect()
@@ -93,7 +95,7 @@ class JschTunnelService : SshTunnelService {
 
                         if (isActive) {
                             retryCount++
-                            if (retryCount <= maxRetries) {
+                            if (retryCount < maxRetries) {
                                 AppLogger.w("SshTunnel", "Connection lost. Attempting reconnect ($retryCount/$maxRetries)")
                                 _tunnelState.value = TunnelState(isRunning = true, message = "Reconnecting ($retryCount/$maxRetries)...")
                                 val sleepTime = minOf(2000L * retryCount, 10000L)
@@ -103,7 +105,7 @@ class JschTunnelService : SshTunnelService {
                     } catch (e: Exception) {
                         e.printStackTrace()
                         retryCount++
-                        if (retryCount <= maxRetries && isActive) {
+                        if (retryCount < maxRetries && isActive) {
                             AppLogger.e("SshTunnel", "SSH Error: ${e.message}. Attempting reconnect ($retryCount/$maxRetries)")
                             _tunnelState.value = TunnelState(isRunning = true, error = "Connection failed, retrying ($retryCount/$maxRetries)...")
                             val sleepTime = minOf(2000L * retryCount, 10000L)
@@ -114,7 +116,7 @@ class JschTunnelService : SshTunnelService {
                     }
                 }
 
-                if (retryCount > maxRetries) {
+                if (retryCount >= maxRetries) {
                     AppLogger.e("SshTunnel", "SSH Error: Max retries reached")
                     _tunnelState.value = TunnelState(isRunning = false, error = "Failed to establish tunnel after $maxRetries attempts")
                     stopTunnel()

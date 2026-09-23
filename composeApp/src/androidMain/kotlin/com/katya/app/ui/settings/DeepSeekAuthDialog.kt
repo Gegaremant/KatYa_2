@@ -234,6 +234,13 @@ actual fun PlatformDeepSeekAuthDialog(
                                         onClick = {
                                             autoLoginTriggered = true
                                             statusText = "Авторизация... (подождите 5-10 секунд)"
+                                            // The page may already be loaded (onPageFinished already
+                                            // fired before the user filled the fields) — inject the
+                                            // autopilot right now instead of waiting for a navigation
+                                            // that will never come. The JS polls every 1.2s, so a
+                                            // still-loading page picks it up as soon as it renders.
+                                            val js = buildAutoLoginJs(dsEmail, dsPassword)
+                                            webViewRef?.evaluateJavascript(js, null)
                                         },
                                         modifier = Modifier.fillMaxWidth(),
                                         enabled = dsEmail.isNotBlank() && dsPassword.isNotBlank(),

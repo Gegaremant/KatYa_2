@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
@@ -26,6 +25,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.katya.app.components.ComponentDownloadLauncher
+import com.katya.app.components.ComponentType
 import com.katya.app.components.ComponentsRepository
 import com.katya.app.components.currentAbi
 import com.katya.app.data.AppSettings
@@ -110,6 +110,20 @@ fun ServersContent(
                 },
             )
 
+            // Состояние списка поднимаем из-под AnimatedVisibility, чтобы индикатор ниже
+            // видел актуальные прокси (и после добавления нового — тоже).
+            val proxiesStr = appSettings.getVlessProxyProfilesJson()
+            var proxies by remember {
+                mutableStateOf(
+                    try {
+                        Json.decodeFromString<List<VlessProxyProfile>>(proxiesStr)
+                    } catch (e: Exception) {
+                        emptyList()
+                    },
+                )
+            }
+            var activeProxyId by remember { mutableStateOf(appSettings.getActiveVlessProxyId()) }
+
             AnimatedVisibility(
                 visible = vlessChecked,
                 enter = expandVertically(),
@@ -117,18 +131,6 @@ fun ServersContent(
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-
-                    val proxiesStr = appSettings.getVlessProxyProfilesJson()
-                    var proxies by remember {
-                        mutableStateOf(
-                            try {
-                                Json.decodeFromString<List<VlessProxyProfile>>(proxiesStr)
-                            } catch (e: Exception) {
-                                emptyList()
-                            },
-                        )
-                    }
-                    var activeProxyId by remember { mutableStateOf(appSettings.getActiveVlessProxyId()) }
 
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
                         proxies.forEach { proxy ->
@@ -260,7 +262,12 @@ fun ServersContent(
             // Индикатор подключения туннеля — виден всегда на карточке VLESS.
             // Это общий транспорт для всего приложения (DeepSeek, Telegram,
             // «замедленные» сайты), поэтому живой статус нужен прямо тут.
+            // Красный «не подключён» показываем только когда тумблер включён и есть
+            // что подключать: без прокси и при выключенном режиме это не ошибка,
+            // а нейтральное состояние — иначе ошибка кричит впустую.
             val vlessConnected by appSettings.isVlessConnectedFlow.collectAsState()
+            val hasConfiguredProxy = proxies.isNotEmpty() || appSettings.getVlessUri().isNotBlank()
+            val showError = vlessChecked && hasConfiguredProxy && !vlessConnected
             HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -269,19 +276,25 @@ fun ServersContent(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
-                    tint = if (vlessConnected) StatusColorConnected else StatusColorError,
+                    tint = when {
+                        showError -> StatusColorError
+                        vlessChecked && hasConfiguredProxy && vlessConnected -> StatusColorConnected
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (vlessConnected)
-                        "VLESS-туннель подключён"
-                    else
-                        "VLESS-туннель не подключён",
+                    text = when {
+                        !vlessChecked -> "VLESS выключен"
+                        !hasConfiguredProxy -> "VLESS включён · прокси не заданы"
+                        vlessConnected -> "VLESS-туннель подключён"
+                        else -> "VLESS-туннель не подключён"
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                if (connectionMode == "VLESS" && !vlessConnected) {
+                if (showError) {
                     Spacer(Modifier.weight(1f))
                     Text(
                         text = "проверка или ошибка",
@@ -300,8 +313,7 @@ fun ServersContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { altExpanded = !altExpanded }
-                    .padding(16.dp),
+                    .clickable { altExpanded = !altExpanded },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -596,15 +608,17 @@ private fun DownloadableComponentRow(
     val isInstalled = component.status == "installed"
     val isFailed = component.status == "failed"
 
-    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Icon(
-                imageVector = if (isInstalled) Icons.Default.CheckCircle else Icons.Default.Add,
-                contentDescription = null,
-                tint = if (isInstalled) Color.Green else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
+            if (isInstalled) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color.Green,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+            }
             Text(
                 text = component.name,
                 style = MaterialTheme.typography.bodyMedium,
@@ -631,6 +645,14 @@ private fun DownloadableComponentRow(
             }
         }
 
+        // Зачем этот компонент и что будет, если он не скачан (#5.1).
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = componentDescription(component),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
         if (isDownloading && component.totalBytes > 0) {
             Spacer(Modifier.height(8.dp))
             val progress = (component.downloadedBytes.toFloat() / component.totalBytes).coerceIn(0f, 1f)
@@ -649,6 +671,7 @@ private fun DownloadableComponentRow(
         Spacer(Modifier.height(8.dp))
 
         var urlValue by remember(component.id) { mutableStateOf(component.url) }
+        val urlChanged = urlValue.trim() != component.url
         KaiOutlinedTextField(
             value = urlValue,
             onValueChange = { urlValue = it },
@@ -656,23 +679,51 @@ private fun DownloadableComponentRow(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Ссылки можно редактировать",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(
-                onClick = { onUrlChange(urlValue.trim()) },
-                enabled = urlValue.trim() != component.url,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text("Сменить ссылку")
-            }
-            Button(
-                onClick = onDownload,
-                enabled = !isDownloading,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(if (isInstalled) "Переустановить" else "Скачать")
-            }
+        // Одна кнопка: пока ссылку редактируют — она «Сохранить» (и возвращается
+        // обратно после сохранения), иначе — «Скачать»/«Переустановить» (#5.3).
+        Button(
+            onClick = {
+                if (urlChanged) {
+                    onUrlChange(urlValue.trim())
+                } else {
+                    onDownload()
+                }
+            },
+            enabled = !isDownloading,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                when {
+                    urlChanged -> "Сохранить"
+                    isInstalled -> "Переустановить"
+                    else -> "Скачать"
+                },
+            )
         }
+    }
+}
+
+/** Короткое описание компонента для панели «Альтернативные ссылки»: зачем он нужен и что будет без него. */
+private fun componentDescription(component: DownloadableComponent): String {
+    val base = when (ComponentType.from(component.componentType)) {
+        ComponentType.ROOTFS ->
+            "Образ Linux-песочницы (proot): внутри запускаются FreeDeepSeek, VLESS и SSH-туннель. Без него эти функции не работают."
+        ComponentType.NATIVE ->
+            "Нативные бинарии proot/talloc/xray. Без них песочница и VLESS не запускаются."
+        ComponentType.MODEL ->
+            "Модель распознавания или озвучки речи. Без неё голосовые функции недоступны."
+    }
+    return if (component.abi != null && component.abi != currentAbi()) {
+        "$base Ссылка для другого устройства — на этом планшете/телефоне не используется."
+    } else {
+        base
     }
 }
 

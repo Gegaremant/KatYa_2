@@ -98,7 +98,13 @@ private fun setupDefaultProxySelector() {
                 }
                 try {
                     val appSettings: com.katya.app.data.AppSettings = org.koin.java.KoinJavaComponent.getKoin().get()
-                    if (appSettings.isVlessEnabled()) {
+                    // Route through the tunnel only while it is actually alive. The old
+                    // check on the toggle alone pinned every request to a dead 127.0.0.1:10809
+                    // whenever the tunnel failed to come up — models became unreachable while
+                    // the "VLESS" switch looked fine. Once the connection loop reports the
+                    // tunnel down, requests fall back to the standard direct channel and
+                    // the loop retries in the background.
+                    if (appSettings.isVlessEnabled() && appSettings.isVlessConnected()) {
                         val uri = appSettings.getVlessUri()
                         val directProxy = com.katya.app.network.ProxyResolver.resolveDirectProxy(uri)
                         if (directProxy != null) {

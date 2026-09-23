@@ -33,7 +33,8 @@ expect fun currentAbi(): String
 
 object ComponentDefaults {
     private fun archForAbi(abi: String): String = when (abi) {
-        "armeabi-v7a" -> "armhf"
+        // В проот-дистрибутиве 32-битное arm именуется «arm» (armhf/armv7), а не «armhf».
+        "armeabi-v7a" -> "arm"
         "x86_64" -> "x86_64"
         "arm64-v8a" -> "aarch64"
         else -> "aarch64"

@@ -158,13 +158,30 @@ class RootfsDownloader(private val httpClient: HttpClient) {
     fun extractTar(archiveFile: File, targetDir: File) {
         targetDir.mkdirs()
         val buffered = BufferedInputStream(FileInputStream(archiveFile))
+        // Определяй сжатие по сигнатуре, а не по имени файла: ComponentDownloaderService
+        // качает во временный файл `$id.part` без `.xz`, из-за чего XZ-архив читался
+        // как сырой TAR и падал с «Corrupted TAR archive». Расширение — лишь fallback.
+        val probe = ByteArray(6)
+        buffered.mark(probe.size)
+        var probed = 0
+        while (probed < probe.size) {
+            val n = buffered.read(probe, probed, probe.size - probed)
+            if (n < 0) break
+            probed += n
+        }
+        buffered.reset()
+        val isXz = probe[0] == 0xFD.toByte() && probe[1] == 0x37.toByte() &&
+            probe[2] == 0x7A.toByte() && probe[3] == 0x58.toByte() &&
+            probe[4] == 0x5A.toByte() && probe[5] == 0x00.toByte()
+        val isGzip = probe[0] == 0x1F.toByte() && probe[1] == 0x8B.toByte()
+        val isBzip2 = probe[0] == 'B'.code.toByte() && probe[1] == 'Z'.code.toByte() && probe[2] == 'h'.code.toByte()
         val input = when {
-            archiveFile.name.endsWith(".xz") -> TarArchiveInputStream(XZCompressorInputStream(buffered))
+            isXz || archiveFile.name.endsWith(".xz") -> TarArchiveInputStream(XZCompressorInputStream(buffered))
 
-            archiveFile.name.endsWith(".gz") || archiveFile.name.endsWith(".tgz") ->
+            isGzip || archiveFile.name.endsWith(".gz") || archiveFile.name.endsWith(".tgz") ->
                 TarArchiveInputStream(GzipCompressorInputStream(buffered))
 
-            archiveFile.name.endsWith(".bz2") -> TarArchiveInputStream(BZip2CompressorInputStream(buffered))
+            isBzip2 || archiveFile.name.endsWith(".bz2") -> TarArchiveInputStream(BZip2CompressorInputStream(buffered))
 
             else -> TarArchiveInputStream(buffered)
         }

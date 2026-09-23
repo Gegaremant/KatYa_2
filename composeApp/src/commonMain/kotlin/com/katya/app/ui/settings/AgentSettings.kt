@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -2066,6 +2067,15 @@ private fun SandboxDistroCard(
     distro: com.katya.app.data.Distro,
     onChangeDistro: (com.katya.app.data.Distro) -> Unit,
 ) {
+    // Статус rootfs текущей ABI — чтобы предложить «Скачать», когда дистр выбран,
+    // но ещё не скачан.
+    val componentsRepository = org.koin.compose.koinInject<com.katya.app.components.ComponentsRepository>()
+    val launcher = org.koin.compose.koinInject<com.katya.app.components.ComponentDownloadLauncher>()
+    val components by componentsRepository.components.collectAsState()
+    val rootfs = components.firstOrNull { it.id == componentsRepository.currentRootfsId() }
+    val rootfsDownloading = rootfs?.status == "downloading"
+    val rootfsInstalled = rootfs?.status == "installed"
+
     Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -2077,7 +2087,8 @@ private fun SandboxDistroCard(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "Выберите дистрибутив Linux внутри песочницы. Существующая установка сохраняется, данные не удаляются.",
+            text = "Выберите дистрибутив Linux внутри песочницы. Существующая установка сохраняется, данные не удаляются. " +
+                "От этого выбора зависит, какие функции станут доступны: VLESS, SSH-туннель и FreeDeepSeek работают только внутри песочницы.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -2088,9 +2099,15 @@ private fun SandboxDistroCard(
                 .padding(12.dp),
         ) {
             com.katya.app.data.Distro.entries.forEach { d ->
-                val name = when (d) {
-                    com.katya.app.data.Distro.DEBIAN -> "Debian (рекомендуется)"
-                    com.katya.app.data.Distro.TERMUX -> "Termux"
+                val (name, hint) = when (d) {
+                    com.katya.app.data.Distro.DEBIAN ->
+                        "Debian (рекомендуется)" to
+                            "Полноценный Linux: пакеты ставятся через apt (nodejs, git и т.д.), " +
+                            "совместимость инструментов максимальная. Качается только rootfs — остальное доставляет сам дистрибутив."
+                    com.katya.app.data.Distro.TERMUX ->
+                        "Termux (Alpine)" to
+                            "Лёгкая среда на базе Alpine: пакеты ставятся через apk, ставится и запускается быстрее, " +
+                            "но часть инструментов доступна в урезанном виде — выбирайте, если Debian не требовался."
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable { onChangeDistro(d) },
@@ -2101,8 +2118,29 @@ private fun SandboxDistroCard(
                         onClick = { onChangeDistro(d) },
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                    Column {
+                        Text(text = name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(text = hint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
+            }
+        }
+
+        // Выбранный дистр ещё не скачан — предложить скачать прямо тут.
+        if (rootfs == null || !rootfsInstalled) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Button(
+                onClick = { rootfs?.let { launcher.startDownload(it.id) } },
+                enabled = rootfs != null && !rootfsDownloading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    when {
+                        rootfsDownloading -> "Скачивается..."
+                        rootfs == null -> "Загрузки недоступны"
+                        else -> "Скачать песочницу"
+                    },
+                )
             }
         }
 
