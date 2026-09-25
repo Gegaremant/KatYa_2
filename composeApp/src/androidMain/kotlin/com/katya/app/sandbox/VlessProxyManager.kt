@@ -33,6 +33,18 @@ class VlessProxyManager(
 
         /** Ceiling for waiting on a fresh rootfs download/install at first run. */
         const val MAX_SANDBOX_WAIT_MS = 15 * 60 * 1000L
+
+        /**
+         * Where xray should look for trusted CAs.
+         *
+         * Our xray binaries are statically linked linux/arm builds, and Go only adds
+         * Android's certificate directory when it is compiled with GOOS=android. A
+         * stock static build therefore finds no roots at all, and a VLESS server with
+         * `security=tls` fails verification with an empty pool. Go honours the
+         * OpenSSL-compatible variables, so we point it at the right place ourselves
+         * instead of shipping a second NDK-built binary per ABI.
+         */
+        const val SSL_CERT_DIR_ENV = "SSL_CERT_DIR=/system/etc/security/cacerts"
     }
 
     private var recoveryCount = 0
@@ -202,8 +214,8 @@ class VlessProxyManager(
             // Say so and stop *before* asking for root. Asking the user to grant
             // superuser for a tunnel that has no binary to launch is exactly the
             // confusing "root requested, nothing happened" the field reports showed.
-            val reason = "Для ${com.katya.app.components.currentAbi()} нет бинарника xray — " +
-                "скачай компонент заново или пользуйся обычным подключением"
+            val reason = "Бинарник xray не найден для ${com.katya.app.components.currentAbi()} — " +
+                "перекачай компонент заново или пользуйся обычным подключением"
             AppLogger.e("VlessProxyManager", reason)
             appSettings.setVlessConnected(false)
             appSettings.setVlessStatusReason(reason)
@@ -223,7 +235,8 @@ class VlessProxyManager(
         if (isRooted) {
             AppLogger.d("VlessProxyManager", "Starting xray with root privileges natively")
             appSettings.setSystemStatus("Запрашиваю root-права для VLESS")
-            val command = "${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
+            val command =
+                "$SSL_CERT_DIR_ENV ${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
             AppLogger.d("VlessProxyManager", "Root command: $command")
             AppLogger.rootAction("Запуск xray от root: $command", "выполняется")
             rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
@@ -234,6 +247,7 @@ class VlessProxyManager(
             AppLogger.d("VlessProxyManager", "Non-root command: ${command.joinToString(" ")}")
             rootProcess = ProcessBuilder(*command)
                 .redirectErrorStream(true)
+                .apply { environment()[SSL_CERT_DIR_ENV.substringBefore('=')] = SSL_CERT_DIR_ENV.substringAfter('=') }
                 .start()
             val reader = java.io.BufferedReader(java.io.InputStreamReader(rootProcess!!.inputStream))
             var line: String?
