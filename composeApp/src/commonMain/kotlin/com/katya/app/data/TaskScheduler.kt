@@ -5,8 +5,10 @@ import com.katya.app.getBackgroundDispatcher
 import com.katya.app.isEmailSupported
 import com.katya.app.isNotificationsSupported
 import com.katya.app.isSmsSupported
+import com.katya.app.scheduleHeartbeatAlarm
 import com.katya.app.sendHeartbeatNotification
 import com.katya.app.sms.SmsPoller
+import com.katya.app.tools.AppLogger
 import com.katya.app.ui.markdown.parseMarkdown
 import com.katya.app.ui.markdown.toSpeakableText
 import kotlinx.coroutines.CoroutineName
@@ -126,6 +128,28 @@ class TaskScheduler(
                     checkNewSms()
                 }
             }
+        }
+    }
+
+    /**
+     * Re-arms the OS alarms for the current task list and heartbeat setting.
+     *
+     * Needed whenever the stored tasks change outside the normal mutation path:
+     * after a settings import (a restored backup brings its own task list) and
+     * after a reboot, which clears every pending alarm. Without this, a restored
+     * task list would look correct in the UI and then never fire, because the
+     * alarm that was registered belonged to the old list.
+     */
+    fun rearmAll() {
+        if (!enabled || taskStore == null) return
+        try {
+            taskStore.rearmAlarm()
+            if (heartbeatManager?.getConfig()?.enabled == true) {
+                scheduleHeartbeatAlarm()
+            }
+        } catch (e: Exception) {
+            // Best effort: a missing alarm must not take the app down with it.
+            AppLogger.e("TaskScheduler", "rearmAll failed: ${e.message}")
         }
     }
 

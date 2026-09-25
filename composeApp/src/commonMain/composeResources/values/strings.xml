@@ -320,6 +320,16 @@
     <string name="settings_import_section_tools">Tools</string>
     <string name="settings_import_section_mcp">MCP Servers</string>
     <string name="settings_import_section_conversations">Conversations</string>
+    <string name="settings_import_section_settings">App settings</string>
+    <string name="settings_import_mode_merge">Top up</string>
+    <string name="settings_import_mode_merge_description">Take over only what differs from the factory default. Everything the file says nothing about stays as it is.</string>
+    <string name="settings_import_mode_replace">Replace</string>
+    <string name="settings_import_mode_replace_description">The file becomes your configuration. Values it does not carry go back to the factory default.</string>
+    <string name="settings_import_diff_title">What will change</string>
+    <string name="settings_import_diff_summary">%1$d will change, %2$d already match</string>
+    <string name="settings_import_diff_empty">No differences — this import would change nothing.</string>
+    <string name="settings_import_diff_unchanged">no change</string>
+    <string name="settings_import_confirm">Import</string>
     <string name="snackbar_undo">Undo</string>
     <string name="snackbar_memory_deleted">Memory deleted</string>
     <string name="snackbar_task_cancelled">Task cancelled</string>

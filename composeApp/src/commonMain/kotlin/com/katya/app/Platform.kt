@@ -121,9 +121,24 @@ expect fun sendHeartbeatNotification(title: String, body: String)
 expect suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolean, includeModels: Boolean): ByteArray
 
 /**
- * Extracts a backup zip and returns the settings JSON string if successful, restoring files.
+ * (Re)arms the OS-level alarm that drives the heartbeat.
+ *
+ * No-op on platforms without an alarm service.
  */
-expect suspend fun extractBackupZip(zipBytes: ByteArray): String?
+expect fun scheduleHeartbeatAlarm()
+
+/**
+ * Reads a backup zip into memory without writing anything to storage.
+ *
+ * Returns null when the archive is unreadable or carries no settings JSON.
+ */
+expect suspend fun readBackupZip(zipBytes: ByteArray): BackupPayload?
+
+/**
+ * Writes a previously read [BackupPayload] to storage. Call this only after the
+ * user has confirmed the import.
+ */
+expect suspend fun applyBackupPayload(payload: BackupPayload)
 
 expect fun createLocalNote(title: String, content: String): String
 

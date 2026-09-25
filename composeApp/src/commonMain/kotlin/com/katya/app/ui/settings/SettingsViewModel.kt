@@ -2,15 +2,19 @@ package com.katya.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.katya.app.BackupPayload
 import com.katya.app.DaemonController
 import com.katya.app.Platform
 import com.katya.app.currentPlatform
 import com.katya.app.data.DataRepository
 import com.katya.app.data.EmailAccount
+import com.katya.app.data.ImportMode
+import com.katya.app.data.ImportPreviews
 import com.katya.app.data.ImportSection
 import com.katya.app.data.Service
 import com.katya.app.data.TaskScheduler
 import com.katya.app.data.ThemeMode
+import com.katya.app.data.applyPreparedImport
 import com.katya.app.data.supportsAgenticFlows
 import com.katya.app.device.DeviceAdminManager
 import com.katya.app.getBackgroundDispatcher
@@ -288,6 +292,7 @@ class SettingsViewModel(
         onChangeModelContextTokens = ::onChangeModelContextTokens,
         onExportSettings = ::onExportSettings,
         onPrepareExport = ::onPrepareExport,
+        onPrepareImport = ::onPrepareImport,
         onImportSettings = ::onImportSettings,
         onChangeMonitorOverlayMode = ::onChangeMonitorOverlayMode,
         onUndoDelete = ::onUndoDelete,
@@ -1353,14 +1358,25 @@ class SettingsViewModel(
         return preview
     }
 
-    private fun onImportSettings(bytes: ByteArray, sections: Set<ImportSection>, replace: Boolean): ImportResult = try {
+    private fun onPrepareImport(json: String, sections: Set<ImportSection>): ImportPreviews = dataRepository.prepareSettingsImport(json, sections)
+
+    /**
+     * Applies a backup the user has confirmed in the review dialog.
+     *
+     * The archive's files go in first, then the settings, then the UI is rebuilt
+     * from the new state — including re-arming the scheduler, because the
+     * restored task list is not the one the alarms were registered for.
+     */
+    private suspend fun onImportSettings(
+        json: String,
+        sections: Set<ImportSection>,
+        mode: ImportMode,
+        payload: BackupPayload?,
+    ): ImportResult = try {
         val currentTab = _state.value.currentTab
-        val errors = dataRepository.importSettingsFromJson(bytes.decodeToString(), sections, replace)
-        // Import writes conversations to settings, but the chat list reads them from
-        // ConversationStorage's in-memory flow — refresh it so imported chats appear
-        // without an app restart.
-        dataRepository.loadConversations()
+        val errors = dataRepository.applyPreparedImport(json, sections, mode, payload)
         _state.value = buildFullState().copy(currentTab = currentTab)
+        taskScheduler.rearmAll()
         checkAllConnections()
         connectEnabledMcpServers()
         if (errors == 0) ImportResult.Success else ImportResult.PartialSuccess(errors)

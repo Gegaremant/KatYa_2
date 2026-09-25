@@ -54,3 +54,9 @@ jobs:
 
       - name: Build and Verify Code
         run: ./gradlew :androidApp:assembleFossDebug --no-daemon --stacktrace
+
+      - name: Unit tests
+        # The logic lives in the shared KMP module, so its tests run under the
+        # android host-test compilation. `:androidApp:testFossDebugUnitTest` on its
+        # own would pass with zero tests executed and prove nothing.
+        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:testFossDebugUnitTest --no-daemon --stacktrace

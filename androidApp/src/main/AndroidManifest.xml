@@ -11,6 +11,8 @@
    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+   <!-- A reboot clears every pending alarm; without this the scheduler never wakes again. -->
+   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
@@ -115,6 +117,14 @@
             android:foregroundServiceType="dataSync" />
         <receiver android:name="com.katya.app.HeartbeatAlarmReceiver" android:exported="false" />
         <receiver android:name="com.katya.app.ScheduledTaskAlarmReceiver" android:exported="false" />
+        <receiver android:name="com.katya.app.BootCompletedReceiver" android:exported="true" android:directBootAware="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
         
         <service
             android:name="com.katya.app.voice.KatyaVoiceInteractionService"

@@ -62,6 +62,11 @@ jobs:
       - name: Build APK
         run: ./gradlew :androidApp:assembleFossDebug --no-daemon --stacktrace
 
+      - name: Unit tests
+        # A release that ships with failing logic tests is not a release. The tests
+        # live in the shared KMP module, hence the host-test task.
+        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:testFossDebugUnitTest --no-daemon --stacktrace
+
       - name: Determine Version and Tag
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then

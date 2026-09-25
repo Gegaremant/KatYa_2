@@ -1,7 +1,11 @@
 package com.katya.app.ui.settings
 
 import androidx.compose.runtime.Immutable
+import com.katya.app.BackupPayload
 import com.katya.app.data.EmailAccount
+import com.katya.app.data.ImportMode
+import com.katya.app.data.ImportPreview
+import com.katya.app.data.ImportPreviews
 import com.katya.app.data.ImportSection
 import com.katya.app.data.Service
 import com.katya.app.data.ThemeMode
@@ -112,7 +116,12 @@ data class SettingsActions(
     val onExportPiperVoice: (String) -> Unit = {},
     val onExportSettings: suspend (Set<ImportSection>) -> ByteArray,
     val onPrepareExport: () -> Map<ImportSection, String?>,
-    val onImportSettings: (ByteArray, Set<ImportSection>, Boolean) -> ImportResult,
+
+    /** The pre-import diff for both modes; nothing is written by this call. */
+    val onPrepareImport: (String, Set<ImportSection>) -> ImportPreviews,
+
+    /** Applies a confirmed backup: archive files, then settings, then a refresh. */
+    val onImportSettings: suspend (String, Set<ImportSection>, ImportMode, BackupPayload?) -> ImportResult,
     val onChangeMonitorOverlayMode: (com.katya.app.data.MonitorOverlayMode) -> Unit,
     val onUndoDelete: () -> Unit,
     val onChangeHfRepoUrl: (String) -> Unit,
@@ -208,7 +217,10 @@ data class SettingsActions(
             onChangeModelContextTokens = { _, _ -> },
             onExportSettings = { byteArrayOf() },
             onPrepareExport = { emptyMap() },
-            onImportSettings = { _, _, _ -> ImportResult.Failure },
+            onPrepareImport = { _, _ ->
+                ImportPreviews(ImportPreviews.empty(ImportMode.Merge), ImportPreviews.empty(ImportMode.Replace))
+            },
+            onImportSettings = { _, _, _, _ -> ImportResult.Failure },
             onChangeMonitorOverlayMode = {},
             onUndoDelete = {},
             onChangeHfRepoUrl = {},

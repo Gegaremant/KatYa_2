@@ -43,6 +43,7 @@ import com.katya.app.sms.SmsPoller
 import com.katya.app.sms.SmsReader
 import com.katya.app.sms.SmsSendResult
 import com.katya.app.sms.SmsSender
+import com.katya.app.tools.AppLogger
 import com.katya.app.tools.CommonTools
 import com.katya.app.tools.NotificationListenerController
 import com.katya.app.tools.SmsPermissionController
@@ -102,6 +103,58 @@ private const val ESTIMATED_CHARS_PER_TOKEN = 4
 private const val COMPACTION_THRESHOLD = 0.7 // Compact when history exceeds 70% of context window
 private const val COMPACTION_KEEP_RECENT = 4 // Number of recent user exchanges to keep verbatim
 
+/**
+ * The one extra round trip a tool-free answer may earn.
+ *
+ * Sent as a system-directed follow-up, never as a user turn, and only when the
+ * reply looks like a stall rather than a real answer.
+ */
+private const val TOOL_USE_NUDGE =
+    "[Служебное уточнение, не от пользователя] В предыдущем ответе ты не вызвала ни одного " +
+        "инструмента. Если задача требует действия — вызови подходящий инструмент прямо сейчас, " +
+        "не обещая его вслух. Если действие уже выполнено или оно не нужно — просто ответь " +
+        "по существу."
+
+/** A stall this short is still a stall; a longer reply has content. */
+private const val STALL_MAX_WORDS = 5
+
+private val WHITESPACE_RUN = Regex("\\s+")
+
+private val PUNCTUATION_RUN = Regex("[^\\p{L}\\p{N}]+")
+
+/**
+ * Words that are promises of future action.
+ *
+ * A reply made up *only* of these carries no content and no tool call — that is
+ * the stall from #15. The rule is deliberately "the whole message", not "starts
+ * with": a real answer can open with "Хорошо, тогда…" and go on to say something,
+ * and nudging those would cost a round trip on ordinary conversation.
+ */
+private val STALL_WORDS = setOf(
+    "хорошо", "ок", "окей", "okay", "ok", "угу", "поняла", "понял", "принято",
+    "сделаю", "сделаем", "сделать", "выполню", "сейчас", "обязательно", "конечно",
+    "готово", "договорились", "переживай", "волнуйся", "не", "секунду", "минутку",
+    "одну", "момент",
+)
+
+/**
+ * Claims that an action is already done. With tools available and none called,
+ * these are the model describing an outcome it never produced.
+ */
+private val COMPLETED_ACTION_CLAIMS = listOf(
+    "поставила", "поставил", "поставлено", "поставлен", "установила", "установил",
+    "установлено", "установлен", "напомнила", "напомнил", "напомнено", "напомнен",
+    "отправила", "отправил", "отправлено", "отправлен", "создала", "создал",
+    "создано", "создан", "добавила", "добавил", "добавлено", "добавлен",
+    "нашла", "нашел", "нашёл", "найдено", "найден", "открыла", "открыл",
+    "открыто", "открыт", "скачала", "скачал", "скачано", "скачан",
+    "запустила", "запустил", "запущено", "запущен", "выполнила", "выполнил",
+    "выполнено", "выполнен", "сохранила", "сохранил", "сохранено", "сохранен",
+    "сделала", "сделал", "сделано", "сделан", "позвонила", "позвонил",
+    "перенесла", "перенёс", "перенесено", "перенесен", "изменила", "изменил",
+    "изменено", "изменен",
+)
+
 // Explicit allowlist of tools exposed to the on-device (LiteRT) model. We use a
 // hardcoded name list rather than a structural filter because small Gemma models hit
 // litert-lm's strict ANTLR function-call parser hard on anything more complex than
@@ -140,6 +193,25 @@ private enum class BailoutReason { LIMIT_REACHED, REPEATING }
 private fun bailoutPrompt(reason: BailoutReason): String = when (reason) {
     BailoutReason.LIMIT_REACHED -> "You have reached the tool call limit. Please respond with the best answer you have so far based on the information gathered."
     BailoutReason.REPEATING -> "You are repeating the same tool calls. Please respond with the best answer you have so far."
+}
+
+/**
+ * Whether a tool-free answer looks like the model stalling instead of acting.
+ *
+ * Two shapes showed up in the logs for #15: a non-committal "Хорошо" / "Сделаю"
+ * with no tool call, and a claim that the action is already done ("Напоминание
+ * поставлено") when nothing ran. Both are cheap to spot, and ordinary
+ * conversation matches neither — so at most one nudge per turn goes out.
+ */
+internal fun shouldNudgeToolUse(text: String): Boolean {
+    val normalized = text.trim().lowercase().replace(WHITESPACE_RUN, " ")
+    if (normalized.isEmpty()) return true
+    if (COMPLETED_ACTION_CLAIMS.any { claim -> normalized.contains(claim) }) return true
+
+    val words = normalized.split(' ').map { word -> word.replace(PUNCTUATION_RUN, "") }
+    return words.isNotEmpty() &&
+        words.size <= STALL_MAX_WORDS &&
+        words.all { word -> word.isNotEmpty() && word in STALL_WORDS }
 }
 
 private interface ToolLoopStrategy {
@@ -1118,6 +1190,8 @@ class RemoteDataRepository(
         history: MutableStateFlow<List<History>>,
     ): AssistantTurn {
         var iteration = 0
+        var nudged = false
+        var nudge: String? = null
         val recentSignatures = mutableListOf<String>()
         while (true) {
             iteration++
@@ -1125,14 +1199,29 @@ class RemoteDataRepository(
             if (iteration > MAX_TOOL_ITERATIONS) {
                 return AssistantTurn(strategy.bailout(visible, systemPrompt, BailoutReason.LIMIT_REACHED))
             }
-            val result = strategy.chat(visible, systemPrompt)
+            // The nudge is a system-directed follow-up the user never typed, so it goes to
+            // the model only — it never enters the visible history or the saved conversation.
+            val requestHistory = if (nudge != null) withToolNudge(visible, nudge!!) else visible
+            val result = strategy.chat(requestHistory, systemPrompt)
             if (result.toolCalls.isEmpty()) {
+                if (!nudged && shouldNudgeToolUse(result.textContent)) {
+                    // The model promised instead of acting. One extra round trip is cheaper
+                    // than the old failure mode: a reminder that only ever got created at the
+                    // next heartbeat, half an hour late. Doesn't consume the tool budget —
+                    // this is the same turn, re-asked.
+                    nudged = true
+                    nudge = TOOL_USE_NUDGE
+                    iteration--
+                    AppLogger.i("ToolLoop", "No tool call in reply; nudging once. Reply: ${result.textContent.take(120)}")
+                    continue
+                }
                 // For thinking-only turns, the reasoning text already became the content via
                 // `isContentFromReasoning`, so don't surface it again as a reasoning trace.
                 val reasoning = result.reasoningContent?.takeIf { !result.isThinkingContent }
                 return AssistantTurn(result.textContent, reasoning)
             }
 
+            nudge = null
             val signatures = result.toolCalls.map { "${it.name}:${it.arguments.hashCode()}" }
             if (isRepeatingToolCalls(recentSignatures, signatures)) {
                 return AssistantTurn(strategy.bailout(visible, systemPrompt, BailoutReason.REPEATING))
@@ -1175,6 +1264,22 @@ class RemoteDataRepository(
                 }
                 strategy.trimAfterToolResults(merged, systemPrompt)
             }
+        }
+    }
+
+    /**
+     * Appends the nudge to the provider-side history without showing it to the user.
+     *
+     * Providers are picky about message order: a user message is merged into the
+     * existing one when the turn ends with it, and otherwise appended as a fresh
+     * user turn — which is the correct shape after a block of tool results.
+     */
+    private fun withToolNudge(history: List<History>, nudge: String): List<History> {
+        val last = history.lastOrNull()
+        return if (last?.role == History.Role.USER) {
+            history.dropLast(1) + last.copy(content = "${last.content}\n\n$nudge")
+        } else {
+            history + History(role = History.Role.USER, content = nudge)
         }
     }
 
@@ -2196,6 +2301,14 @@ Your task is to restore the connection to the main server.
         val jsonObject = SharedJson.parseToJsonElement(json).jsonObject
         val toolIds = getPlatformToolDefinitions().map { it.id }
         return appSettings.importFromJson(jsonObject, toolIds, sections, replace)
+    }
+
+    override fun prepareSettingsImport(json: String, sections: Set<ImportSection>): ImportPreviews {
+        val jsonObject = SharedJson.parseToJsonElement(json).jsonObject
+        return ImportPreviews(
+            merge = appSettings.previewSnapshot(jsonObject, sections, ImportMode.Merge),
+            replace = appSettings.previewSnapshot(jsonObject, sections, ImportMode.Replace),
+        )
     }
 
     override suspend fun askWithTools(prompt: String, instanceId: String?, conversationIdOverride: String?): String {

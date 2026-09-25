@@ -133,6 +133,16 @@ fun AppSettings.exportToJson(
         if (splinterlandsInstanceIdsJson.isNotBlank()) {
             map["splinterlands_instance_ids"] = Json.parseToJsonElement(splinterlandsInstanceIdsJson)
         }
+        // Posting keys are per-account secrets that live outside the settings
+        // snapshot, so they travel here and come back via the extras pass.
+        try {
+            val accountId = SharedJson.decodeFromString<com.katya.app.splinterlands.SplinterlandsAccount>(splinterlandsAccountJson).id
+            val postingKey = getSplinterlandsPostingKey(accountId)
+            if (accountId.isNotBlank() && postingKey.isNotBlank()) {
+                map["splinterlands_posting_keys"] = JsonObject(mapOf(accountId to JsonPrimitive(postingKey)))
+            }
+        } catch (_: Exception) {
+        }
         val splinterlandsBattleLogJson = getSplinterlandsBattleLogJson()
         if (splinterlandsBattleLogJson.isNotBlank()) {
             map["splinterlands_battle_log"] = Json.parseToJsonElement(splinterlandsBattleLogJson)
@@ -180,10 +190,94 @@ fun AppSettings.exportToJson(
         map["agent_visibility_enabled"] = JsonPrimitive(isAgentVisibilityEnabled())
     }
 
+    // Feedback #12: the complete, key-by-key settings snapshot. The hand-picked
+    // fields above stay for older versions to read; the snapshot is what makes a
+    // restore on a fresh install actually reproduce the setup.
+    map.putAll(exportSnapshotDocument())
+
     return JsonObject(map)
 }
 
+/**
+ * Applies a backup.
+ *
+ * A backup produced by 3.1.3-fix and newer carries a complete settings snapshot
+ * ([SNAPSHOT_KEY]); it is the source of truth then, and the hand-migrated fields
+ * below are used only for the few things the snapshot deliberately leaves out
+ * (conversations, per-account e-mail passwords and sync state, Splinterlands
+ * posting keys, the heartbeat log). Older backups take the legacy path.
+ */
 fun AppSettings.importFromJson(
+    json: JsonObject,
+    toolIds: List<String>,
+    sections: Set<ImportSection> = ImportSection.entries.toSet(),
+    replace: Boolean = true,
+): Int {
+    if (json[SNAPSHOT_KEY] == null) {
+        return importLegacyFromJson(json, toolIds, sections, replace)
+    }
+    val mode = if (replace) ImportMode.Replace else ImportMode.Merge
+    var errors = applySnapshot(json, sections, mode)
+    errors += importSnapshotExtras(json, sections, replace)
+    return errors
+}
+
+/** Everything a settings snapshot does not carry, applied straight from the JSON. */
+private fun AppSettings.importSnapshotExtras(
+    json: JsonObject,
+    sections: Set<ImportSection>,
+    replace: Boolean,
+): Int {
+    var errors = 0
+    if (ImportSection.EMAIL in sections) {
+        try {
+            val accounts = json["email_accounts"]?.jsonArray ?: JsonArray(emptyList())
+            for (account in accounts) {
+                val id = account.jsonObject["id"]?.jsonPrimitive?.content ?: continue
+                json["email_passwords"]?.jsonObject?.get(id)?.jsonPrimitive?.content?.let {
+                    setEmailPassword(id, it)
+                }
+                if (replace) {
+                    json["email_sync_states"]?.jsonObject?.get(id)?.let {
+                        setEmailSyncStateJson(id, it.toString())
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            errors++
+        }
+    }
+    if (ImportSection.SPLINTERLANDS in sections && replace) {
+        try {
+            val accountId = json["splinterlands_account"]?.let { element ->
+                runCatching { SharedJson.decodeFromString<com.katya.app.splinterlands.SplinterlandsAccount>(element.toString()) }.getOrNull()
+            }?.id
+            if (!accountId.isNullOrBlank()) {
+                json["splinterlands_posting_keys"]?.jsonObject?.get(accountId)?.jsonPrimitive?.content?.let {
+                    setSplinterlandsPostingKey(accountId, it)
+                }
+            }
+        } catch (_: Exception) {
+            errors++
+        }
+    }
+    if (ImportSection.CONVERSATIONS in sections) {
+        // The database inside the zip is the main carrier for chats, but a
+        // plain-JSON backup keeps them inline, so honour that too.
+        try {
+            val element = json["conversations"]
+            if (element != null) {
+                val conversations = sanitizeConversations(element)
+                setConversationsJson(SharedJson.encodeToString(ConversationsData(conversations = conversations)))
+            }
+        } catch (_: Exception) {
+            errors++
+        }
+    }
+    return errors
+}
+
+private fun AppSettings.importLegacyFromJson(
     json: JsonObject,
     toolIds: List<String>,
     sections: Set<ImportSection> = ImportSection.entries.toSet(),

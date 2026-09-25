@@ -15,6 +15,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,12 +34,16 @@ import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
+import com.katya.app.BackupPayload
+import com.katya.app.data.ImportMode
+import com.katya.app.data.ImportPreviews
 import com.katya.app.data.ImportSection
 import com.katya.app.data.SharedJson
 import com.katya.app.data.detectImportSections
 import com.katya.app.saveFileToDevice
 import com.katya.app.tools.AppLogger
 import com.katya.app.ui.components.VerticalScrollbarForScroll
+import com.katya.app.ui.components.rememberBackupImportController
 import com.katya.app.ui.handCursor
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
@@ -48,11 +54,17 @@ import katya.composeapp.generated.resources.settings_export_import_description
 import katya.composeapp.generated.resources.settings_export_import_title
 import katya.composeapp.generated.resources.settings_export_preview_title
 import katya.composeapp.generated.resources.settings_import
+import katya.composeapp.generated.resources.settings_import_confirm
+import katya.composeapp.generated.resources.settings_import_diff_empty
+import katya.composeapp.generated.resources.settings_import_diff_summary
+import katya.composeapp.generated.resources.settings_import_diff_title
 import katya.composeapp.generated.resources.settings_import_error
+import katya.composeapp.generated.resources.settings_import_mode_merge
+import katya.composeapp.generated.resources.settings_import_mode_merge_description
+import katya.composeapp.generated.resources.settings_import_mode_replace
+import katya.composeapp.generated.resources.settings_import_mode_replace_description
 import katya.composeapp.generated.resources.settings_import_partial
 import katya.composeapp.generated.resources.settings_import_preview_title
-import katya.composeapp.generated.resources.settings_import_replace_all
-import katya.composeapp.generated.resources.settings_import_replace_all_description
 import katya.composeapp.generated.resources.settings_import_section_conversations
 import katya.composeapp.generated.resources.settings_import_section_email
 import katya.composeapp.generated.resources.settings_import_section_heartbeat
@@ -61,6 +73,7 @@ import katya.composeapp.generated.resources.settings_import_section_memory
 import katya.composeapp.generated.resources.settings_import_section_models
 import katya.composeapp.generated.resources.settings_import_section_scheduling
 import katya.composeapp.generated.resources.settings_import_section_services
+import katya.composeapp.generated.resources.settings_import_section_settings
 import katya.composeapp.generated.resources.settings_import_section_soul
 import katya.composeapp.generated.resources.settings_import_section_tools
 import katya.composeapp.generated.resources.settings_import_success
@@ -81,56 +94,23 @@ import kotlin.time.Clock
 internal fun ExportImportSection(
     onExportSettings: suspend (Set<ImportSection>) -> ByteArray,
     onPrepareExport: () -> Map<ImportSection, String?>,
-    onImportSettings: (ByteArray, Set<ImportSection>, Boolean) -> ImportResult,
+    prepareImport: (String, Set<ImportSection>) -> ImportPreviews,
+    onImportSettings: suspend (String, Set<ImportSection>, ImportMode, BackupPayload?) -> ImportResult,
 ) {
-    val isPreview = LocalInspectionMode.current
     val scope = rememberCoroutineScope()
-    var importResult by remember { mutableStateOf<ImportResult?>(null) }
-    var importPreview by remember { mutableStateOf<Pair<String, ImmutableMap<ImportSection, String?>>?>(null) }
     var exportPreview by remember { mutableStateOf<ImmutableMap<ImportSection, String?>?>(null) }
 
-    val filePickerLauncher = if (!isPreview) {
-        rememberFilePickerLauncher(
-            type = FileKitType.File(extensions = listOf("zip", "json")),
-        ) { file ->
-            if (file != null) {
-                scope.launch {
-                    try {
-                        val (jsonString, isZip) = withContext(Dispatchers.IO) {
-                            val bytes = file.readBytes()
-                            val isZipFile = bytes.size > 4 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
-                            val str = if (isZipFile) {
-                                com.katya.app.extractBackupZip(bytes) ?: throw Exception("Invalid backup zip")
-                            } else {
-                                bytes.decodeToString()
-                            }
-                            str to isZipFile
-                        }
-                        val jsonObject = SharedJson.parseToJsonElement(jsonString).jsonObject
-                        val detectedSections = detectImportSections(jsonObject).toMutableMap()
-                        if (isZip) {
-                            detectedSections[ImportSection.CONVERSATIONS] = null
-                            detectedSections[ImportSection.MODELS] = null
-                        }
-                        importPreview = jsonString to detectedSections.toImmutableMap()
-                    } catch (_: Exception) {
-                        importResult = ImportResult.Failure
-                    }
-                }
-            }
-        }
-    } else {
-        null
-    }
+    val importController = rememberBackupImportController(
+        preparePreview = prepareImport,
+        applyImport = onImportSettings,
+    )
 
-    importPreview?.let { (jsonString, sectionDetails) ->
+    importController.pending?.let { pending ->
         ImportPreviewDialog(
-            sectionDetails = sectionDetails,
-            onConfirm = { selectedSections, replace ->
-                importResult = onImportSettings(jsonString.encodeToByteArray(), selectedSections, replace)
-                importPreview = null
-            },
-            onDismiss = { importPreview = null },
+            sectionDetails = pending.sectionDetails.toImmutableMap(),
+            previews = pending.previews,
+            onConfirm = importController.confirm,
+            onDismiss = importController.dismiss,
         )
     }
 
@@ -185,7 +165,6 @@ internal fun ExportImportSection(
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(
             onClick = {
-                importResult = null
                 exportPreview = onPrepareExport().toImmutableMap()
             },
             modifier = Modifier.handCursor(),
@@ -194,17 +173,17 @@ internal fun ExportImportSection(
         }
         OutlinedButton(
             onClick = {
-                importResult = null
-                filePickerLauncher?.launch()
+                importController.launchPicker()
             },
             modifier = Modifier.handCursor(),
         ) {
             Text(stringResource(Res.string.settings_import))
         }
     }
+    val importResult = importController.result
     if (importResult != null) {
         Spacer(Modifier.height(8.dp))
-        val (text, color) = when (val result = importResult!!) {
+        val (text, color) = when (val result = importResult) {
             is ImportResult.Success -> stringResource(Res.string.settings_import_success) to MaterialTheme.colorScheme.primary
             is ImportResult.PartialSuccess -> stringResource(Res.string.settings_import_partial, result.errorCount) to MaterialTheme.colorScheme.primary
             is ImportResult.Failure -> stringResource(Res.string.settings_import_error) to MaterialTheme.colorScheme.error
@@ -217,15 +196,29 @@ internal fun ExportImportSection(
     }
 }
 
+/**
+ * The pre-import review: which mode, which sections, and — the part that actually
+ * matters — the line-by-line diff of what changes.
+ *
+ * Both modes are prepared before the dialog opens, so switching between them is
+ * instant and the counts update with the mode.
+ */
 @Composable
 internal fun ImportPreviewDialog(
     sectionDetails: ImmutableMap<ImportSection, String?>,
-    onConfirm: (Set<ImportSection>, Boolean) -> Unit,
+    previews: ImportPreviews,
+    onConfirm: (Set<ImportSection>, ImportMode) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var replace by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf(ImportMode.Merge) }
     var selectedSections by remember { mutableStateOf<Set<ImportSection>>(sectionDetails.keys) }
     val sortedEntries = remember(sectionDetails) { sectionDetails.entries.sortedBy { it.key } }
+    val preview = previews[mode]
+    val visibleDiff = remember(preview, selectedSections) {
+        preview.diff.filter { it.section in selectedSections }
+    }
+    val changedRows = visibleDiff.filter { it.changed }
+    val unchangedCount = visibleDiff.size - changedRows.size
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -236,33 +229,19 @@ internal fun ImportPreviewDialog(
             val importScrollState = rememberScrollState()
             Box {
                 Column(modifier = Modifier.verticalScroll(importScrollState)) {
-                    Row(
-                        verticalAlignment = CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { replace = !replace }
-                            .handCursor(),
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(Res.string.settings_import_replace_all),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            if (replace) {
-                                Text(
-                                    text = stringResource(Res.string.settings_import_replace_all_description),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Switch(
-                            checked = replace,
-                            onCheckedChange = { replace = it },
-                            modifier = Modifier.handCursor(),
-                        )
-                    }
+                    ImportModeOption(
+                        selected = mode == ImportMode.Merge,
+                        title = stringResource(Res.string.settings_import_mode_merge),
+                        description = stringResource(Res.string.settings_import_mode_merge_description),
+                        onClick = { mode = ImportMode.Merge },
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    ImportModeOption(
+                        selected = mode == ImportMode.Replace,
+                        title = stringResource(Res.string.settings_import_mode_replace),
+                        description = stringResource(Res.string.settings_import_mode_replace_description),
+                        onClick = { mode = ImportMode.Replace },
+                    )
                     Spacer(Modifier.height(12.dp))
                     for ((section, count) in sortedEntries) {
                         Row(
@@ -300,6 +279,35 @@ internal fun ImportPreviewDialog(
                             }
                         }
                     }
+
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(Res.string.settings_import_diff_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    if (visibleDiff.isEmpty()) {
+                        Text(
+                            text = stringResource(Res.string.settings_import_diff_empty),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(Res.string.settings_import_diff_summary, changedRows.size, unchangedCount),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        for (row in changedRows) {
+                            Text(
+                                text = "${row.key}: ${row.current} → ${row.incoming}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
                 }
                 VerticalScrollbarForScroll(
                     scrollState = importScrollState,
@@ -309,11 +317,11 @@ internal fun ImportPreviewDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(selectedSections, replace) },
+                onClick = { onConfirm(selectedSections, mode) },
                 enabled = selectedSections.isNotEmpty(),
                 modifier = Modifier.handCursor(),
             ) {
-                Text(stringResource(Res.string.settings_import))
+                Text(stringResource(Res.string.settings_import_confirm))
             }
         },
         dismissButton = {
@@ -325,6 +333,42 @@ internal fun ImportPreviewDialog(
             }
         },
     )
+}
+
+/** One of the two import modes, as a selectable card. */
+@Composable
+private fun ImportModeOption(
+    selected: Boolean,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .handCursor(),
+        colors = if (selected) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        },
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+            )
+            if (selected) {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -423,4 +467,5 @@ private fun sectionDisplayName(section: ImportSection): String = when (section) 
     ImportSection.CONVERSATIONS -> stringResource(Res.string.settings_import_section_conversations)
     ImportSection.MODELS -> stringResource(Res.string.settings_import_section_models)
     ImportSection.SERVERS -> "Настройки серверов"
+    ImportSection.SETTINGS -> stringResource(Res.string.settings_import_section_settings)
 }

@@ -108,6 +108,16 @@ class TaskStore(
     fun getAllTasks(): List<ScheduledTask> = loadTasks()
 
     /**
+     * Re-arms the OS alarm for the nearest pending task.
+     *
+     * Needed when the task list is replaced wholesale rather than mutated: a
+     * settings import, or a reboot clearing every pending alarm.
+     */
+    fun rearmAlarm() {
+        taskAlarmScheduler?.scheduleNext()
+    }
+
+    /**
      * All PENDING non-heartbeat tasks — what the user thinks of as "scheduled". Heartbeat-
      * triggered tasks are surfaced separately via [getPendingHeartbeatAdditions].
      */

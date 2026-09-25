@@ -192,6 +192,16 @@
     <string name="settings_import_section_tools">Инструменты</string>
     <string name="settings_import_section_mcp">Серверы MCP</string>
     <string name="settings_import_section_conversations">Разговоры (БД)</string>
+    <string name="settings_import_section_settings">Основные настройки</string>
+    <string name="settings_import_mode_merge">Дополнить</string>
+    <string name="settings_import_mode_merge_description">Заберёт только то, что отличается от заводских значений. Всё, о чём файл молчит, останется как есть.</string>
+    <string name="settings_import_mode_replace">Заменить</string>
+    <string name="settings_import_mode_replace_description">Файл станет твоей конфигурацией. Значения, которых в нём нет, вернутся к заводским.</string>
+    <string name="settings_import_diff_title">Что изменится</string>
+    <string name="settings_import_diff_summary">Изменится %1$d, совпадёт %2$d</string>
+    <string name="settings_import_diff_empty">Различий нет — импорт ничего не поменяет.</string>
+    <string name="settings_import_diff_unchanged">без изменений</string>
+    <string name="settings_import_confirm">Импортировать</string>
     <string name="settings_import_section_models">Оффлайн модели (Vosk)</string>
     <string name="settings_heartbeat_reset_confirm">Это сбросит запрос пульса до значения по умолчанию. Вы уверены?</string>
     <string name="settings_heartbeat_model">Модель</string>

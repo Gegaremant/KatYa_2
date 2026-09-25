@@ -29,10 +29,12 @@ import com.katya.app.data.FreeMode
 import com.katya.app.data.ImportSection
 import com.katya.app.data.Service
 import com.katya.app.data.SharedJson
+import com.katya.app.data.applyPreparedImport
 import com.katya.app.data.detectImportSections
 import com.katya.app.tools.*
 import com.katya.app.tts.SpeechEngine
 import com.katya.app.ui.settings.ImportPreviewDialog
+import com.katya.app.ui.settings.ImportResult
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.readBytes
@@ -300,48 +302,33 @@ fun StartupPermissionFlow(
         }
     }
 
-    // Backup import straight from the greeting.
-    var backupPreview by remember {
-        mutableStateOf<Pair<String, ImmutableMap<ImportSection, String?>>?>(null)
-    }
-    val backupPicker = rememberFilePickerLauncher(
-        type = FileKitType.File(extensions = listOf("zip", "json")),
-    ) { file ->
-        if (file == null) return@rememberFilePickerLauncher
-        coroutineScope.launch {
-            runCatching {
-                val (jsonString, isZip) = withContext(Dispatchers.IO) {
-                    val bytes = file.readBytes()
-                    val isZipFile = bytes.size > 4 && bytes[0] == 0x50.toByte() && bytes[1] == 0x4B.toByte()
-                    val str = if (isZipFile) {
-                        com.katya.app.extractBackupZip(bytes) ?: error("invalid backup zip")
-                    } else {
-                        bytes.decodeToString()
-                    }
-                    str to isZipFile
-                }
-                val detected = detectImportSections(SharedJson.parseToJsonElement(jsonString).jsonObject).toMutableMap()
-                if (isZip) {
-                    detected[ImportSection.CONVERSATIONS] = null
-                    detected[ImportSection.MODELS] = null
-                }
-                backupPreview = jsonString to detected.toImmutableMap()
-            }.onFailure { error ->
-                com.katya.app.showToast("Не удалось прочитать бекап: ${error.message}")
-            }
-        }
-    }
+    // Backup import straight from the greeting. The archive is only read here —
+    // the database and model files are restored after the user confirms the diff.
+    val backupController = rememberBackupImportController(
+        preparePreview = { json, sections -> dataRepository.prepareSettingsImport(json, sections) },
+        applyImport = { json, sections, mode, payload ->
+            val errors = dataRepository.applyPreparedImport(json, sections, mode, payload)
+            if (errors == 0) ImportResult.Success else ImportResult.PartialSuccess(errors)
+        },
+        onDone = { result ->
+            com.katya.app.showToast(
+                when (result) {
+                    is ImportResult.Success -> "Бекап импортирован"
+                    is ImportResult.PartialSuccess -> "Импорт завершён с ошибками: ${result.errorCount}"
+                    is ImportResult.Failure -> "Не удалось импортировать бекап"
+                },
+            )
+            appSettings.setOnboardingCompleted(true)
+            onComplete()
+        },
+    )
 
-    backupPreview?.let { (json, sectionDetails) ->
+    backupController.pending?.let { pending ->
         ImportPreviewDialog(
-            sectionDetails = sectionDetails,
-            onConfirm = { selectedSections, replace ->
-                val errors = dataRepository.importSettingsFromJson(json, selectedSections, replace)
-                com.katya.app.showToast(if (errors == 0) "Бекап импортирован" else "Импорт завершён с ошибками: $errors")
-                appSettings.setOnboardingCompleted(true)
-                onComplete()
-            },
-            onDismiss = { backupPreview = null },
+            sectionDetails = pending.sectionDetails.toImmutableMap(),
+            previews = pending.previews,
+            onConfirm = backupController.confirm,
+            onDismiss = backupController.dismiss,
         )
     }
 
@@ -482,7 +469,7 @@ fun StartupPermissionFlow(
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 OutlinedButton(
-                                    onClick = { backupPicker?.launch() },
+                                    onClick = { backupController.launchPicker() },
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text("Импорт бекапов")

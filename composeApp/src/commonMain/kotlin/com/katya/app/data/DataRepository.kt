@@ -263,6 +263,15 @@ interface DataRepository {
     fun getExportPreview(): Map<ImportSection, String?>
     fun importSettingsFromJson(json: String, sections: Set<ImportSection>, replace: Boolean): Int
 
+    /**
+     * What an import would change, for both modes, without applying anything.
+     *
+     * The review dialog shows this instead of a section tally: "12 настроек
+     * изменятся, 4 уже совпадают" is a decision the user can actually make, and
+     * secrets are masked in the rows.
+     */
+    fun prepareSettingsImport(json: String, sections: Set<ImportSection> = ImportSection.entries.toSet()): ImportPreviews
+
     // Background ask with tools (no chat history update, supports tool-calling loop).
     // When `conversationIdOverride` is set, tool calls during this run route to that
     // conversation's sandbox session instead of inheriting the active chat's id —

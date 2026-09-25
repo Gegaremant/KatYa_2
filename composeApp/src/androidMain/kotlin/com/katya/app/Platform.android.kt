@@ -777,52 +777,80 @@ actual suspend fun generateBackupZip(jsonConfig: String, includeDatabase: Boolea
     return baos.toByteArray()
 }
 
-actual suspend fun extractBackupZip(zipBytes: ByteArray): String? {
-    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+actual fun scheduleHeartbeatAlarm() {
+    try {
+        val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+        val heartbeatManager: com.katya.app.data.HeartbeatManager =
+            org.koin.java.KoinJavaComponent.getKoin().get()
+        HeartbeatAlarmReceiver.scheduleNext(context, heartbeatManager)
+    } catch (e: Exception) {
+        com.katya.app.tools.AppLogger.e("HeartbeatAlarm", "scheduleHeartbeatAlarm failed: ${e.message}")
+    }
+}
+
+/** Database entries a backup may carry. Anything else is ignored. */
+private val BACKUP_DB_FILES = setOf("conversations.db", "conversations.db-wal", "conversations.db-shm")
+
+/** Prefixes under which a backup may carry model/speech files. */
+private val BACKUP_MODEL_PREFIXES = listOf("vosk/", "models/")
+
+/**
+ * Rejects a zip entry path that would land outside the destination directory.
+ *
+ * The old code only checked `startsWith("vosk/")`, which a crafted entry like
+ * `vosk/../../databases/evil.db` walks straight past.
+ */
+private fun isSafeEntryName(name: String): Boolean {
+    if (name.isEmpty() || name.startsWith("/") || name.contains('\\')) return false
+    return name.split('/').none { it == ".." || it == "." }
+}
+
+actual suspend fun readBackupZip(zipBytes: ByteArray): BackupPayload? {
     val zis = java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(zipBytes))
-    var jsonConfig: String? = null
+    var configJson: String? = null
+    val databaseFiles = mutableMapOf<String, ByteArray>()
+    val modelFiles = mutableMapOf<String, ByteArray>()
     var entry = zis.nextEntry
     while (entry != null) {
-        if (!entry.isDirectory) {
-            when (entry.name) {
-                "config.json" -> {
-                    jsonConfig = zis.readBytes().toString(Charsets.UTF_8)
-                }
-
-                "conversations.db" -> {
-                    val dbFile = context.getDatabasePath("conversations.db")
-                    dbFile.parentFile?.mkdirs()
-                    dbFile.outputStream().use { zis.copyTo(it) }
-                    java.io.File(dbFile.path + "-wal").delete()
-                    java.io.File(dbFile.path + "-shm").delete()
-                }
-
-                "conversations.db-wal" -> {
-                    val dbFile = context.getDatabasePath("conversations.db-wal")
-                    dbFile.parentFile?.mkdirs()
-                    dbFile.outputStream().use { zis.copyTo(it) }
-                }
-
-                "conversations.db-shm" -> {
-                    val dbFile = context.getDatabasePath("conversations.db-shm")
-                    dbFile.parentFile?.mkdirs()
-                    dbFile.outputStream().use { zis.copyTo(it) }
-                }
-
-                else -> {
-                    if (entry.name.startsWith("vosk/") || entry.name.startsWith("models/")) {
-                        val file = java.io.File(context.filesDir, entry.name)
-                        file.parentFile?.mkdirs()
-                        file.outputStream().use { zis.copyTo(it) }
-                    }
-                }
+        val name = entry.name
+        if (!entry.isDirectory && isSafeEntryName(name)) {
+            when {
+                name == "config.json" -> configJson = zis.readBytes().decodeToString()
+                name in BACKUP_DB_FILES -> databaseFiles[name] = zis.readBytes()
+                BACKUP_MODEL_PREFIXES.any { name.startsWith(it) } -> modelFiles[name] = zis.readBytes()
             }
         }
         zis.closeEntry()
         entry = zis.nextEntry
     }
     zis.close()
-    return jsonConfig
+    return if (configJson != null) BackupPayload(configJson, databaseFiles, modelFiles) else null
+}
+
+actual suspend fun applyBackupPayload(payload: BackupPayload) {
+    val context: android.content.Context = org.koin.java.KoinJavaComponent.getKoin().get<android.content.Context>()
+
+    payload.databaseFiles.forEach { (name, bytes) ->
+        if (name !in BACKUP_DB_FILES) return@forEach
+        val dbFile = context.getDatabasePath(name)
+        dbFile.parentFile?.mkdirs()
+        dbFile.outputStream().use { it.write(bytes) }
+    }
+    // A leftover write-ahead log from the previous database would be replayed over
+    // the restored one, so it has to go — including the files the archive omitted.
+    BACKUP_DB_FILES.forEach { name ->
+        if (name !in payload.databaseFiles) context.getDatabasePath(name).delete()
+    }
+
+    val filesRoot = context.filesDir.canonicalFile
+    val rootPath = filesRoot.path + java.io.File.separator
+    payload.modelFiles.forEach { (name, bytes) ->
+        if (!isSafeEntryName(name) || BACKUP_MODEL_PREFIXES.none { name.startsWith(it) }) return@forEach
+        val file = java.io.File(filesRoot, name).canonicalFile
+        if (!file.path.startsWith(rootPath)) return@forEach
+        file.parentFile?.mkdirs()
+        file.outputStream().use { it.write(bytes) }
+    }
 }
 
 actual fun createLocalNote(title: String, content: String): String {

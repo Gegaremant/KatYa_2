@@ -143,6 +143,7 @@ internal fun GeneralContent(
                         ExportImportSection(
                             onExportSettings = actions.onExportSettings,
                             onPrepareExport = actions.onPrepareExport,
+                            prepareImport = actions.onPrepareImport,
                             onImportSettings = actions.onImportSettings,
                         )
                     }
@@ -215,6 +216,7 @@ internal fun GeneralContent(
                     ExportImportSection(
                         onExportSettings = actions.onExportSettings,
                         onPrepareExport = actions.onPrepareExport,
+                        prepareImport = actions.onPrepareImport,
                         onImportSettings = actions.onImportSettings,
                     )
                 }

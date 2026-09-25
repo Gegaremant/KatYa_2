@@ -30,6 +30,13 @@ enum class ImportSection {
     CONVERSATIONS,
     MODELS,
     SERVERS,
+
+    /**
+     * Everything that is none of the above: theme, voice, wake word, STT/TTS,
+     * sandbox, God Mode, onboarding, daemon. Added with the full settings
+     * snapshot so those settings stop being invisible to backup and restore.
+     */
+    SETTINGS,
 }
 
 enum class ThemeMode {
