@@ -61,3 +61,4 @@ scris/
 .github
 .vscode
 .tmp
+.native-check/

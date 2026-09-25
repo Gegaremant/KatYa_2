@@ -199,7 +199,14 @@ class VlessProxyManager(
         val nativeLibDir = linuxSandboxManager.nativeLibDir
         val xrayNativeBinary = File(nativeLibDir, "libxray.so")
         if (!xrayNativeBinary.exists()) {
-            AppLogger.e("VlessProxyManager", "xray binary not found at ${xrayNativeBinary.absolutePath}")
+            // Say so and stop *before* asking for root. Asking the user to grant
+            // superuser for a tunnel that has no binary to launch is exactly the
+            // confusing "root requested, nothing happened" the field reports showed.
+            val reason = "Для ${com.katya.app.components.currentAbi()} нет бинарника xray — " +
+                "скачай компонент заново или пользуйся обычным подключением"
+            AppLogger.e("VlessProxyManager", reason)
+            appSettings.setVlessConnected(false)
+            appSettings.setVlessStatusReason(reason)
             return
         }
 
