@@ -24,6 +24,8 @@ import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
 private val TRANSCRIPT_SAVE_DEBOUNCE = 500.milliseconds
+private const val APT_UPDATE_TIMEOUT_SECONDS = 300L
+private const val APT_INSTALL_TIMEOUT_SECONDS = 900L
 
 class LinuxSandboxManager(
     private val context: Context,
@@ -117,6 +119,25 @@ class LinuxSandboxManager(
         }
         if (_state.value !is SandboxState.Ready) {
             AppLogger.d("LinuxSandbox", "Rootfs/native установлены, но песочница не собрана (нужен запуск setup)")
+        }
+    }
+
+    /**
+     * Called right after a rootfs/native component finishes installing.
+     *
+     * Until now nothing built the sandbox at install time: `recheckInstallation()`
+     * only logged "нужен запуск setup" and the first caller to need the sandbox
+     * (VLESS / DeepSeek) had to trigger the whole apt bootstrap itself — straight
+     * into the sandbox gate, where it aborted before any of its own work.
+     */
+    fun buildIfComponentsPresent() {
+        recheckInstallation()
+        if (_state.value is SandboxState.Ready) return
+        val rootfs = File(sandboxDir, "rootfs")
+        val proot = File(prootPath)
+        if (rootfs.isDirectory && proot.exists() && proot.canExecute()) {
+            AppLogger.action("Песочница", "компоненты на месте — запускаю сборку")
+            setup()
         }
     }
 
@@ -276,22 +297,46 @@ class LinuxSandboxManager(
             Distro.DEBIAN -> "apt-get update"
             Distro.TERMUX -> "apt update"
         }
-        val updateResult = executor.execute(updateCmd, timeoutSeconds = 60)
+        AppLogger.action("Песочница: обновление пакетов", "начато")
+        // A cold proot on a phone needs minutes for its very first apt-get update
+        // (package lists + cold page cache); the old 60s budget aborted it every time.
+        val updateResult = executor.execute(updateCmd, timeoutSeconds = APT_UPDATE_TIMEOUT_SECONDS)
         if (updateResult["success"] as? Boolean != true) {
-            throw IllegalStateException("$updateCmd failed: ${updateResult["stderr"]}")
+            val message = commandFailure(updateCmd, updateResult)
+            AppLogger.e("LinuxSandbox", message)
+            throw IllegalStateException(message)
         }
+        AppLogger.action("Песочница: обновление пакетов", "OK")
 
         _state.value = SandboxState.Installing("Installing Python, SQLite, Curl...")
         val installCmd = when (distro) {
             Distro.DEBIAN -> "apt-get install -y --no-install-recommends python3 python3-pip sqlite3 curl"
             Distro.TERMUX -> "apt install -y python sqlite curl"
         }
-        val installResult = executor.execute(installCmd, timeoutSeconds = 300)
+        AppLogger.action("Песочница: установка Python, SQLite, Curl", "начата")
+        val installResult = executor.execute(installCmd, timeoutSeconds = APT_INSTALL_TIMEOUT_SECONDS)
         if (installResult["success"] as? Boolean != true) {
-            throw IllegalStateException("$installCmd failed: ${installResult["stderr"]}")
+            val message = commandFailure(installCmd, installResult)
+            AppLogger.e("LinuxSandbox", message)
+            throw IllegalStateException(message)
         }
+        AppLogger.action("Песочница: установка Python, SQLite, Curl", "OK")
 
         _state.value = SandboxState.Ready
+        AppLogger.action("Песочница", "готова")
+    }
+
+    /** Turns a [ProotExecutor] result into a message that says what actually went
+     *  wrong — the raw "… failed: null" used to hide every real cause. */
+    private fun commandFailure(command: String, result: Map<String, Any>): String {
+        val details = sequenceOf(
+            (result["error"] as? String)?.takeIf { it.isNotBlank() },
+            (result["stderr"] as? String)?.takeIf { it.isNotBlank() },
+            (result["stdout"] as? String)?.takeIf { it.isNotBlank() },
+        ).firstOrNull { !it.isNullOrBlank() }
+        val timeout = if (result["timed_out"] as? Boolean == true) " (timeout)" else ""
+        val suffix = details ?: "no output, exit code ${result["exit_code"]}"
+        return "$command failed$timeout: $suffix"
     }
 
     private fun copyLibtalloc() {

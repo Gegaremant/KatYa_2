@@ -35,6 +35,30 @@ jobs:
       # (ANDROID_HOME=/usr/local/lib/android/sdk) and accepted licenses,
       # so no setup-android step is needed — the archived action breaks here.
 
+      # The shipped APK is a debug build, so it must not fall back to the
+      # auto-generated ~/.android/debug.keystore — that key is different on
+      # every runner and makes the APK uninstallable over the previous release.
+      - name: Restore signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KATYA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KATYA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KATYA_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64}" ]; then
+            echo "::error::KATYA_KEYSTORE_BASE64 is missing — refusing to ship an APK with a throwaway signature"
+            exit 1
+          fi
+          mkdir -p "${RUNNER_TEMP}/katya-signing"
+          printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${RUNNER_TEMP}/katya-signing/katya-release.jks"
+          keytool -list -keystore "${RUNNER_TEMP}/katya-signing/katya-release.jks" \
+            -storepass "${KEYSTORE_PASSWORD}" -alias "${KEY_ALIAS}" > /dev/null
+          {
+            echo "KEYSTORE_FILE=${RUNNER_TEMP}/katya-signing/katya-release.jks"
+            echo "KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD}"
+            echo "KEY_ALIAS=${KEY_ALIAS}"
+          } >> "${GITHUB_ENV}"
+
       - name: Build APK
         run: ./gradlew :androidApp:assembleFossDebug --no-daemon --stacktrace
 

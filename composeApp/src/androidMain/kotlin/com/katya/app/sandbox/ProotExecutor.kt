@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 private const val MAX_OUTPUT_LENGTH = 15_000
 private const val DEFAULT_TIMEOUT_SECONDS = 30L
-private const val MAX_TIMEOUT_SECONDS = 180L
+private const val MAX_TIMEOUT_SECONDS = 900L
 
 class ProotHandle internal constructor(
     private val process: Process,
@@ -86,29 +86,57 @@ class ProotExecutor(
 
             if (!completed) {
                 process.destroyForcibly()
-                return mapOf(
-                    "success" to false,
-                    "stdout" to stdoutFuture.get(1, TimeUnit.SECONDS).smartTruncate(MAX_OUTPUT_LENGTH),
-                    "stderr" to stderrFuture.get(1, TimeUnit.SECONDS).smartTruncate(MAX_OUTPUT_LENGTH),
-                    "exit_code" to -1,
-                    "timed_out" to true,
+                return result(
+                    success = false,
+                    stdout = drain(stdoutFuture),
+                    stderr = drain(stderrFuture),
+                    exitCode = -1,
+                    timedOut = true,
+                    error = "Command timed out after ${effectiveTimeout}s",
                 )
             }
 
-            mapOf(
-                "success" to (process.exitValue() == 0),
-                "stdout" to stdoutFuture.get().smartTruncate(MAX_OUTPUT_LENGTH),
-                "stderr" to stderrFuture.get().smartTruncate(MAX_OUTPUT_LENGTH),
-                "exit_code" to process.exitValue(),
-                "timed_out" to false,
+            result(
+                success = process.exitValue() == 0,
+                stdout = drain(stdoutFuture),
+                stderr = drain(stderrFuture),
+                exitCode = process.exitValue(),
+                timedOut = false,
             )
         } catch (e: Exception) {
-            mapOf(
-                "success" to false,
-                "error" to (e.message ?: "Failed to execute command in sandbox"),
+            // Every key is always present: callers read "stderr" for diagnostics,
+            // and a map without it used to surface as a bare "… failed: null",
+            // hiding the real reason (bad exec bit, missing loader, …).
+            result(
+                success = false,
+                stdout = "",
+                stderr = "",
+                exitCode = -1,
+                timedOut = false,
+                error = "${e.javaClass.simpleName}: ${e.message ?: e.toString()}",
             )
         }
     }
+
+    private fun result(
+        success: Boolean,
+        stdout: String,
+        stderr: String,
+        exitCode: Int,
+        timedOut: Boolean,
+        error: String? = null,
+    ): Map<String, Any> = buildMap {
+        put("success", success)
+        put("stdout", stdout.smartTruncate(MAX_OUTPUT_LENGTH))
+        put("stderr", stderr.smartTruncate(MAX_OUTPUT_LENGTH))
+        put("exit_code", exitCode)
+        put("timed_out", timedOut)
+        if (error != null) put("error", error)
+    }
+
+    /** Reader threads can stay parked on a killed process' pipe; never let that
+     *  turn a timeout into an exception that hides the timeout itself. */
+    private fun drain(future: CompletableFuture<String>): String = runCatching { future.get(1, TimeUnit.SECONDS) }.getOrDefault("")
 
     fun executeStreaming(
         command: String,

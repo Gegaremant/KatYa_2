@@ -170,6 +170,9 @@ class ComponentDownloaderService : Service() {
         tempFile.delete()
         repository.markInstalled(id)
         AppLogger.action("Установка компонента «${component.name}»", "OK — установлен")
+        // Both halves of the sandbox are on disk now — build it instead of leaving
+        // the first feature that needs it to discover the sandbox is unusable.
+        linuxSandboxManager.buildIfComponentsPresent()
     }
 
     private fun installComponent(component: DownloadableComponent, archive: File) {

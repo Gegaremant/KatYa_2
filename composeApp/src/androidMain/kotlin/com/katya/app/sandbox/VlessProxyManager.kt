@@ -50,15 +50,18 @@ class VlessProxyManager(
 
         if (!dataRepository.isVlessEnabled()) {
             AppLogger.d("VlessProxyManager", "VLESS disabled — not starting proxy")
+            appSettings.setVlessStatusReason("")
             return
         }
         val uri = dataRepository.getVlessUri()
         if (uri.isBlank()) {
             AppLogger.e("VlessProxyManager", "VLESS URI is blank — not starting proxy")
+            appSettings.setVlessStatusReason("Не задан VLESS-адрес")
             return
         }
         AppLogger.d("VlessProxyManager", "VLESS URI (truncated): ${uri.take(100)}")
         recoveryCount = 0
+        appSettings.setVlessStatusReason("Подключаюсь…")
 
         proxyJob = scope.launch {
             try {
@@ -73,12 +76,20 @@ class VlessProxyManager(
                         if (s is SandboxState.Ready) break
                         if (s is SandboxState.Error) {
                             AppLogger.e("VlessProxyManager", "Sandbox error: $s")
+                            // Say *why* the tunnel is dead instead of leaving a green
+                            // tick and a silent log — the sandbox gate is where every
+                            // attempt used to die without the UI ever learning about it.
+                            appSettings.setVlessStatusReason("Песочница не готова: ${s.message}")
                             break
                         }
+                        appSettings.setVlessStatusReason("Готовлю песочницу…")
                         kotlinx.coroutines.delay(2000)
                     }
                     if (linuxSandboxManager.state.value !is SandboxState.Ready) {
                         AppLogger.e("VlessProxyManager", "Sandbox not ready, aborting proxy start")
+                        if (linuxSandboxManager.state.value !is SandboxState.Error) {
+                            appSettings.setVlessStatusReason("Песочница не готова")
+                        }
                         return@launch
                     }
                 }
@@ -87,6 +98,7 @@ class VlessProxyManager(
                 if (directProxy != null) {
                     AppLogger.d("VlessProxyManager", "Using direct proxy $directProxy, skipping xray launch")
                     appSettings.setSystemStatus("Использую прямой SOCKS/HTTP прокси")
+                    appSettings.setVlessStatusReason("Прямой прокси")
                     launchConnectionLoop()
                     // Keep the job alive until cancelled; the connection loop owns liveness.
                     awaitCancellation()
@@ -94,6 +106,7 @@ class VlessProxyManager(
 
                 val finalUri = resolveFinalUri(uri)
                 appSettings.setSystemStatus("Настраиваю туннель VLESS...")
+                appSettings.setVlessStatusReason("Запускаю xray…")
                 val configJson = VlessParser.generateXrayConfig(finalUri)
                 AppLogger.d("VlessProxyManager", "Generated config JSON length: ${configJson.length}")
                 val configFilePath = File(linuxSandboxManager.homePath, "xray_config.json")
@@ -247,8 +260,10 @@ class VlessProxyManager(
                 kotlinx.coroutines.delay(2000) // wait 2s for xray/network
                 val ok = checkConnection()
                 appSettings.setVlessConnected(ok)
+                if (ok) appSettings.setVlessStatusReason("")
                 if (!ok) {
                     failureCount++
+                    appSettings.setVlessStatusReason("Туннель не отвечает (попытка $failureCount)")
                     if (failureCount >= 3) {
                         AppLogger.e("VlessProxyManager", "Connection failed 3 times, attempting recovery...")
                         attemptRecovery()

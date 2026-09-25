@@ -108,17 +108,22 @@ fun ServersContent(
             // + кнопка «проверка» и обратный отсчёт до следующей проверки (~12 с).
             var isCheckingNow by remember { mutableStateOf(false) }
             var secondsLeft by remember { mutableIntStateOf(0) }
-            var probeResult by remember { mutableStateOf(vlessConnected) }
+            // The port probe only proves *something* answers on 127.0.0.1:10809.
+            // The green tick additionally requires the VLESS manager's own verdict,
+            // so a leftover process or another tunnel can't pose as a working VLESS.
+            var localPortOk by remember { mutableStateOf(vlessConnected) }
+            val statusReason by appSettings.vlessStatusReasonFlow.collectAsState()
+            val tunnelUp = vlessConnected && localPortOk
 
             val runProbe: suspend () -> Unit = {
                 isCheckingNow = true
-                probeResult = com.katya.app.network.checkLocalProxyConnection()
+                localPortOk = com.katya.app.network.checkLocalProxyConnection()
                 isCheckingNow = false
             }
 
             LaunchedEffect(vlessChecked, vlessConnected) {
                 if (!vlessChecked) return@LaunchedEffect
-                probeResult = vlessConnected
+                localPortOk = vlessConnected
                 while (true) {
                     secondsLeft = 12
                     while (secondsLeft > 0) {
@@ -146,21 +151,21 @@ fun ServersContent(
                         !vlessChecked -> MaterialTheme.colorScheme.onSurfaceVariant
                         !hasAnyProxy -> MaterialTheme.colorScheme.onSurfaceVariant
                         isCheckingNow -> StatusColorChecking
-                        probeResult -> StatusColorConnected
+                        tunnelUp -> StatusColorConnected
                         else -> StatusColorError
                     }
                     val statusIcon = when {
                         !vlessChecked -> null
                         !hasAnyProxy -> null
                         isCheckingNow -> Icons.Default.Warning
-                        probeResult -> Icons.Default.CheckCircle
+                        tunnelUp -> Icons.Default.CheckCircle
                         else -> Icons.Default.Cancel
                     }
                     val statusText = when {
                         !vlessChecked -> "Отключен"
                         !hasAnyProxy -> "Прокси не заданы"
                         isCheckingNow -> "Проверка доступности…"
-                        probeResult -> "Подключен"
+                        tunnelUp -> "Подключен"
                         else -> "Не доступен"
                     }
 
@@ -196,6 +201,17 @@ fun ServersContent(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                    // Why the tunnel is not up. Without it the card only said "Не
+                    // доступен" while the real cause (sandbox, root, xray) was
+                    // buried in the log.
+                    if (vlessChecked && hasAnyProxy && !tunnelUp && statusReason.isNotBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = statusReason,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = StatusColorError,
+                        )
                     }
                 }
                 Switch(

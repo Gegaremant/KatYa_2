@@ -725,6 +725,15 @@ class AppSettings(internal val settings: Settings) {
         _isVlessConnectedFlow.value = connected
     }
 
+    // Short human-readable reason behind the last connection attempt. The card used
+    // to show a bare green tick with no explanation, so a dead tunnel looked healthy.
+    private val _vlessStatusReasonFlow = MutableStateFlow("")
+    val vlessStatusReasonFlow: StateFlow<String> = _vlessStatusReasonFlow
+
+    fun setVlessStatusReason(reason: String) {
+        _vlessStatusReasonFlow.value = reason
+    }
+
     fun getScheduledTasksJson(): String = settings.getString(AppSettingsKeys.KEY_SCHEDULED_TASKS, "[]")
 
     fun setScheduledTasksJson(json: String) {

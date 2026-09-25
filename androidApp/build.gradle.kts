@@ -58,12 +58,27 @@ android {
                 storeFile = file(ksFile)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
+                // The key is a PKCS12 store, where keytool ties the private-key
+                // password to the store password; a separate KEY_PASSWORD is
+                // rejected at packaging time with "final block not properly padded".
                 keyPassword = System.getenv("KEYSTORE_PASSWORD")
             }
         }
     }
 
     buildTypes {
+        // Release APKs ship as `assembleFossDebug`. The stock debug keystore lives
+        // in ~/.android and is generated on first use, so every CI runner signs
+        // with a fresh key — each release then has a different certificate and
+        // Android refuses to install it over the previous version. Signing debug
+        // with the release keystore whenever one is provided keeps the
+        // certificate identical across all future builds.
+        getByName("debug") {
+            if (System.getenv("KEYSTORE_FILE") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+
         getByName("release") {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "../composeApp/proguard-rules.pro")
