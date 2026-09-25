@@ -135,9 +135,15 @@ data class SettingsUiState(
     val isVlessEnabled: Boolean = false,
     val vlessUri: String = "",
     val isVlessConnected: Boolean = false,
-    val showDeepSeekAuthDialog: Boolean = false,
+    // Headless DeepSeek sign-in, driven from the service card itself.
+    // dsAuthInstanceId is the account the login belongs to — the old dialog
+    // always wrote to the first DeepSeek instance, so the second account got
+    // the first one's session.
+    val dsAuthInstanceId: String = "",
     val dsAuthEmail: String = "",
     val dsAuthPassword: String = "",
+    val dsAuthStatus: String = "",
+    val dsAuthRunning: Boolean = false,
     val isFreeFallbackEnabled: Boolean = true,
     val uiScale: Float = 1.0f,
     val showUiScale: Boolean = false,

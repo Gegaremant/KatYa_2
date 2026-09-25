@@ -27,9 +27,19 @@ data class DeepSeekAuthSession(
     val wasmUrl: String = "https://fe-static.deepseek.com/chat/static/sha3_wasm_bg.7b9ca65ddd.wasm",
 )
 
+/**
+ * Headless DeepSeek sign-in.
+ *
+ * There is no dialog and no browser any more: the composable only hosts the
+ * sign-in WebView (1.dp, invisible) and reports what it is doing through
+ * [onStatus] so the service card can show the progress in place.
+ * [onTokenExtracted] fires once a fresh session (token + cookie + anti-bot
+ * headers) is captured.
+ */
 @Composable
 expect fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (DeepSeekAuthSession) -> Unit,
+    onStatus: (String) -> Unit,
     onDismiss: () -> Unit,
     initialEmail: String = "",
     initialPassword: String = "",

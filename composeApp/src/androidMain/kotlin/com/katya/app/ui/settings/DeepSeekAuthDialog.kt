@@ -3,785 +3,456 @@ package com.katya.app.ui.settings
 import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.webkit.WebViewCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+/**
+ * Headless DeepSeek sign-in engine.
+ *
+ * Feedback #9/#10: no dialog, no browser, no token field. The composable hosts an
+ * invisible WebView that logs in with the credentials from the service card and
+ * streams its progress to [onStatus], which the card renders inline. Manual token
+ * entry is gone — the token is an implementation detail of the session we save.
+ */
 @Composable
 actual fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (DeepSeekAuthSession) -> Unit,
+    onStatus: (String) -> Unit,
     onDismiss: () -> Unit,
     initialEmail: String,
     initialPassword: String,
 ) {
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
-    ) {
-        val freeDeepSeekManager: com.katya.app.sandbox.FreeDeepSeekManager = org.koin.compose.koinInject()
+    Box(modifier = Modifier.size(1.dp)) {
         var webViewRef by remember { mutableStateOf<WebView?>(null) }
-        // Headless mode: credentials come from the settings card, so the login flow
-        // starts automatically, the WebView stays hidden and everything is logged.
-        val headless = initialEmail.isNotBlank() && initialPassword.isNotBlank()
-        var statusText by remember {
-            mutableStateOf(
-                if (headless) {
-                    "🟢 Подключаем DeepSeek... проверяю доступность"
-                } else {
-                    "Войдите в DeepSeek — токен будет извлечён автоматически"
-                },
-            )
-        }
-        var isLoggedIn by remember { mutableStateOf(false) }
-        var manualToken by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
-        var useManualMode by remember { mutableStateOf(false) }
-
-        var dsEmail by remember { mutableStateOf(initialEmail) }
-        var dsPassword by remember { mutableStateOf(initialPassword) }
-        var autoLoginTriggered by remember { mutableStateOf(headless) }
-        // The extracted token lives here so the status banner (above) can use it too.
-        var extractedToken by remember { mutableStateOf<String?>(null) }
-
-        // Anti-bot headers (x-hif-dliq / x-hif-leim) captured from outgoing requests
         var hifDliq by remember { mutableStateOf("") }
         var hifLeim by remember { mutableStateOf("") }
+        var extractedToken by remember { mutableStateOf<String?>(null) }
 
-        // Token that was already sitting in localStorage when the dialog opened.
-        // DeepSeek persists the JWT across sessions, so a dialog opened later finds
-        // yesterday's token and previously reported it as a successful fresh login —
-        // but the WebView had no real user_session cookie, so the backend rejected
-        // the extracted session ("токен якобы получен, но не работает"). We snapshot
-        // the stale value and require a token that is NOT it, i.e. written by a real
-        // login that happened inside THIS dialog session.
+        // Token that was already sitting in localStorage when auth started.
+        // DeepSeek persists the JWT across sessions, so a later run would find
+        // yesterday's token and report a fresh success — but the WebView had no
+        // real user_session cookie and the backend rejected the session
+        // ("токен якобы получен, но не работает"). Snapshot the stale value and
+        // only accept a token that differs from it.
         var staleTokenSnapshot by remember { mutableStateOf<String?>(null) }
-        var cloudflareHintShown by remember { mutableStateOf(false) }
 
-        var isDoctorRunning by remember { mutableStateOf(false) }
-        var doctorLog by remember { mutableStateOf<String?>(null) }
+        val dsEmail = initialEmail
+        val dsPassword = initialPassword
 
-        // Ticker + hoisted anti-bot deadline so the UI can render a live countdown
-        // while we wait for x-hif-dliq/x-hif-leim.
-        var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
-        var hifDeadlineUi by remember { mutableStateOf<Long?>(null) }
-        // Headless countdown: the user asked for a "проверяю... ~15 с" timer while
-        // the connection is being established under the hood. The countdown loops
-        // every 15 s (bound to the real polling budget), so it never displays a
-        // stale negative value.
+        val report: (String) -> Unit = { text ->
+            android.util.Log.d("DeepSeekAuth", text)
+            onStatus(text)
+        }
+
+        // "Проверяю доступность (15 с)" — the countdown the card shows while the
+        // sign-in is in flight. It loops every 15s so it never goes stale/negative.
         val authStartMs = remember { System.currentTimeMillis() }
-        val checkCountdownSec = 15L - ((nowMs - authStartMs) / 1000L) % 15L
+        var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
         LaunchedEffect(Unit) {
             while (true) {
                 nowMs = System.currentTimeMillis()
                 delay(500)
             }
         }
-
-        // Headless auto-start: kick the autopilot right away (and retry a few times)
-        // in case the page finished loading before the WebView reference was set.
-        LaunchedEffect(headless) {
-            if (!headless) return@LaunchedEffect
-            repeat(6) {
-                delay(1500)
-                val view = webViewRef
-                if (view != null && autoLoginTriggered && extractedToken == null) {
-                    val js = buildAutoLoginJs(dsEmail, dsPassword)
-                    view.evaluateJavascript(js, null)
+        LaunchedEffect(extractedToken) {
+            if (extractedToken == null) {
+                while (true) {
+                    val left = 15L - ((nowMs - authStartMs) / 1000L) % 15L
+                    onStatus("🟢 Подключаю DeepSeek... проверяю доступность ($left с)")
+                    delay(1000)
                 }
             }
         }
 
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Status bar at top
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = if (headless && extractedToken == null && !useManualMode) {
-                                    "🟢 Подключаем DeepSeek... проверяю доступность ($checkCountdownSec с)"
-                                } else {
-                                    statusText
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Row {
-                                TextButton(
-                                    onClick = {
-                                        if (!isDoctorRunning) {
-                                            isDoctorRunning = true
-                                            doctorLog = "Запуск Doctor...\nОжидайте..."
-                                            kotlinx.coroutines.MainScope().launch {
-                                                val res = freeDeepSeekManager.runDoctor()
-                                                doctorLog = "Результат Doctor:\n$res"
-                                                isDoctorRunning = false
-                                            }
-                                        }
-                                    },
-                                ) {
-                                    Text(if (isDoctorRunning) "Выполняется..." else "Лечение (Doctor)")
-                                }
-                                TextButton(
-                                    onClick = { useManualMode = !useManualMode },
-                                ) {
-                                    Text(if (useManualMode) "Авто" else "Вручную")
-                                }
-                                TextButton(
-                                    onClick = { webViewRef?.reload() },
-                                ) {
-                                    Text("⟳ Обновить")
-                                }
-                            }
-                        }
-                    }
-                    if (isLoggedIn) {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-
-                    if (useManualMode) {
-                        // Manual token input
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            Text(
-                                text = "Вставьте токен вручную",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onBackground,
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            OutlinedTextField(
-                                value = manualToken,
-                                onValueChange = { manualToken = it },
-                                label = { Text("Токен") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                Button(
-                                    onClick = {
-                                        if (manualToken.text.isNotBlank()) {
-                                            // Manual paste: build a best-effort session from whatever
-                                            // cookies/hif headers the WebView already captured.
-                                            val manualCookies = CookieManager.getInstance()
-                                                .getCookie("https://chat.deepseek.com")
-                                            val manualSession = DeepSeekAuthSession(
-                                                token = manualToken.text.trim(),
-                                                cookie = manualCookies?.takeIf { it.isNotBlank() } ?: "",
-                                                hifDliq = hifDliq,
-                                                hifLeim = hifLeim,
-                                            )
-                                            onTokenExtracted(manualSession)
-                                            onDismiss()
-                                        }
-                                    },
-                                    enabled = manualToken.text.isNotBlank(),
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text("Подтвердить")
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        // Open in external browser
-                                        val context = webViewRef?.context
-                                        if (context != null) {
-                                            try {
-                                                val intent = android.content.Intent(
-                                                    android.content.Intent.ACTION_VIEW,
-                                                    android.net.Uri.parse("https://chat.deepseek.com/"),
-                                                )
-                                                context.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                android.util.Log.e("DeepSeekAuth", "Failed to open browser", e)
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                ) {
-                                    Text("Открыть в браузере")
-                                }
-                            }
-                        }
-                    } else {
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            if (!autoLoginTriggered) {
-                                // Native Login UI — shown before the user starts the flow.
-                                // Once autoLoginTriggered is set the native fields are hidden
-                                // so they don't overlap the WebView form and confuse the user.
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Text(
-                                        "Авторизация в DeepSeek",
-                                        style = MaterialTheme.typography.titleMedium,
-                                    )
-                                    OutlinedTextField(
-                                        value = dsEmail,
-                                        onValueChange = { dsEmail = it },
-                                        label = { Text("Email / Phone") },
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    OutlinedTextField(
-                                        value = dsPassword,
-                                        onValueChange = { dsPassword = it },
-                                        label = { Text("Пароль") },
-                                        singleLine = true,
-                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                        modifier = Modifier.fillMaxWidth(),
-                                    )
-                                    Button(
-                                        onClick = {
-                                            autoLoginTriggered = true
-                                            statusText = "Авторизация... (подождите 5-10 секунд)"
-                                            // The page may already be loaded (onPageFinished already
-                                            // fired before the user filled the fields) — inject the
-                                            // autopilot right now instead of waiting for a navigation
-                                            // that will never come. The JS polls every 1.2s, so a
-                                            // still-loading page picks it up as soon as it renders.
-                                            val js = buildAutoLoginJs(dsEmail, dsPassword)
-                                            webViewRef?.evaluateJavascript(js, null)
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = dsEmail.isNotBlank() && dsPassword.isNotBlank(),
-                                    ) {
-                                        Text("Войти")
-                                    }
-                                }
-                            } else {
-                                // While the WebView autopilot is running, replace the native
-                                // fields with a status banner so the user knows what's happening.
-                                Surface(
-                                    color = if (extractedToken != null) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text(
-                                        text = if (extractedToken != null) {
-                                            val remainingSec = hifDeadlineUi?.let { (it - nowMs) / 1000 } ?: 0L
-                                            if (hifDliq.isBlank() || hifLeim.isBlank()) {
-                                                if (remainingSec > 0) {
-                                                    "✅ Токен/сессия получены! Ждём антибот-хедеры... осталось $remainingSec с"
-                                                } else {
-                                                    "✅ Сессия получена! Закрываем..."
-                                                }
-                                            } else {
-                                                "✅ Сессия получена! Закрываем..."
-                                            }
-                                        } else {
-                                            statusText
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (extractedToken != null) {
-                                            MaterialTheme.colorScheme.onPrimaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.onSecondaryContainer
-                                        },
-                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                                    )
-                                }
-                            }
-
-                            // WebView — headless engine. In visible mode it was needed for
-                            // CAPTCHA / 2FA, but the user asked for the login to happen
-                            // "под капотом" — no browser UI at all. Sized to 1.dp so the
-                            // page still loads and executes JS, but is not visible.
-                            AndroidView(
-                                factory = { context ->
-                                    WebView(context).apply {
-                                        webViewRef = this
-                                        isFocusable = true
-                                        isFocusableInTouchMode = true
-                                        settings.javaScriptEnabled = true
-                                        settings.domStorageEnabled = true
-                                        settings.databaseEnabled = true
-                                        settings.setSupportMultipleWindows(true)
-                                        settings.javaScriptCanOpenWindowsAutomatically = true
-                                        settings.useWideViewPort = true
-                                        settings.loadWithOverviewMode = true
-                                        settings.mixedContentMode =
-                                            android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-                                        layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
-
-                                        // The black screen some users saw on the second open was a
-                                        // combination of a cached WebView surface and the default
-                                        // (dark) canvas. Force white rendering + no cache so the
-                                        // page actually re-draws every time the dialog is opened.
-                                        setBackgroundColor(android.graphics.Color.WHITE)
-                                        settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-                                        clearCache(true)
-
-                                        // Remove "wv" from user agent so DeepSeek doesn't detect WebView
-                                        val defaultAgent = settings.userAgentString
-                                        settings.userAgentString = defaultAgent.replace("; wv", "")
-
-                                        CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-
-                                        // Register the hif hook at DOCUMENT START so it patches
-                                        // window.fetch / XHR before DeepSeek's bundle captures them.
-                                        // shouldInterceptRequest does not expose XHR/fetch headers.
-                                        try {
-                                            WebViewCompat.addDocumentStartJavaScript(
-                                                this,
-                                                HIF_HOOK_JS,
-                                                setOf("*"),
-                                            )
-                                        } catch (e: Exception) {
-                                            android.util.Log.w("DeepSeekAuth", "addDocumentStartJavaScript failed: ${e.message}")
-                                        }
-
-                                        webChromeClient = object : android.webkit.WebChromeClient() {
-                                            override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
-                                                android.util.Log.d(
-                                                    "DeepSeekAuth",
-                                                    "JS: ${consoleMessage?.message()}",
-                                                )
-                                                return super.onConsoleMessage(consoleMessage)
-                                            }
-
-                                            // DeepSeek opens the sign-in/registration form in a popup window
-                                            // in some builds. Without this override the popup would be served
-                                            // by a raw WebView (or the system browser) where the LTR fix never
-                                            // runs. Redirect the popup into the main WebView so the LTR
-                                            // injection keeps applying.
-                                            override fun onCreateWindow(
-                                                view: android.webkit.WebView?,
-                                                isDialog: Boolean,
-                                                isUserGesture: Boolean,
-                                                resultMsg: android.os.Message?,
-                                            ): Boolean {
-                                                val transport = resultMsg?.obj as? android.webkit.WebView.WebViewTransport
-                                                    ?: return false
-                                                val mainView = view ?: return false
-                                                transport.setWebView(mainView)
-                                                resultMsg?.sendToTarget()
-                                                return true
-                                            }
-                                        }
-                                        webViewClient = object : WebViewClient() {
-                                            // Capture DeepSeek's anti-bot headers (x-hif-dliq / x-hif-leim)
-                                            // from outgoing requests. The official auth.js reads them from
-                                            // network events; here WebView hands us the same request headers.
-                                            override fun shouldInterceptRequest(
-                                                view: WebView?,
-                                                request: android.webkit.WebResourceRequest?,
-                                            ): android.webkit.WebResourceResponse? {
-                                                val headers = request?.requestHeaders
-                                                val dbgHost = request?.url?.host ?: "?"
-                                                android.util.Log.d(
-                                                    "DeepSeekAuth",
-                                                    "shouldInterceptRequest host=$dbgHost hdrCount=${headers?.size ?: 0} names=${headers?.keys?.joinToString(",") ?: ""}",
-                                                )
-                                                if (headers != null) {
-                                                    // Capture x-hif-* from ANY host, not just deepseek.com:
-                                                    // in some builds the hif request is proxied or the
-                                                    // anti-bot headers only appear on api/chat subdomains.
-                                                    var hit = false
-                                                    for ((k, v) in headers) {
-                                                        val lk = k.lowercase()
-                                                        if (lk == "x-hif-dliq" && v.isNotBlank() && hifDliq.isBlank()) {
-                                                            hifDliq = v
-                                                            hit = true
-                                                        }
-                                                        if (lk == "x-hif-leim" && v.isNotBlank() && hifLeim.isBlank()) {
-                                                            hifLeim = v
-                                                            hit = true
-                                                        }
-                                                    }
-                                                    if (hit) {
-                                                        android.util.Log.d(
-                                                            "DeepSeekAuth",
-                                                            "Captured hif from ${request.url?.host} (dliq=${hifDliq.take(12)}... leim=${hifLeim.take(12)}...)",
-                                                        )
-                                                    }
-                                                }
-                                                // A black/tinted screen + challenges.cloudflare.com means
-                                                // Turnstile is blocking the page. No JS-hook can fix that —
-                                                // tell the user to solve it manually in the visible WebView.
-                                                val dbgHost2 = request?.url?.host ?: ""
-                                                if (dbgHost2.contains("challenges.cloudflare.com") && !cloudflareHintShown) {
-                                                    cloudflareHintShown = true
-                                                    statusText = "⚠️ DeepSeek показывает проверку Cloudflare (Turnstile). Решите её в окне вручную — автологин продолжит после этого."
-                                                }
-                                                return super.shouldInterceptRequest(view, request)
-                                            }
-
-                                            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                                super.onPageStarted(view, url, favicon)
-                                                android.util.Log.d("DeepSeekAuth", "Page started: $url")
-                                                installHifHook(view)
-                                            }
-
-                                            override fun onPageFinished(view: WebView?, url: String?) {
-                                                super.onPageFinished(view, url)
-                                                android.util.Log.d("DeepSeekAuth", "Page loaded: $url")
-                                                enforceLtr(view)
-                                                if (autoLoginTriggered) {
-                                                    // Two-step autopilot: DeepSeek shows email and password on
-                                                    // separate screens. A plain el.value= assignment is ignored
-                                                    // by React (value tracker), so we use the native setter and
-                                                    // dispatch real input/change events. The loop reports its
-                                                    // current step into window.__katyaAuthStep for the UI.
-                                                    val js = buildAutoLoginJs(dsEmail, dsPassword)
-                                                    view?.evaluateJavascript(js, null)
-                                                }
-                                            }
-                                        }
-                                        loadUrl("https://chat.deepseek.com/sign_in")
-                                    }
-                                },
-                                modifier = Modifier.size(1.dp),
-                            )
-                        }
-                    }
+        // Kick the autopilot repeatedly in case the page finished loading before
+        // the WebView reference was set.
+        LaunchedEffect(Unit) {
+            repeat(6) {
+                delay(1500)
+                val view = webViewRef
+                if (view != null && extractedToken == null) {
+                    view.evaluateJavascript(buildAutoLoginJs(dsEmail, dsPassword), null)
                 }
+            }
+        }
 
-                // Close button. Hidden while the autopilot runs or we're waiting for the
-                // anti-bot headers — killing the dialog mid-flight wastes the session.
-                // The wait is bounded (totalTimeoutMs / hifGraceMs) and a countdown is
-                // shown, so the user is never stuck without an exit.
-                val hideCloseDuringWait = (autoLoginTriggered && !headless) || extractedToken != null
-                if (!hideCloseDuringWait) {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 8.dp),
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
-                }
+        AndroidView(
+            factory = { context ->
+                WebView(context).apply {
+                    webViewRef = this
+                    isFocusable = true
+                    isFocusableInTouchMode = true
+                    settings.javaScriptEnabled = true
+                    settings.domStorageEnabled = true
+                    settings.databaseEnabled = true
+                    settings.setSupportMultipleWindows(true)
+                    settings.javaScriptCanOpenWindowsAutomatically = true
+                    settings.useWideViewPort = true
+                    settings.loadWithOverviewMode = true
+                    settings.mixedContentMode =
+                        android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                    layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
 
-                if (doctorLog != null) {
-                    androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { doctorLog = null },
-                        title = { Text("DeepSeek Doctor") },
-                        text = {
-                            // Scrollable text
-                            androidx.compose.foundation.lazy.LazyColumn {
-                                item {
-                                    Text(doctorLog ?: "")
-                                }
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(onClick = { doctorLog = null }) {
-                                Text("Закрыть")
-                            }
-                        },
-                    )
-                }
+                    // The black screen some users saw on the second open was a
+                    // combination of a cached WebView surface and the default
+                    // (dark) canvas. Force white rendering + no cache so the
+                    // page actually re-draws every time auth starts.
+                    setBackgroundColor(android.graphics.Color.WHITE)
+                    settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+                    clearCache(true)
 
-                // Polling loop for token extraction (only in auto mode)
-                LaunchedEffect(Unit) {
-                    var hifDeadline: Long? = null
-                    var attempt = 0
-                    // After the token appears we wait a short grace period so the
-                    // web client can fire requests carrying x-hif-dliq/x-hif-leim.
-                    val hifGraceMs = 30_000L
-                    // Whole-attempt budget: if the autopilot never manages to sign in
-                    // (bad creds, DeepSeek layout change, CAPTCHA), fail loudly instead
-                    // of spinning forever.
-                    val totalTimeoutMs = 60_000L
-                    val startTime = System.currentTimeMillis()
+                    // Remove "wv" from user agent so DeepSeek doesn't detect WebView
+                    val defaultAgent = settings.userAgentString
+                    settings.userAgentString = defaultAgent.replace("; wv", "")
 
-                    // Snapshot the token already present in localStorage before any
-                    // fresh login can happen. This value will be treated as STALE and
-                    // rejected later, so we only report a token written by an actual
-                    // login inside this dialog window (see step 3 below).
-                    if (staleTokenSnapshot == null) {
-                        // First wait a moment: the dialog was just opened, the WebView
-                        // may still be settling. A quick retry loop is cheap.
-                        repeat(5) { i ->
-                            delay(300)
-                            if (staleTokenSnapshot != null) return@repeat
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                val snapJs = """
-                                    (function() {
-                                        try {
-                                            var keys = ['userToken','token','auth_token','access_token',
-                                                        'Authorization','authorization','jwt','id_token',
-                                                        'user_token','session_token','ds_token',
-                                                        'deepseek_token','chat_token','login_token'];
-                                            for (var i = 0; i < keys.length; i++) {
-                                                var val = localStorage.getItem(keys[i]);
-                                                if (val && val !== 'null' && val.length > 20) {
-                                                    try {
-                                                        var j = JSON.parse(val);
-                                                        if (j && typeof j === 'object') {
-                                                            var extracted = j.value || j.token || j.access_token || j.jwt || j.id_token;
-                                                            if (extracted && typeof extracted === 'string' && extracted.length > 20) {
-                                                                return 'SNAP:' + extracted;
-                                                            }
-                                                            continue;
-                                                        }
-                                                    } catch(e) {}
-                                                    return 'SNAP:' + val;
-                                                }
-                                            }
-                                            return 'SNAP:';
-                                        } catch(e) { return 'SNAP:'; }
-                                    })();
-                                """.trimIndent()
-                                webViewRef?.evaluateJavascript(snapJs) { result: String? ->
-                                    val clean = result?.trim('"') ?: ""
-                                    if (clean.startsWith("SNAP:")) {
-                                        val snap = clean.substringAfter("SNAP:", "")
-                                        if (snap.length > 20) {
-                                            staleTokenSnapshot = snap
-                                            android.util.Log.d(
-                                                "DeepSeekAuth",
-                                                "Stale localStorage token snapshot: ${snap.take(20)}... (will reject it, need a FRESH login)",
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+
+                    // Register the hif hook at DOCUMENT START so it patches
+                    // window.fetch / XHR before DeepSeek's bundle captures them.
+                    // shouldInterceptRequest does not expose XHR/fetch headers.
+                    try {
+                        WebViewCompat.addDocumentStartJavaScript(
+                            this,
+                            HIF_HOOK_JS,
+                            setOf("*"),
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.w("DeepSeekAuth", "addDocumentStartJavaScript failed: ${e.message}")
                     }
 
-                    while ((extractedToken == null || (hifDeadline != null && System.currentTimeMillis() < hifDeadline)) && !useManualMode) {
-                        delay(1500)
-                        attempt++
-
-                        if (System.currentTimeMillis() - startTime > totalTimeoutMs && extractedToken == null) {
-                            statusText = "⏱️ Не удалось получить токен за 60 с. Проверьте логин/пароль или включите ручной ввод."
-                            delay(2500)
-                            onDismiss()
-                            break
-                        }
-
-                        // 1. Try cookies first — most reliable source
-                        val cookies = CookieManager.getInstance()
-                            .getCookie("https://chat.deepseek.com")
-                        val cookieTokenMatch = cookies?.let { Regex("user_session=([^;\\s]+)").find(it) }
-                        if (cookieTokenMatch != null) {
-                            android.util.Log.d("DeepSeekAuth", "Cookies present (attempt $attempt)")
-                            val token = cookieTokenMatch.groupValues[1]
-                            if (extractedToken == null && token.length > 10) {
-                                android.util.Log.d("DeepSeekAuth", "Cookie token found: ${token.take(20)}...")
-                                extractedToken = token
-                                isLoggedIn = true
-                                hifDeadline = System.currentTimeMillis() + hifGraceMs
-                                hifDeadlineUi = hifDeadline
-                                statusText = if (hifDliq.isBlank() || hifLeim.isBlank()) {
-                                    "✅ Токен получен! Ждём антибот-хедеры..."
-                                } else {
-                                    "✅ Сессия получена! Закрываем..."
-                                }
-                            }
-                        }
-
-                        // 2. Anti-bot headers via JS as a fallback to shouldInterceptRequest
-                        //    (some DeepSeek builds store them in localStorage/sessionStorage).
-                        if (hifDliq.isBlank() || hifLeim.isBlank()) {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                val hifJs = """
-                                    (function() {
-                                        try {
-                                            var d = localStorage.getItem('x-hif-dliq') || sessionStorage.getItem('x-hif-dliq') || '';
-                                            var l = localStorage.getItem('x-hif-leim') || sessionStorage.getItem('x-hif-leim') || '';
-                                            return d + '|' + l;
-                                        } catch(e) { return '|'; }
-                                    })();
-                                """.trimIndent()
-                                webViewRef?.evaluateJavascript(hifJs) { result: String? ->
-                                    if (result != null) {
-                                        val clean = result.trim('"')
-                                        val parts = clean.split("|")
-                                        if (parts.size == 2) {
-                                            if (parts[0].isNotBlank()) hifDliq = parts[0]
-                                            if (parts[1].isNotBlank()) hifLeim = parts[1]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // 3. Try localStorage via JS — DeepSeek stores JWT in various keys
-                        if (extractedToken == null) {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                try {
-                                    // Search through multiple known localStorage keys
-                                    val js = """
-                                        (function() {
-                                            try {
-                                                // Try direct token keys
-                                                var keys = ['userToken','token','auth_token','access_token',
-                                                            'Authorization','authorization','jwt','id_token',
-                                                            'user_token','session_token','ds_token',
-                                                            'deepseek_token','chat_token','login_token'];
-                                                for (var i = 0; i < keys.length; i++) {
-                                                    var val = localStorage.getItem(keys[i]);
-                                                    if (val && val !== 'null' && val.length > 20) {
-                                                        // If it looks like JSON, try to extract .value or .token fields
-                                                        try {
-                                                            var j = JSON.parse(val);
-                                                            if (j && typeof j === 'object') {
-                                                                // Skip if value is null/empty
-                                                                var extracted = j.value || j.token || j.access_token || j.jwt || j.id_token;
-                                                                if (extracted && typeof extracted === 'string' && extracted.length > 20) {
-                                                                    return 'LSKEY:' + extracted;
-                                                                }
-                                                                // Skip JSON objects where important field is null
-                                                                continue;
-                                                            }
-                                                        } catch(e) {}
-                                                        // Raw string token
-                                                        return 'LSKEY:' + val;
-                                                    }
-                                                }
-                                                // Fallback removed to prevent matching random telemetry tokens
-                                                return 'NOTFOUND';
-                                            } catch(e) {
-                                                return 'ERR:' + e.message;
-                                            }
-                                        })();
-                                    """.trimIndent()
-
-                                    webViewRef?.evaluateJavascript(js) { result: String? ->
-                                        if (result != null) {
-                                            val clean = result.trim('"').replace("\\\"", "\"")
-                                            android.util.Log.d("DeepSeekAuth", "localStorage result: ${clean.take(80)}")
-
-                                            if (extractedToken == null && clean.startsWith("LSKEY:")) {
-                                                val token = clean.substringAfter(":")
-                                                if (token.length > 20 && !token.startsWith("{")) {
-                                                    if (token == staleTokenSnapshot) {
-                                                        // Same token that was already present when the dialog
-                                                        // opened — no fresh login happened. Reject it and keep
-                                                        // waiting, otherwise we'd report a fake success with a
-                                                        // token the backend no longer recognises.
-                                                        android.util.Log.d(
-                                                            "DeepSeekAuth",
-                                                            "REJECTING stale localStorage token (matches dialog-open snapshot): ${token.take(20)}... keep waiting for fresh login",
-                                                        )
-                                                        statusText = "Токен из localStorage устарел. Войдите в DeepSeek заново — ждём свежий вход..."
-                                                    } else {
-                                                        extractedToken = token
-                                                        isLoggedIn = true
-                                                        hifDeadline = System.currentTimeMillis() + hifGraceMs
-                                                        hifDeadlineUi = hifDeadline
-                                                        statusText = if (hifDliq.isBlank() || hifLeim.isBlank()) {
-                                                            "✅ Токен найден! Ждём антибот-хедеры..."
-                                                        } else {
-                                                            "✅ Сессия получена! Закрываем..."
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    android.util.Log.e("DeepSeekAuth", "JS eval failed", e)
-                                }
-                            }
-                        }
-
-                        // 4. Done: token + (hif captured or grace expired) -> build session
-                        val token = extractedToken
-                        if (token != null && token.isNotBlank() &&
-                            (hifDeadline == null || (hifDliq.isNotBlank() && hifLeim.isNotBlank()) || System.currentTimeMillis() >= hifDeadline)
-                        ) {
+                    webChromeClient = object : android.webkit.WebChromeClient() {
+                        override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
                             android.util.Log.d(
                                 "DeepSeekAuth",
-                                "Extracting session: hif_dliq=${hifDliq.take(16)}... hif_leim=${hifLeim.take(16)}...",
+                                "JS: ${consoleMessage?.message()}",
                             )
-                            val fullCookie = cookies?.takeIf { it.isNotBlank() } ?: "user_session=$token"
-                            val session = DeepSeekAuthSession(
-                                token = token,
-                                cookie = fullCookie,
-                                hifDliq = hifDliq,
-                                hifLeim = hifLeim,
-                            )
-                            statusText = "✅ Сессия получена! Закрываем..."
-                            delay(500)
-                            onTokenExtracted(session)
-                            onDismiss()
-                            break
+                            return super.onConsoleMessage(consoleMessage)
                         }
 
-                        // Show autopilot progress in the status bar (so the user can see the
-                        // form is being filled and can also type manually if needed).
-                        if (autoLoginTriggered && extractedToken == null) {
-                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                                webViewRef?.evaluateJavascript("window.__katyaAuthStep || ''") { res ->
-                                    val step = res?.trim('"')?.takeIf { it.isNotBlank() }
-                                    if (step != null && step != "wait") {
-                                        val label = when (step) {
-                                            "email" -> "заполняю email"
-                                            "continue" -> "нажимаю «Продолжить»"
-                                            "look-continue" -> "ищу кнопку «Продолжить»"
-                                            "password" -> "заполняю пароль"
-                                            "login" -> "нажимаю «Войти»"
-                                            "look-login" -> "ищу кнопку «Войти»"
-                                            "done" -> "вход выполнен"
-                                            else -> step
-                                        }
-                                        statusText = "🤖 Автоподстановка: $label"
+                        // DeepSeek opens the sign-in/registration form in a popup window
+                        // in some builds. Without this override the popup would be served
+                        // by a raw WebView where the LTR fix never runs. Redirect the
+                        // popup into the main WebView so the LTR injection keeps applying.
+                        override fun onCreateWindow(
+                            view: android.webkit.WebView?,
+                            isDialog: Boolean,
+                            isUserGesture: Boolean,
+                            resultMsg: android.os.Message?,
+                        ): Boolean {
+                            val transport = resultMsg?.obj as? android.webkit.WebView.WebViewTransport
+                                ?: return false
+                            val mainView = view ?: return false
+                            transport.setWebView(mainView)
+                            resultMsg?.sendToTarget()
+                            return true
+                        }
+                    }
+                    webViewClient = object : WebViewClient() {
+                        // Capture DeepSeek's anti-bot headers (x-hif-dliq / x-hif-leim)
+                        // from outgoing requests. The official auth.js reads them from
+                        // network events; here WebView hands us the same request headers.
+                        override fun shouldInterceptRequest(
+                            view: WebView?,
+                            request: android.webkit.WebResourceRequest?,
+                        ): android.webkit.WebResourceResponse? {
+                            val headers = request?.requestHeaders
+                            val dbgHost = request?.url?.host ?: "?"
+                            android.util.Log.d(
+                                "DeepSeekAuth",
+                                "shouldInterceptRequest host=$dbgHost hdrCount=${headers?.size ?: 0} names=${headers?.keys?.joinToString(",") ?: ""}",
+                            )
+                            if (headers != null) {
+                                // Capture x-hif-* from ANY host, not just deepseek.com:
+                                // in some builds the hif request is proxied or the
+                                // anti-bot headers only appear on api/chat subdomains.
+                                var hit = false
+                                for ((k, v) in headers) {
+                                    val lk = k.lowercase()
+                                    if (lk == "x-hif-dliq" && v.isNotBlank() && hifDliq.isBlank()) {
+                                        hifDliq = v
+                                        hit = true
                                     }
+                                    if (lk == "x-hif-leim" && v.isNotBlank() && hifLeim.isBlank()) {
+                                        hifLeim = v
+                                        hit = true
+                                    }
+                                }
+                                if (hit) {
+                                    android.util.Log.d(
+                                        "DeepSeekAuth",
+                                        "Captured hif from ${request.url?.host} (dliq=${hifDliq.take(12)}... leim=${hifLeim.take(12)}...)",
+                                    )
+                                }
+                            }
+                            // challenges.cloudflare.com means Turnstile is blocking the
+                            // page and no JS hook can fix that — say so in the card
+                            // instead of hanging silently.
+                            val dbgHost2 = request?.url?.host ?: ""
+                            if (dbgHost2.contains("challenges.cloudflare.com")) {
+                                report("⚠️ DeepSeek показывает проверку Cloudflare (Turnstile). Попробуй ещё раз чуть позже.")
+                            }
+                            return super.shouldInterceptRequest(view, request)
+                        }
+
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            android.util.Log.d("DeepSeekAuth", "Page started: $url")
+                            installHifHook(view)
+                        }
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            android.util.Log.d("DeepSeekAuth", "Page loaded: $url")
+                            enforceLtr(view)
+                            view?.evaluateJavascript(buildAutoLoginJs(dsEmail, dsPassword), null)
+                        }
+                    }
+                    loadUrl("https://chat.deepseek.com/sign_in")
+                }
+            },
+            modifier = Modifier.size(1.dp),
+        )
+
+        // Polling loop for session extraction.
+        LaunchedEffect(Unit) {
+            var hifDeadline: Long? = null
+            var attempt = 0
+            // After the token appears we wait a short grace period so the
+            // web client can fire requests carrying x-hif-dliq/x-hif-leim.
+            val hifGraceMs = 30_000L
+            // Whole-attempt budget: if the autopilot never manages to sign in
+            // (bad creds, DeepSeek layout change, CAPTCHA), fail loudly instead
+            // of spinning forever.
+            val totalTimeoutMs = 60_000L
+            val startTime = System.currentTimeMillis()
+
+            // Snapshot the token already present in localStorage before any
+            // fresh login can happen; only a genuinely new token is accepted.
+            repeat(5) {
+                delay(300)
+                if (staleTokenSnapshot != null) return@repeat
+                withContext(Dispatchers.Main) {
+                    val snapJs = """
+                        (function() {
+                            try {
+                                var keys = ['userToken','token','auth_token','access_token',
+                                            'Authorization','authorization','jwt','id_token',
+                                            'user_token','session_token','ds_token',
+                                            'deepseek_token','chat_token','login_token'];
+                                for (var i = 0; i < keys.length; i++) {
+                                    var val = localStorage.getItem(keys[i]);
+                                    if (val && val !== 'null' && val.length > 20) {
+                                        try {
+                                            var j = JSON.parse(val);
+                                            if (j && typeof j === 'object') {
+                                                var extracted = j.value || j.token || j.access_token || j.jwt || j.id_token;
+                                                if (extracted && typeof extracted === 'string' && extracted.length > 20) {
+                                                    return 'SNAP:' + extracted;
+                                                }
+                                                continue;
+                                            }
+                                        } catch(e) {}
+                                        return 'SNAP:' + val;
+                                    }
+                                }
+                                return 'SNAP:';
+                            } catch(e) { return 'SNAP:'; }
+                        })();
+                    """.trimIndent()
+                    webViewRef?.evaluateJavascript(snapJs) { result: String? ->
+                        val clean = result?.trim('"') ?: ""
+                        if (clean.startsWith("SNAP:")) {
+                            val snap = clean.substringAfter("SNAP:", "")
+                            if (snap.length > 20) {
+                                staleTokenSnapshot = snap
+                                android.util.Log.d(
+                                    "DeepSeekAuth",
+                                    "Stale localStorage token snapshot: ${snap.take(20)}... (will reject it, need a FRESH login)",
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            while (extractedToken == null || (hifDeadline != null && System.currentTimeMillis() < hifDeadline)) {
+                delay(1500)
+                attempt++
+
+                if (System.currentTimeMillis() - startTime > totalTimeoutMs && extractedToken == null) {
+                    report("⏱️ Не удалось войти за 60 с. Проверь логин/пароль — иначе DeepSeek просто не пустит.")
+                    delay(2000)
+                    onDismiss()
+                    break
+                }
+
+                // 1. Try cookies first — most reliable source
+                val cookies = CookieManager.getInstance()
+                    .getCookie("https://chat.deepseek.com")
+                val cookieTokenMatch = cookies?.let { Regex("user_session=([^;\\s]+)").find(it) }
+                if (cookieTokenMatch != null) {
+                    android.util.Log.d("DeepSeekAuth", "Cookies present (attempt $attempt)")
+                    val token = cookieTokenMatch.groupValues[1]
+                    if (extractedToken == null && token.length > 10) {
+                        android.util.Log.d("DeepSeekAuth", "Cookie token found: ${token.take(20)}...")
+                        extractedToken = token
+                        hifDeadline = System.currentTimeMillis() + hifGraceMs
+                        report("✅ Токен получен! Жду антибот-хедеры...")
+                    }
+                }
+
+                // 2. Anti-bot headers via JS as a fallback to shouldInterceptRequest
+                //    (some DeepSeek builds store them in localStorage/sessionStorage).
+                if (hifDliq.isBlank() || hifLeim.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        val hifJs = """
+                            (function() {
+                                try {
+                                    var d = localStorage.getItem('x-hif-dliq') || sessionStorage.getItem('x-hif-dliq') || '';
+                                    var l = localStorage.getItem('x-hif-leim') || sessionStorage.getItem('x-hif-leim') || '';
+                                    return d + '|' + l;
+                                } catch(e) { return '|'; }
+                            })();
+                        """.trimIndent()
+                        webViewRef?.evaluateJavascript(hifJs) { result: String? ->
+                            if (result != null) {
+                                val clean = result.trim('"')
+                                val parts = clean.split("|")
+                                if (parts.size == 2) {
+                                    if (parts[0].isNotBlank()) hifDliq = parts[0]
+                                    if (parts[1].isNotBlank()) hifLeim = parts[1]
                                 }
                             }
                         }
+                    }
+                }
 
-                        // Update status periodically
-                        if (attempt % 5 == 0 && extractedToken == null) {
-                            statusText = "⏳ Ожидание входа... (попытка $attempt)"
+                // 3. Try localStorage via JS — DeepSeek stores JWT in various keys
+                if (extractedToken == null) {
+                    withContext(Dispatchers.Main) {
+                        try {
+                            val js = """
+                                (function() {
+                                    try {
+                                        var keys = ['userToken','token','auth_token','access_token',
+                                                    'Authorization','authorization','jwt','id_token',
+                                                    'user_token','session_token','ds_token',
+                                                    'deepseek_token','chat_token','login_token'];
+                                        for (var i = 0; i < keys.length; i++) {
+                                            var val = localStorage.getItem(keys[i]);
+                                            if (val && val !== 'null' && val.length > 20) {
+                                                try {
+                                                    var j = JSON.parse(val);
+                                                    if (j && typeof j === 'object') {
+                                                        var extracted = j.value || j.token || j.access_token || j.jwt || j.id_token;
+                                                        if (extracted && typeof extracted === 'string' && extracted.length > 20) {
+                                                            return 'LSKEY:' + extracted;
+                                                        }
+                                                        continue;
+                                                    }
+                                                } catch(e) {}
+                                                return 'LSKEY:' + val;
+                                            }
+                                        }
+                                        return 'NOTFOUND';
+                                    } catch(e) {
+                                        return 'ERR:' + e.message;
+                                    }
+                                })();
+                            """.trimIndent()
+
+                            webViewRef?.evaluateJavascript(js) { result: String? ->
+                                if (result != null) {
+                                    val clean = result.trim('"').replace("\\\"", "\"")
+                                    android.util.Log.d("DeepSeekAuth", "localStorage result: ${clean.take(80)}")
+
+                                    if (extractedToken == null && clean.startsWith("LSKEY:")) {
+                                        val token = clean.substringAfter(":")
+                                        if (token.length > 20 && !token.startsWith("{")) {
+                                            if (token == staleTokenSnapshot) {
+                                                // Same token that was already present when auth
+                                                // started — no fresh login happened. Reject it
+                                                // and keep waiting, otherwise we'd report a fake
+                                                // success with a token the backend no longer
+                                                // recognises.
+                                                android.util.Log.d(
+                                                    "DeepSeekAuth",
+                                                    "REJECTING stale localStorage token (matches start snapshot): ${token.take(20)}... keep waiting for fresh login",
+                                                )
+                                                report("Токен из localStorage устарел. Жду свежий вход...")
+                                            } else {
+                                                extractedToken = token
+                                                hifDeadline = System.currentTimeMillis() + hifGraceMs
+                                                report("✅ Токен найден! Жду антибот-хедеры...")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("DeepSeekAuth", "JS eval failed", e)
                         }
                     }
+                }
+
+                // 4. Done: token + (hif captured or grace expired) -> build session
+                val token = extractedToken
+                if (token != null && token.isNotBlank() &&
+                    (hifDeadline == null || (hifDliq.isNotBlank() && hifLeim.isNotBlank()) || System.currentTimeMillis() >= hifDeadline)
+                ) {
+                    android.util.Log.d(
+                        "DeepSeekAuth",
+                        "Extracting session: hif_dliq=${hifDliq.take(16)}... hif_leim=${hifLeim.take(16)}...",
+                    )
+                    val fullCookie = cookies?.takeIf { it.isNotBlank() } ?: "user_session=$token"
+                    val session = DeepSeekAuthSession(
+                        token = token,
+                        cookie = fullCookie,
+                        hifDliq = hifDliq,
+                        hifLeim = hifLeim,
+                    )
+                    report("✅ Сессия получена!")
+                    delay(500)
+                    onTokenExtracted(session)
+                    onDismiss()
+                    break
+                }
+
+                // Autopilot progress, straight from the injected script.
+                withContext(Dispatchers.Main) {
+                    webViewRef?.evaluateJavascript("window.__katyaAuthStep || ''") { res ->
+                        val step = res?.trim('"')?.takeIf { it.isNotBlank() }
+                        if (step != null && step != "wait") {
+                            val label = when (step) {
+                                "email" -> "заполняю email"
+                                "continue" -> "нажимаю «Продолжить»"
+                                "look-continue" -> "ищу кнопку «Продолжить»"
+                                "password" -> "заполняю пароль"
+                                "login" -> "нажимаю «Войти»"
+                                "look-login" -> "ищу кнопку «Войти»"
+                                "done" -> "вход выполнен"
+                                else -> step
+                            }
+                            report("🤖 Автоподстановка: $label")
+                        }
+                    }
+                }
+
+                if (attempt % 5 == 0 && extractedToken == null) {
+                    report("⏳ Ожидание входа... (попытка $attempt)")
                 }
             }
         }

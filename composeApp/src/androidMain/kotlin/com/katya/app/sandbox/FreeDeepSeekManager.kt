@@ -29,11 +29,23 @@ class FreeDeepSeekManager(
     private val _state = MutableStateFlow<DeepSeekProxyState>(DeepSeekProxyState.Stopped)
     val state: StateFlow<DeepSeekProxyState> = _state.asStateFlow()
 
+    /**
+     * Which DeepSeek account the running proxy serves.
+     *
+     * Feedback #10: every added account is its own container with its own session
+     * (login, token, cookies, anti-bot headers). The sandbox serves one of them at
+     * a time, so the account is picked explicitly and remembered — previously the
+     * manager always grabbed the *first* configured instance, which meant the
+     * second account silently used the first one's session.
+     */
+    private val _activeInstanceId = MutableStateFlow<String?>(null)
+    val activeInstanceId: StateFlow<String?> = _activeInstanceId.asStateFlow()
+
     private var proxyJob: Job? = null
     private var prootHandle: ProotHandle? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
-    fun start(force: Boolean = false) {
+    fun start(force: Boolean = false, instanceId: String? = null) {
         // A job can be "active" while its coroutine is in its dying breath
         // (state already flipped to Stopped/Error after awaitExit). Restarting
         // then is the right thing to do — only skip while actually live.
@@ -49,11 +61,18 @@ class FreeDeepSeekManager(
         }
         stop()
 
-        val instance = dataRepository.getConfiguredServiceInstances().find { it.serviceId == "freedeepseekproxy" }
+        val instances = dataRepository.getConfiguredServiceInstances()
+            .filter { it.serviceId == "freedeepseekproxy" }
+        val instance = instanceId?.let { id -> instances.firstOrNull { it.instanceId == id } }
+            // Keep serving the same account across daemon restarts.
+            ?: _activeInstanceId.value?.let { id -> instances.firstOrNull { it.instanceId == id } }
+            ?: instances.firstOrNull()
         if (instance == null) {
             _state.value = DeepSeekProxyState.Error("Service not configured")
             return
         }
+        _activeInstanceId.value = instance.instanceId
+        AppLogger.d("FreeDeepSeekManager", "Starting proxy for instance ${instance.instanceId}")
         proxyJob = scope.launch {
             try {
                 // Wait for sandbox. Fresh rootfs download can take minutes, so poll

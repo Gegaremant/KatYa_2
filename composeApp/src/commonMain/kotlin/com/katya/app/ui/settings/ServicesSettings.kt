@@ -313,7 +313,10 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                     isFetchingHfModels = uiState.isFetchingHfModels,
                     hfError = uiState.hfError,
                     hfModels = uiState.hfModels,
-                    onShowDeepSeekAuthDialog = actions.onShowDeepSeekAuthDialog,
+                    onStartDeepSeekAuth = { email, password -> actions.onStartDeepSeekAuth(entry.instanceId, email, password) },
+                    dsAuthStatus = uiState.dsAuthStatus,
+                    dsAuthRunning = uiState.dsAuthRunning,
+                    dsAuthIsThisInstance = uiState.dsAuthInstanceId == entry.instanceId,
                 )
             }
         }
@@ -461,14 +464,16 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
         }
     }
 
-    if (uiState.showDeepSeekAuthDialog) {
+    // Headless sign-in: no dialog, no browser. It runs while the user is still on
+    // this screen and streams its progress into the card that started it.
+    if (uiState.dsAuthRunning) {
         PlatformDeepSeekAuthDialog(
             initialEmail = uiState.dsAuthEmail,
             initialPassword = uiState.dsAuthPassword,
             onTokenExtracted = { session ->
-                val instance = uiState.configuredServices.find { it.service is Service.FreeDeepSeekProxy }
-                if (instance != null) {
-                    actions.onChangeApiKey(instance.instanceId, session.token)
+                val instanceId = uiState.dsAuthInstanceId
+                if (instanceId.isNotBlank()) {
+                    actions.onChangeApiKey(instanceId, session.token)
                     // Persist the full session (cookie + anti-bot headers) next to the
                     // api key so FreeDeepSeekManager can write a complete deepseek-auth.json.
                     try {
@@ -476,14 +481,15 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                             DeepSeekAuthSession.serializer(),
                             session,
                         )
-                        servicesDataRepository.updateInstanceDeepSeekSession(instance.instanceId, sessionJson)
+                        servicesDataRepository.updateInstanceDeepSeekSession(instanceId, sessionJson)
                     } catch (e: Exception) {
                         com.katya.app.tools.AppLogger.e("ServicesSettings", "Failed to persist DeepSeek session: ${e.message}")
                     }
                 }
-                actions.onShowDeepSeekAuthDialog(false, "", "")
+                actions.onDeepSeekAuthSucceeded(instanceId)
             },
-            onDismiss = { actions.onShowDeepSeekAuthDialog(false, "", "") },
+            onStatus = { status -> actions.onDeepSeekAuthStatus(status) },
+            onDismiss = { actions.onStopDeepSeekAuth() },
         )
     }
 }
@@ -525,7 +531,10 @@ private fun ConfiguredServiceCardContent(
     isFetchingHfModels: Boolean = false,
     hfError: String? = null,
     hfModels: ImmutableList<LocalModel> = persistentListOf(),
-    onShowDeepSeekAuthDialog: (Boolean, String, String) -> Unit = { _, _, _ -> },
+    onStartDeepSeekAuth: (String, String) -> Unit = { _, _ -> },
+    dsAuthStatus: String = "",
+    dsAuthRunning: Boolean = false,
+    dsAuthIsThisInstance: Boolean = false,
 ) {
     // Clear a stale denied status when the user returns from granting the permission in
     // system settings; the recheck never re-prompts, so this is a no-op while still denied.
@@ -642,6 +651,90 @@ private fun ConfiguredServiceCardContent(
                         connectionStatus = entry.connectionStatus,
                         onOpenAppPermissionSettings = onOpenAppPermissionSettings,
                     )
+                } else if (entry.service is Service.FreeDeepSeekProxy) {
+                    // Feedback #9: there is no API key to paste. DeepSeek is entered
+                    // with login/password; the token is an internal detail of the
+                    // session we store per account, so no token field and no
+                    // "check the key" button.
+                    ConnectionStatusIndicator(entry.connectionStatus, onOpenAppPermissionSettings)
+
+                    if (entry.models.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        ModelSelection(entry.selectedModel, entry.models, onSelectModel)
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+                    if (entry.connectionStatus == ConnectionStatus.Connected) {
+                        // Connected: green lamp, hide the connect form
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(StatusColorConnected),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "DeepSeek подключен",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = StatusColorConnected,
+                            )
+                        }
+                    } else {
+                        // Not connected yet: inline email/password + Подключить.
+                        // The actual sign-in runs headlessly (hidden WebView), the
+                        // user never sees a browser window.
+                        var dsEmail by remember { mutableStateOf("") }
+                        var dsPassword by remember { mutableStateOf("") }
+                        val isAuthorizing = dsAuthRunning && dsAuthIsThisInstance
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            KaiOutlinedTextField(
+                                value = dsEmail,
+                                onValueChange = { dsEmail = it },
+                                label = { Text("Email / телефон DeepSeek") },
+                                singleLine = true,
+                                enabled = !isAuthorizing,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            KaiOutlinedTextField(
+                                value = dsPassword,
+                                onValueChange = { dsPassword = it },
+                                label = { Text("Пароль") },
+                                singleLine = true,
+                                enabled = !isAuthorizing,
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            Button(
+                                onClick = { onStartDeepSeekAuth(dsEmail.trim(), dsPassword) },
+                                enabled = !isAuthorizing && dsEmail.isNotBlank() && dsPassword.isNotBlank(),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                if (isAuthorizing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                    )
+                                } else {
+                                    Text("Подключить")
+                                }
+                            }
+                            // Progress lives right here, in the card — feedback #10.
+                            if (isAuthorizing && dsAuthStatus.isNotBlank()) {
+                                Text(
+                                    text = dsAuthStatus,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
                 } else {
                     ServiceSettings(
                         apiKey = entry.apiKey,
@@ -654,63 +747,6 @@ private fun ConfiguredServiceCardContent(
                         connectionStatus = entry.connectionStatus,
                         onOpenAppPermissionSettings = onOpenAppPermissionSettings,
                     )
-
-                    if (entry.service is Service.FreeDeepSeekProxy) {
-                        Spacer(Modifier.height(8.dp))
-                        if (entry.connectionStatus == ConnectionStatus.Connected) {
-                            // Connected: green lamp, hide the connect form
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(10.dp)
-                                        .clip(CircleShape)
-                                        .background(StatusColorConnected),
-                                )
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = "DeepSeek подключен",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = StatusColorConnected,
-                                )
-                            }
-                        } else {
-                            // Not connected yet: inline email/password + Подключить.
-                            // The actual sign-in runs headlessly (hidden WebView), the
-                            // user never sees a browser window.
-                            var dsEmail by remember { mutableStateOf("") }
-                            var dsPassword by remember { mutableStateOf("") }
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                KaiOutlinedTextField(
-                                    value = dsEmail,
-                                    onValueChange = { dsEmail = it },
-                                    label = { Text("Email / телефон DeepSeek") },
-                                    singleLine = true,
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                KaiOutlinedTextField(
-                                    value = dsPassword,
-                                    onValueChange = { dsPassword = it },
-                                    label = { Text("Пароль") },
-                                    singleLine = true,
-                                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Button(
-                                    onClick = { onShowDeepSeekAuthDialog(true, dsEmail.trim(), dsPassword) },
-                                    enabled = dsEmail.isNotBlank() && dsPassword.isNotBlank(),
-                                    modifier = Modifier.fillMaxWidth(),
-                                ) {
-                                    Text("Подключить")
-                                }
-                            }
-                        }
-                    }
                 }
 
                 Spacer(Modifier.height(12.dp))

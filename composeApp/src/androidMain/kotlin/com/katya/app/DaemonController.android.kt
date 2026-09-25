@@ -4,6 +4,7 @@ import android.app.ForegroundServiceStartNotAllowedException
 import android.content.Context
 import android.content.Intent
 import com.katya.app.data.AppSettings
+import com.katya.app.sandbox.FreeDeepSeekManager
 import org.koin.java.KoinJavaComponent.inject
 
 actual fun createDaemonController(): DaemonController = AndroidDaemonController()
@@ -12,6 +13,7 @@ class AndroidDaemonController : DaemonController {
 
     private val context: Context by inject(Context::class.java)
     private val appSettings: AppSettings by inject(AppSettings::class.java)
+    private val freeDeepSeekManager: FreeDeepSeekManager by inject(FreeDeepSeekManager::class.java)
 
     fun shouldAutoStart(): Boolean = appSettings.isDaemonEnabled()
 
@@ -27,5 +29,9 @@ class AndroidDaemonController : DaemonController {
     override fun stop() {
         val intent = Intent(context, DaemonService::class.java)
         context.stopService(intent)
+    }
+
+    override fun switchFreeDeepSeekInstance(instanceId: String) {
+        freeDeepSeekManager.start(force = true, instanceId = instanceId)
     }
 }

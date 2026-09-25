@@ -241,7 +241,10 @@ class SettingsViewModel(
         onToggleDaemon = ::onToggleDaemon,
         onToggleVless = ::onToggleVless,
         onChangeVlessUri = ::onChangeVlessUri,
-        onShowDeepSeekAuthDialog = ::onShowDeepSeekAuthDialog,
+        onStartDeepSeekAuth = ::onStartDeepSeekAuth,
+        onDeepSeekAuthStatus = ::onDeepSeekAuthStatus,
+        onStopDeepSeekAuth = ::onStopDeepSeekAuth,
+        onDeepSeekAuthSucceeded = ::onDeepSeekAuthSucceeded,
         onToggleHeartbeat = ::onToggleHeartbeat,
         onDownloadVosk = ::onDownloadVosk,
         onChangeHeartbeatInterval = ::onChangeHeartbeatInterval,
@@ -838,14 +841,38 @@ class SettingsViewModel(
         }
     }
 
-    private fun onShowDeepSeekAuthDialog(show: Boolean, email: String, password: String) {
+    private fun onStartDeepSeekAuth(instanceId: String, email: String, password: String) {
         _state.update {
             it.copy(
-                showDeepSeekAuthDialog = show,
+                dsAuthInstanceId = instanceId,
                 dsAuthEmail = email,
                 dsAuthPassword = password,
+                dsAuthRunning = true,
+                dsAuthStatus = "Запускаю вход…",
             )
         }
+    }
+
+    private fun onDeepSeekAuthStatus(status: String) {
+        _state.update { it.copy(dsAuthStatus = status) }
+    }
+
+    private fun onStopDeepSeekAuth() {
+        _state.update {
+            it.copy(
+                dsAuthRunning = false,
+                dsAuthInstanceId = "",
+                dsAuthEmail = "",
+                dsAuthPassword = "",
+            )
+        }
+    }
+
+    private fun onDeepSeekAuthSucceeded(instanceId: String) {
+        onStopDeepSeekAuth()
+        // Restart the sandbox proxy so it serves the session we just saved instead
+        // of the one it loaded at boot.
+        daemonController.switchFreeDeepSeekInstance(instanceId)
     }
 
     private fun onToggleHeartbeat(enabled: Boolean) {
