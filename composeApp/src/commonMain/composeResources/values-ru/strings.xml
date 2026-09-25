@@ -158,6 +158,7 @@
     <string name="settings_mcp_servers">Серверы MCP</string>
     <string name="settings_mcp_servers_description">Подключайтесь к внешним серверам инструментов через Model Context Protocol.</string>
     <string name="settings_mcp_add_server">Добавить сервер MCP</string>
+    <string name="settings_mcp_connect_all">Подключить все MCP-серверы</string>
     <string name="settings_mcp_server_name">Имя сервера</string>
     <string name="settings_mcp_server_url">URL сервера</string>
     <string name="settings_mcp_header_key">Имя</string>
@@ -405,6 +406,12 @@
     <string name="settings_skills">Навыки</string>
     <string name="settings_skills_description">Повторно используемые навыки, хранящиеся в песочнице Linux. Активируйте навык в чате, начав сообщение с его slash-команды.</string>
     <string name="settings_skills_add">Добавить навык</string>
+    <string name="settings_skills_add_all">Добавить все навыки</string>
+    <string name="settings_bulk_progress">%1$s (%2$d/%3$d)</string>
+    <string name="settings_bulk_done">Готово: добавлено %1$d, с ошибкой %2$d</string>
+    <string name="settings_bulk_all_installed">Все доступные навыки уже установлены.</string>
+    <string name="settings_bulk_no_catalogue">Не удалось получить каталог навыков.</string>
+    <string name="settings_bulk_no_servers">MCP-серверы ещё не добавлены.</string>
     <string name="settings_skills_none">Навыки ещё не установлены.</string>
     <string name="settings_skills_remove">Удалить</string>
     <string name="settings_skills_builtin">Встроенный</string>

@@ -739,6 +739,11 @@ private fun ConfiguredServiceCardContent(
                     ServiceSettings(
                         apiKey = entry.apiKey,
                         onChangeApiKey = onChangeApiKey,
+                        // Feedback #8: a service that neither needs a key nor accepts
+                        // an optional one has no business showing a token field — the
+                        // built-in free models were asking for a password that is
+                        // never used.
+                        showApiKey = entry.service.requiresApiKey || entry.service.supportsOptionalApiKey,
                         apiKeyUrl = entry.service.apiKeyUrl ?: "",
                         apiKeyUrlDisplay = entry.service.apiKeyUrlDisplay ?: "",
                         selectedModel = entry.selectedModel,
@@ -776,6 +781,7 @@ private fun ConfiguredServiceCardContent(
 private fun ServiceSettings(
     apiKey: String,
     onChangeApiKey: (String) -> Unit,
+    showApiKey: Boolean,
     apiKeyUrl: String,
     apiKeyUrlDisplay: String,
     selectedModel: SettingsModel?,
@@ -785,40 +791,44 @@ private fun ServiceSettings(
     testTag: String? = null,
     onOpenAppPermissionSettings: () -> Unit = {},
 ) {
-    ApiKeyField(
-        apiKey = apiKey,
-        onChangeApiKey = onChangeApiKey,
-        labelText = stringResource(Res.string.settings_api_key_label),
-        testTag = testTag,
-    )
+    if (showApiKey) {
+        ApiKeyField(
+            apiKey = apiKey,
+            onChangeApiKey = onChangeApiKey,
+            labelText = stringResource(Res.string.settings_api_key_label),
+            testTag = testTag,
+        )
 
-    Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
+    }
 
     ConnectionStatusIndicator(connectionStatus, onOpenAppPermissionSettings)
 
     Spacer(Modifier.height(8.dp))
 
-    val linkColor = MaterialTheme.colorScheme.primary
+    if (showApiKey && apiKeyUrl.isNotBlank()) {
+        val linkColor = MaterialTheme.colorScheme.primary
 
-    val copyApiKeyPromptString = stringResource(Res.string.settings_sign_in_copy_api_key_from)
-    val annotatedString = remember(apiKeyUrl, apiKeyUrlDisplay) {
-        buildAnnotatedString {
-            append(copyApiKeyPromptString)
-            append(" ")
-            withLink(LinkAnnotation.Url(url = apiKeyUrl)) {
-                withStyle(style = SpanStyle(color = linkColor)) {
-                    append(apiKeyUrlDisplay)
+        val copyApiKeyPromptString = stringResource(Res.string.settings_sign_in_copy_api_key_from)
+        val annotatedString = remember(apiKeyUrl, apiKeyUrlDisplay) {
+            buildAnnotatedString {
+                append(copyApiKeyPromptString)
+                append(" ")
+                withLink(LinkAnnotation.Url(url = apiKeyUrl)) {
+                    withStyle(style = SpanStyle(color = linkColor)) {
+                        append(apiKeyUrlDisplay)
+                    }
                 }
             }
         }
-    }
-    Text(
-        annotatedString,
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.onBackground,
-    )
+        Text(
+            annotatedString,
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.onBackground,
+        )
 
-    Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
+    }
 
     if (models.isNotEmpty()) {
         ModelSelection(selectedModel, models, onSelectModel)

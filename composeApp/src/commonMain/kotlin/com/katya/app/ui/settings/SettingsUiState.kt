@@ -156,6 +156,8 @@ data class SettingsUiState(
     val browsableSkills: ImmutableList<RegistrySkillEntry> = persistentListOf(),
     val isBrowsingSkills: Boolean = false,
     val browseSkillsFailed: Boolean = false,
+    val skillsBulk: BulkProgress = BulkProgress(),
+    val mcpBulk: BulkProgress = BulkProgress(),
     val localAvailableModels: ImmutableList<LocalModel> = persistentListOf(),
     val totalDeviceMemoryBytes: Long = Long.MAX_VALUE,
     val localFreeSpaceBytes: Long = 0L,
@@ -196,6 +198,41 @@ enum class McpConnectionStatus {
     Connected,
     Error,
 }
+
+/** Why a bulk "add everything" run finished. The UI turns this into a localized message. */
+enum class BulkResult {
+    /** Nothing has run yet. */
+    None,
+
+    /** Everything the run could offer was already there. */
+    AllInstalled,
+
+    /** The skill catalogue could not be fetched (no network, registries empty). */
+    NoCatalogue,
+
+    /** There are no MCP servers configured at all. */
+    NoServers,
+
+    /** The run finished: [BulkProgress.ok] succeeded, [BulkProgress.failed] failed. */
+    Done,
+}
+
+/**
+ * Progress of a bulk "add everything" run (feedback #5, #6).
+ *
+ * [current] is a skill id or a server name — rendered verbatim because those are
+ * user data, not UI copy.
+ */
+@Immutable
+data class BulkProgress(
+    val running: Boolean = false,
+    val done: Int = 0,
+    val total: Int = 0,
+    val current: String = "",
+    val ok: Int = 0,
+    val failed: Int = 0,
+    val result: BulkResult = BulkResult.None,
+)
 
 sealed interface PendingDeletion {
     data class Memory(val key: String) : PendingDeletion

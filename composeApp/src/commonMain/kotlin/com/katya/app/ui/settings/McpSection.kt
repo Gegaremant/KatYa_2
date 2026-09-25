@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,9 +52,11 @@ import com.katya.app.ui.katyaAdaptiveCardBorder
 import com.katya.app.ui.katyaAdaptiveCardColors
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.ic_arrow_drop_down
+import katya.composeapp.generated.resources.settings_bulk_progress
 import katya.composeapp.generated.resources.settings_mcp_add
 import katya.composeapp.generated.resources.settings_mcp_add_header
 import katya.composeapp.generated.resources.settings_mcp_add_server
+import katya.composeapp.generated.resources.settings_mcp_connect_all
 import katya.composeapp.generated.resources.settings_mcp_header_key
 import katya.composeapp.generated.resources.settings_mcp_header_value
 import katya.composeapp.generated.resources.settings_mcp_no_tools
@@ -82,6 +85,8 @@ internal fun McpServersSection(
     showAddDialog: Boolean,
     onShowAddDialog: (Boolean) -> Unit,
     onAddPopularMcpServer: (PopularMcpServer) -> Unit,
+    onConnectAll: () -> Unit,
+    bulk: BulkProgress,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -114,6 +119,28 @@ internal fun McpServersSection(
             modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
         ) {
             Text(stringResource(Res.string.settings_mcp_add_server))
+        }
+
+        // Feedback #6: one tap instead of enabling and connecting each server by hand.
+        if (mcpServers.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onConnectAll,
+                enabled = !bulk.running,
+                modifier = Modifier.fillMaxWidth().handCursor(),
+            ) {
+                if (bulk.running) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(Res.string.settings_bulk_progress, bulk.current, bulk.done + 1, bulk.total),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    Text(stringResource(Res.string.settings_mcp_connect_all))
+                }
+            }
+            BulkResultText(bulk)
         }
     }
 

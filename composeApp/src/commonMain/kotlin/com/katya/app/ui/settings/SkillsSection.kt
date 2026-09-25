@@ -46,8 +46,10 @@ import com.katya.app.ui.handCursor
 import com.katya.app.ui.katyaAdaptiveCardBorder
 import com.katya.app.ui.katyaAdaptiveCardColors
 import katya.composeapp.generated.resources.Res
+import katya.composeapp.generated.resources.settings_bulk_progress
 import katya.composeapp.generated.resources.settings_skills
 import katya.composeapp.generated.resources.settings_skills_add
+import katya.composeapp.generated.resources.settings_skills_add_all
 import katya.composeapp.generated.resources.settings_skills_add_github
 import katya.composeapp.generated.resources.settings_skills_browse
 import katya.composeapp.generated.resources.settings_skills_browse_failed
@@ -81,6 +83,8 @@ internal fun SkillsSection(
     browsableSkills: ImmutableList<RegistrySkillEntry>,
     isBrowsing: Boolean,
     browseFailed: Boolean,
+    onInstallAll: () -> Unit,
+    bulk: BulkProgress,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -112,6 +116,28 @@ internal fun SkillsSection(
                 Spacer(Modifier.height(8.dp))
             }
         }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Feedback #5: install everything the registries offer in one tap instead
+        // of tapping each row. Progress is shown on the button itself.
+        OutlinedButton(
+            onClick = onInstallAll,
+            enabled = !bulk.running,
+            modifier = Modifier.fillMaxWidth().handCursor(),
+        ) {
+            if (bulk.running) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(Res.string.settings_bulk_progress, bulk.current, bulk.done + 1, bulk.total),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Text(stringResource(Res.string.settings_skills_add_all))
+            }
+        }
+        BulkResultText(bulk)
 
         Spacer(Modifier.height(8.dp))
 

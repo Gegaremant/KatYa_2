@@ -274,10 +274,12 @@ class SettingsViewModel(
         onRefreshMcpServer = ::onRefreshMcpServer,
         onShowAddMcpServerDialog = ::onShowAddMcpServerDialog,
         onAddPopularMcpServer = ::onAddPopularMcpServer,
+        onConnectAllMcpServers = ::onConnectAllMcpServers,
         onUninstallSkill = ::onUninstallSkill,
         onShowAddSkillDialog = ::onShowAddSkillDialog,
         onInstallGitHubSkill = ::onInstallGitHubSkill,
         onInstallBrowsedSkill = ::onInstallBrowsedSkill,
+        onInstallAllBrowsedSkills = ::onInstallAllBrowsedSkills,
         onDownloadLocalModel = ::onDownloadLocalModel,
         onCancelLocalModelDownload = ::onCancelLocalModelDownload,
         onImportLocalModel = ::onImportLocalModel,
@@ -1515,6 +1517,122 @@ class SettingsViewModel(
 
     private fun onInstallBrowsedSkill(entry: com.katya.app.skills.RegistrySkillEntry) {
         runSkillInstall { dataRepository.installBrowsedSkill(entry) }
+    }
+
+    /**
+     * Feedback #5: install every skill the registries offer, one button instead of
+     * tapping each row. Already-installed skills are skipped, failures are counted
+     * and reported instead of aborting the run — one broken registry must not
+     * strand the rest.
+     */
+    private fun onInstallAllBrowsedSkills() {
+        if (_state.value.skillsBulk.running) return
+        _state.update { it.copy(skillsBulk = BulkProgress(running = true, current = "")) }
+        viewModelScope.launch(backgroundDispatcher) {
+            // The catalogue is only fetched when the add-sheet opens, so fetch it
+            // here if the user never opened it.
+            var entries: List<com.katya.app.skills.RegistrySkillEntry> = _state.value.browsableSkills
+            if (entries.isEmpty()) {
+                _state.update { it.copy(isBrowsingSkills = true) }
+                entries = dataRepository.browseSkillMarketplaces().getOrNull().orEmpty()
+                _state.update {
+                    it.copy(
+                        isBrowsingSkills = false,
+                        browsableSkills = entries.toImmutableList(),
+                        browseSkillsFailed = entries.isEmpty(),
+                    )
+                }
+            }
+            val alreadyInstalled = dataRepository.getInstalledSkills().mapTo(mutableSetOf()) { it.id }
+            val pending = entries.filter { it.id !in alreadyInstalled }
+            if (pending.isEmpty()) {
+                _state.update {
+                    it.copy(
+                        skillsBulk = BulkProgress(
+                            result = if (entries.isEmpty()) BulkResult.NoCatalogue else BulkResult.AllInstalled,
+                        ),
+                    )
+                }
+                return@launch
+            }
+
+            var ok = 0
+            var failed = 0
+            pending.forEachIndexed { index, entry ->
+                _state.update { it.copy(skillsBulk = it.skillsBulk.copy(done = index, current = entry.id)) }
+                val result = dataRepository.installBrowsedSkill(entry)
+                if (result.isSuccess) ok++ else failed++
+            }
+            refreshSkills()
+            _state.update {
+                it.copy(
+                    skillsBulk = BulkProgress(
+                        done = pending.size,
+                        total = pending.size,
+                        ok = ok,
+                        failed = failed,
+                        result = BulkResult.Done,
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Feedback #6: same one-tap treatment for MCP. Enables every configured server,
+     * connects them one by one and turns on all tools they expose. Servers that
+     * refuse to connect are counted, not fatal — a dead server shouldn't block the
+     * rest.
+     */
+    private fun onConnectAllMcpServers() {
+        if (_state.value.mcpBulk.running) return
+        _state.update { it.copy(mcpBulk = BulkProgress(running = true)) }
+        viewModelScope.launch(backgroundDispatcher) {
+            val servers = dataRepository.getMcpServers()
+            if (servers.isEmpty()) {
+                _state.update { it.copy(mcpBulk = BulkProgress(result = BulkResult.NoServers)) }
+                return@launch
+            }
+            servers.forEach { server ->
+                if (!server.isEnabled) dataRepository.setMcpServerEnabled(server.id, true)
+            }
+
+            var ok = 0
+            var failed = 0
+            servers.forEachIndexed { index, server ->
+                _state.update { it.copy(mcpBulk = it.mcpBulk.copy(done = index, current = server.name)) }
+                updateMcpConnectionStatus(server.id, McpConnectionStatus.Connecting)
+                if (dataRepository.connectMcpServer(server.id).isSuccess) {
+                    ok++
+                    updateMcpConnectionStatus(server.id, McpConnectionStatus.Connected)
+                } else {
+                    failed++
+                    updateMcpConnectionStatus(server.id, McpConnectionStatus.Error)
+                }
+            }
+
+            // Everything the connected servers expose becomes available in one go.
+            dataRepository.getMcpServers()
+                .filter { it.isEnabled }
+                .flatMap { dataRepository.getMcpToolsForServer(it.id) }
+                .filterNot { it.isEnabled }
+                .forEach { tool ->
+                    dataRepository.setToolEnabled(tool.id, true)
+                }
+
+            _state.update { it.copy(mcpServers = buildMcpServerEntries().toImmutableList()) }
+            _state.update {
+                it.copy(
+                    mcpBulk = BulkProgress(
+                        done = servers.size,
+                        total = servers.size,
+                        ok = ok,
+                        failed = failed,
+                        result = BulkResult.Done,
+                    ),
+                )
+            }
+        }
     }
 
     private inline fun runSkillInstall(crossinline install: suspend () -> Result<com.katya.app.skills.SkillManifest>) {

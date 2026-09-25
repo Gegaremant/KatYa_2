@@ -245,6 +245,7 @@
     <string name="settings_mcp_servers">MCP Servers</string>
     <string name="settings_mcp_servers_description">Connect to external tool servers using the Model Context Protocol.</string>
     <string name="settings_mcp_add_server">Add MCP Server</string>
+    <string name="settings_mcp_connect_all">Connect all MCP servers</string>
     <string name="settings_mcp_server_name">Server Name</string>
     <string name="settings_mcp_server_url">Server URL</string>
     <string name="settings_mcp_header_key">Name</string>
@@ -262,6 +263,12 @@
     <string name="settings_skills">Skills</string>
     <string name="settings_skills_description">Reusable skills stored in the Linux sandbox. Trigger one in chat by starting your message with its slash command.</string>
     <string name="settings_skills_add">Add Skill</string>
+    <string name="settings_skills_add_all">Add all skills</string>
+    <string name="settings_bulk_progress">%1$s (%2$d/%3$d)</string>
+    <string name="settings_bulk_done">Done: %1$d added, %2$d failed</string>
+    <string name="settings_bulk_all_installed">Everything on offer is already installed.</string>
+    <string name="settings_bulk_no_catalogue">Couldn\'t fetch the skill catalogue.</string>
+    <string name="settings_bulk_no_servers">No MCP servers added yet.</string>
     <string name="settings_skills_none">No skills installed yet.</string>
     <string name="settings_skills_remove">Remove</string>
     <string name="settings_skills_builtin">Built-in</string>

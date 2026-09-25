@@ -30,6 +30,10 @@ import com.katya.app.ui.handCursor
 import com.katya.app.ui.katyaAdaptiveCardBorder
 import com.katya.app.ui.katyaAdaptiveCardColors
 import katya.composeapp.generated.resources.Res
+import katya.composeapp.generated.resources.settings_bulk_all_installed
+import katya.composeapp.generated.resources.settings_bulk_done
+import katya.composeapp.generated.resources.settings_bulk_no_catalogue
+import katya.composeapp.generated.resources.settings_bulk_no_servers
 import katya.composeapp.generated.resources.settings_tools_description
 import katya.composeapp.generated.resources.settings_tools_none_available
 import kotlinx.collections.immutable.ImmutableList
@@ -58,6 +62,10 @@ internal fun ToolsContent(
     browsableSkills: ImmutableList<RegistrySkillEntry>,
     isBrowsingSkills: Boolean,
     browseSkillsFailed: Boolean,
+    onInstallAllBrowsedSkills: () -> Unit,
+    skillsBulk: BulkProgress,
+    onConnectAllMcpServers: () -> Unit,
+    mcpBulk: BulkProgress,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // MCP Servers section
@@ -71,6 +79,8 @@ internal fun ToolsContent(
             showAddDialog = showAddMcpServerDialog,
             onShowAddDialog = onShowAddMcpServerDialog,
             onAddPopularMcpServer = onAddPopularMcpServer,
+            onConnectAll = onConnectAllMcpServers,
+            bulk = mcpBulk,
         )
 
         // Skills section
@@ -87,6 +97,8 @@ internal fun ToolsContent(
             browsableSkills = browsableSkills,
             isBrowsing = isBrowsingSkills,
             browseFailed = browseSkillsFailed,
+            onInstallAll = onInstallAllBrowsedSkills,
+            bulk = skillsBulk,
         )
 
         Spacer(Modifier.height(24.dp))
@@ -137,6 +149,28 @@ internal fun ToolsContent(
             }
         }
     }
+}
+
+/**
+ * One-line outcome of a bulk "add everything" run (feedback #5, #6).
+ * Silent while running — the button itself carries the progress.
+ */
+@Composable
+internal fun BulkResultText(bulk: BulkProgress) {
+    val message = when (bulk.result) {
+        BulkResult.None -> null
+        BulkResult.AllInstalled -> stringResource(Res.string.settings_bulk_all_installed)
+        BulkResult.NoCatalogue -> stringResource(Res.string.settings_bulk_no_catalogue)
+        BulkResult.NoServers -> stringResource(Res.string.settings_bulk_no_servers)
+        BulkResult.Done -> stringResource(Res.string.settings_bulk_done, bulk.ok, bulk.failed)
+    } ?: return
+    Text(
+        text = message,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(4.dp))
 }
 
 @Composable

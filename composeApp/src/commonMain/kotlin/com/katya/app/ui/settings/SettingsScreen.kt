@@ -471,6 +471,10 @@ fun SettingsScreenContent(
                                     browsableSkills = filteredUiState.browsableSkills,
                                     isBrowsingSkills = filteredUiState.isBrowsingSkills,
                                     browseSkillsFailed = filteredUiState.browseSkillsFailed,
+                                    onInstallAllBrowsedSkills = actions.onInstallAllBrowsedSkills,
+                                    skillsBulk = filteredUiState.skillsBulk,
+                                    onConnectAllMcpServers = actions.onConnectAllMcpServers,
+                                    mcpBulk = filteredUiState.mcpBulk,
                                 )
                             }
 
