@@ -1,6 +1,12 @@
 # Release Notes
 
-## v3.1.1
+## v3.1.2
+### Feedback round (field tests)
+- **VLESS subscription:** subscriptions that redirect with HTTP 307 (http→https) are now followed manually; BOM/CR stripped, first `vless://` link picked. The app no longer fails with "Could not find vless:// link".
+- **VLESS proxy card redesign:** the proxy launch button and status moved into a "VLESS Прокси" section with a live status at the title level — "Подключен" (green), "Проверка доступа" (warning/countdown), "Не доступен" (cross), "Отключен" (gray dot). Each saved config row shows the name (fallback from the URI `#fragment`), an edit (pencil) and delete action; the input form hides once configs exist behind a "Добавить новый" link.
+- **Alternative links:** incompatible-ABI components are hidden from the "Alternative links" list (only binaries matching the device ABI are shown).
+- **DeepSeek headless auth:** the browser/WebView is no longer shown — the user enters Email and Password right in the Free DeepSeek card and taps "Подключить". Login runs under the hood (hidden WebView) with a "проверяю доступность… N с" countdown, everything is written to logs; when connected a green lamp replaces the form and the model list becomes available.
+- **Adaptive text color:** settings text color now adapts to the current theme (OLED black vs. light/dark) instead of hard-coded white/onSurface.
 ### Added & Improved
 - **Downloadable Components Registry:** Sandbox stack (Debian rootfs + native proot/xray binaries) now lives in a component registry with per-ABI seeds, background downloads with progress in the notification, and editable "Alternative links" on the Servers tab.
 - **Slim APK:** native binaries moved out of the APK (downloaded on demand per ABI) — much smaller install.

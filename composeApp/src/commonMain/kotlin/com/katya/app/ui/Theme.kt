@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.VisualTransformation
@@ -106,6 +107,20 @@ val LightColorScheme = lightColorScheme(
     onBackground = Color(0xFF000000),
     onSurface = Color(0xFF000000),
 )
+
+/**
+ * Единый адаптивный цвет текста (пункт 5): белый на тёмном/чёрном фоне,
+ * чёрный на светлом — в зависимости от выбранной темы. Заменяет разбросанные
+ * хардкоды вроде `if (isSystemInDarkTheme()) Color.White else ...`.
+ */
+@Composable
+fun adaptiveTextColor(): Color = if (MaterialTheme.colorScheme.isOledFlavor ||
+    MaterialTheme.colorScheme.background.luminance() < 0.5f
+) {
+    Color.White
+} else {
+    Color.Black
+}
 
 @Composable
 fun outlineTextFieldColors() = OutlinedTextFieldDefaults.colors()

@@ -87,6 +87,7 @@ import com.katya.app.inference.calculateDevicePerformance
 import com.katya.app.inference.estimateGpuMemoryMb
 import com.katya.app.network.dtos.SponsorsResponseDto
 import com.katya.app.ui.KaiClearableTextField
+import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.components.ResourceImage
 import com.katya.app.ui.components.VerticalScrollbarForScroll
@@ -462,6 +463,8 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
 
     if (uiState.showDeepSeekAuthDialog) {
         PlatformDeepSeekAuthDialog(
+            initialEmail = uiState.dsAuthEmail,
+            initialPassword = uiState.dsAuthPassword,
             onTokenExtracted = { session ->
                 val instance = uiState.configuredServices.find { it.service is Service.FreeDeepSeekProxy }
                 if (instance != null) {
@@ -478,9 +481,9 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                         com.katya.app.tools.AppLogger.e("ServicesSettings", "Failed to persist DeepSeek session: ${e.message}")
                     }
                 }
-                actions.onShowDeepSeekAuthDialog(false)
+                actions.onShowDeepSeekAuthDialog(false, "", "")
             },
-            onDismiss = { actions.onShowDeepSeekAuthDialog(false) },
+            onDismiss = { actions.onShowDeepSeekAuthDialog(false, "", "") },
         )
     }
 }
@@ -522,7 +525,7 @@ private fun ConfiguredServiceCardContent(
     isFetchingHfModels: Boolean = false,
     hfError: String? = null,
     hfModels: ImmutableList<LocalModel> = persistentListOf(),
-    onShowDeepSeekAuthDialog: (Boolean) -> Unit = {},
+    onShowDeepSeekAuthDialog: (Boolean, String, String) -> Unit = { _, _, _ -> },
 ) {
     // Clear a stale denied status when the user returns from granting the permission in
     // system settings; the recheck never re-prompts, so this is a no-op while still denied.
@@ -654,11 +657,58 @@ private fun ConfiguredServiceCardContent(
 
                     if (entry.service is Service.FreeDeepSeekProxy) {
                         Spacer(Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = { onShowDeepSeekAuthDialog(true) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Авторизация в DeepSeek")
+                        if (entry.connectionStatus == ConnectionStatus.Connected) {
+                            // Connected: green lamp, hide the connect form
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(CircleShape)
+                                        .background(StatusColorConnected),
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "DeepSeek подключен",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = StatusColorConnected,
+                                )
+                            }
+                        } else {
+                            // Not connected yet: inline email/password + Подключить.
+                            // The actual sign-in runs headlessly (hidden WebView), the
+                            // user never sees a browser window.
+                            var dsEmail by remember { mutableStateOf("") }
+                            var dsPassword by remember { mutableStateOf("") }
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                KaiOutlinedTextField(
+                                    value = dsEmail,
+                                    onValueChange = { dsEmail = it },
+                                    label = { Text("Email / телефон DeepSeek") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                KaiOutlinedTextField(
+                                    value = dsPassword,
+                                    onValueChange = { dsPassword = it },
+                                    label = { Text("Пароль") },
+                                    singleLine = true,
+                                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Button(
+                                    onClick = { onShowDeepSeekAuthDialog(true, dsEmail.trim(), dsPassword) },
+                                    enabled = dsEmail.isNotBlank() && dsPassword.isNotBlank(),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Подключить")
+                                }
+                            }
                         }
                     }
                 }

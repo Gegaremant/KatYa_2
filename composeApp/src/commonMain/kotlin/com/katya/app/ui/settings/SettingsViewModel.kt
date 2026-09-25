@@ -838,8 +838,14 @@ class SettingsViewModel(
         }
     }
 
-    private fun onShowDeepSeekAuthDialog(show: Boolean) {
-        _state.update { it.copy(showDeepSeekAuthDialog = show) }
+    private fun onShowDeepSeekAuthDialog(show: Boolean, email: String, password: String) {
+        _state.update {
+            it.copy(
+                showDeepSeekAuthDialog = show,
+                dsAuthEmail = email,
+                dsAuthPassword = password,
+            )
+        }
     }
 
     private fun onToggleHeartbeat(enabled: Boolean) {

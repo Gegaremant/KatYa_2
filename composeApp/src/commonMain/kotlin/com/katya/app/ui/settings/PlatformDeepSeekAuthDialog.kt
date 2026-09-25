@@ -31,4 +31,6 @@ data class DeepSeekAuthSession(
 expect fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (DeepSeekAuthSession) -> Unit,
     onDismiss: () -> Unit,
+    initialEmail: String = "",
+    initialPassword: String = "",
 )

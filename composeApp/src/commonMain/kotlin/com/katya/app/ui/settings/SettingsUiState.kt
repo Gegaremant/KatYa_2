@@ -136,6 +136,8 @@ data class SettingsUiState(
     val vlessUri: String = "",
     val isVlessConnected: Boolean = false,
     val showDeepSeekAuthDialog: Boolean = false,
+    val dsAuthEmail: String = "",
+    val dsAuthPassword: String = "",
     val isFreeFallbackEnabled: Boolean = true,
     val uiScale: Float = 1.0f,
     val showUiScale: Boolean = false,

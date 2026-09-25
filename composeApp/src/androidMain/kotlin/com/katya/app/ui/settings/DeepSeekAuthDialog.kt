@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
@@ -44,6 +45,8 @@ import kotlinx.coroutines.launch
 actual fun PlatformDeepSeekAuthDialog(
     onTokenExtracted: (DeepSeekAuthSession) -> Unit,
     onDismiss: () -> Unit,
+    initialEmail: String,
+    initialPassword: String,
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -51,14 +54,25 @@ actual fun PlatformDeepSeekAuthDialog(
     ) {
         val freeDeepSeekManager: com.katya.app.sandbox.FreeDeepSeekManager = org.koin.compose.koinInject()
         var webViewRef by remember { mutableStateOf<WebView?>(null) }
-        var statusText by remember { mutableStateOf("Войдите в DeepSeek — токен будет извлечён автоматически") }
+        // Headless mode: credentials come from the settings card, so the login flow
+        // starts automatically, the WebView stays hidden and everything is logged.
+        val headless = initialEmail.isNotBlank() && initialPassword.isNotBlank()
+        var statusText by remember {
+            mutableStateOf(
+                if (headless) {
+                    "🟢 Подключаем DeepSeek... проверяю доступность"
+                } else {
+                    "Войдите в DeepSeek — токен будет извлечён автоматически"
+                },
+            )
+        }
         var isLoggedIn by remember { mutableStateOf(false) }
         var manualToken by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("")) }
         var useManualMode by remember { mutableStateOf(false) }
 
-        var dsEmail by remember { mutableStateOf("") }
-        var dsPassword by remember { mutableStateOf("") }
-        var autoLoginTriggered by remember { mutableStateOf(false) }
+        var dsEmail by remember { mutableStateOf(initialEmail) }
+        var dsPassword by remember { mutableStateOf(initialPassword) }
+        var autoLoginTriggered by remember { mutableStateOf(headless) }
         // The extracted token lives here so the status banner (above) can use it too.
         var extractedToken by remember { mutableStateOf<String?>(null) }
 
@@ -83,10 +97,30 @@ actual fun PlatformDeepSeekAuthDialog(
         // while we wait for x-hif-dliq/x-hif-leim.
         var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
         var hifDeadlineUi by remember { mutableStateOf<Long?>(null) }
+        // Headless countdown: the user asked for a "проверяю... ~15 с" timer while
+        // the connection is being established under the hood. The countdown loops
+        // every 15 s (bound to the real polling budget), so it never displays a
+        // stale negative value.
+        val authStartMs = remember { System.currentTimeMillis() }
+        val checkCountdownSec = 15L - ((nowMs - authStartMs) / 1000L) % 15L
         LaunchedEffect(Unit) {
             while (true) {
                 nowMs = System.currentTimeMillis()
                 delay(500)
+            }
+        }
+
+        // Headless auto-start: kick the autopilot right away (and retry a few times)
+        // in case the page finished loading before the WebView reference was set.
+        LaunchedEffect(headless) {
+            if (!headless) return@LaunchedEffect
+            repeat(6) {
+                delay(1500)
+                val view = webViewRef
+                if (view != null && autoLoginTriggered && extractedToken == null) {
+                    val js = buildAutoLoginJs(dsEmail, dsPassword)
+                    view.evaluateJavascript(js, null)
+                }
             }
         }
 
@@ -104,7 +138,11 @@ actual fun PlatformDeepSeekAuthDialog(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = statusText,
+                                text = if (headless && extractedToken == null && !useManualMode) {
+                                    "🟢 Подключаем DeepSeek... проверяю доступность ($checkCountdownSec с)"
+                                } else {
+                                    statusText
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 modifier = Modifier.weight(1f),
@@ -299,7 +337,10 @@ actual fun PlatformDeepSeekAuthDialog(
                                 }
                             }
 
-                            // WebView — always visible (needed for CAPTCHA / 2FA as well)
+                            // WebView — headless engine. In visible mode it was needed for
+                            // CAPTCHA / 2FA, but the user asked for the login to happen
+                            // "под капотом" — no browser UI at all. Sized to 1.dp so the
+                            // page still loads and executes JS, but is not visible.
                             AndroidView(
                                 factory = { context ->
                                     WebView(context).apply {
@@ -444,7 +485,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                         loadUrl("https://chat.deepseek.com/sign_in")
                                     }
                                 },
-                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                modifier = Modifier.size(1.dp),
                             )
                         }
                     }
@@ -454,7 +495,7 @@ actual fun PlatformDeepSeekAuthDialog(
                 // anti-bot headers — killing the dialog mid-flight wastes the session.
                 // The wait is bounded (totalTimeoutMs / hifGraceMs) and a countdown is
                 // shown, so the user is never stuck without an exit.
-                val hideCloseDuringWait = autoLoginTriggered || extractedToken != null
+                val hideCloseDuringWait = (autoLoginTriggered && !headless) || extractedToken != null
                 if (!hideCloseDuringWait) {
                     IconButton(
                         onClick = onDismiss,

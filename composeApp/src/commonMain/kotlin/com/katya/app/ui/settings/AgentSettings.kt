@@ -1723,7 +1723,7 @@ private fun AudioEnginesCard(
 
             if (isVoiceRecognitionEnabled) {
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val headingColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+                    val headingColor = com.katya.app.ui.adaptiveTextColor()
                     Text(
                         text = "Распознавание речи (Слух)",
                         style = MaterialTheme.typography.titleSmall,
@@ -1835,7 +1835,7 @@ private fun AudioEnginesCard(
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    val delayTextColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+                    val delayTextColor = com.katya.app.ui.adaptiveTextColor()
                     Text("Пауза для отправки при диктовке: $sendDelayMs мс", style = MaterialTheme.typography.labelMedium, color = delayTextColor)
                     androidx.compose.material3.Slider(
                         value = sendDelayMs.toFloat(),
@@ -1861,7 +1861,7 @@ private fun AudioEnginesCard(
 
             if (isVoiceResponseEnabled) {
                 Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val headingColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+                    val headingColor = com.katya.app.ui.adaptiveTextColor()
                     Text(
                         text = "Синтез речи (Голос)",
                         style = MaterialTheme.typography.titleSmall,
@@ -1915,7 +1915,7 @@ private fun AudioEnginesCard(
                     // Pitch/rate apply to any engine (system TTS or local).
                     // Speed comes first (that's what people tweak most); pitch below it.
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                        val textColor = if (androidx.compose.foundation.isSystemInDarkTheme()) androidx.compose.ui.graphics.Color.White else MaterialTheme.colorScheme.onSurface
+                        val textColor = com.katya.app.ui.adaptiveTextColor()
                         Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
                         androidx.compose.material3.Slider(
                             value = sysTtsRate,

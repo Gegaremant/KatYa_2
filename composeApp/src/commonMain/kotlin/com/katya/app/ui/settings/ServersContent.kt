@@ -8,12 +8,16 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
@@ -82,33 +86,7 @@ fun ServersContent(
         // VLESS Proxies
         SettingsCard {
             val vlessChecked = connectionMode == "VLESS"
-            ToggleableHeadline(
-                title = "VLESS Прокси",
-                description = "Использовать прокси-сервер VLESS",
-                checked = vlessChecked,
-                onCheckedChange = { isChecked ->
-                    if (isChecked) {
-                        connectionMode = "VLESS"
-                        appSettings.setActiveConnectionMode("VLESS")
-                        // The proxy manager, the global proxy selector and the daemon all
-                        // gate on vless_enabled — the connection mode alone leaves the
-                        // tunnel permanently "disabled" in their eyes.
-                        appSettings.setVlessEnabled(true)
-                    } else {
-                        connectionMode = "NONE"
-                        appSettings.setActiveConnectionMode("NONE")
-                        appSettings.setVlessEnabled(false)
-                    }
-                    // Restart the daemon so the VLESS proxy manager actually starts (or,
-                    // when toggled off, stops) the tunnel. Without this the flag was set
-                    // but no process ever listened on 127.0.0.1:10809 — requests routed
-                    // into a dead port and VLESS "не подключался".
-                    scope.launch {
-                        val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
-                        daemon.start()
-                    }
-                },
-            )
+            val vlessConnected by appSettings.isVlessConnectedFlow.collectAsState()
 
             // Состояние списка поднимаем из-под AnimatedVisibility, чтобы индикатор ниже
             // видел актуальные прокси (и после добавления нового — тоже).
@@ -124,6 +102,129 @@ fun ServersContent(
             }
             var activeProxyId by remember { mutableStateOf(appSettings.getActiveVlessProxyId()) }
 
+            // Пункт 2.4: статус подключаемого прокси живёт на уровне заголовка
+            // «VLESS Прокси»: «Подключен» (зелёная галочка), «Проверка доступа»
+            // (восклицательный знак), «Не доступен» (крест) или «Отключен».
+            // + кнопка «проверка» и обратный отсчёт до следующей проверки (~12 с).
+            var isCheckingNow by remember { mutableStateOf(false) }
+            var secondsLeft by remember { mutableIntStateOf(0) }
+            var probeResult by remember { mutableStateOf(vlessConnected) }
+
+            val runProbe: suspend () -> Unit = {
+                isCheckingNow = true
+                probeResult = com.katya.app.network.checkLocalProxyConnection()
+                isCheckingNow = false
+            }
+
+            LaunchedEffect(vlessChecked, vlessConnected) {
+                if (!vlessChecked) return@LaunchedEffect
+                probeResult = vlessConnected
+                while (true) {
+                    secondsLeft = 12
+                    while (secondsLeft > 0) {
+                        delay(1000)
+                        secondsLeft -= 1
+                    }
+                    runProbe()
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "VLESS Прокси",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                    Spacer(Modifier.height(4.dp))
+
+                    val hasAnyProxy = proxies.isNotEmpty() || appSettings.getVlessUri().isNotBlank()
+                    val statusColor = when {
+                        !vlessChecked -> MaterialTheme.colorScheme.onSurfaceVariant
+                        !hasAnyProxy -> MaterialTheme.colorScheme.onSurfaceVariant
+                        isCheckingNow -> StatusColorChecking
+                        probeResult -> StatusColorConnected
+                        else -> StatusColorError
+                    }
+                    val statusIcon = when {
+                        !vlessChecked -> null
+                        !hasAnyProxy -> null
+                        isCheckingNow -> Icons.Default.Warning
+                        probeResult -> Icons.Default.CheckCircle
+                        else -> Icons.Default.Cancel
+                    }
+                    val statusText = when {
+                        !vlessChecked -> "Отключен"
+                        !hasAnyProxy -> "Прокси не заданы"
+                        isCheckingNow -> "Проверка доступности…"
+                        probeResult -> "Подключен"
+                        else -> "Не доступен"
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (statusIcon != null) {
+                            Icon(
+                                imageVector = statusIcon,
+                                contentDescription = null,
+                                tint = statusColor,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = statusColor,
+                        )
+                        if (vlessChecked && hasAnyProxy) {
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = "проверка",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.clickable {
+                                    scope.launch { runProbe() }
+                                },
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (isCheckingNow) "…" else "через $secondsLeft с",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Switch(
+                    checked = vlessChecked,
+                    onCheckedChange = { isChecked ->
+                        if (isChecked) {
+                            connectionMode = "VLESS"
+                            appSettings.setActiveConnectionMode("VLESS")
+                            // The proxy manager, the global proxy selector and the daemon all
+                            // gate on vless_enabled — the connection mode alone leaves the
+                            // tunnel permanently "disabled" in their eyes.
+                            appSettings.setVlessEnabled(true)
+                        } else {
+                            connectionMode = "NONE"
+                            appSettings.setActiveConnectionMode("NONE")
+                            appSettings.setVlessEnabled(false)
+                        }
+                        // Restart the daemon so the VLESS proxy manager actually starts (or,
+                        // when toggled off, stops) the tunnel. Without this the flag was set
+                        // but no process ever listened on 127.0.0.1:10809 — requests routed
+                        // into a dead port and VLESS "не подключался".
+                        scope.launch {
+                            val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
+                            daemon.start()
+                        }
+                    },
+                )
+            }
+
             AnimatedVisibility(
                 visible = vlessChecked,
                 enter = expandVertically(),
@@ -133,6 +234,16 @@ fun ServersContent(
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
                     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        // Состояние редактора (2.2/2.3).
+                        var editTargetId by remember { mutableStateOf<String?>(null) }
+                        var editName by remember { mutableStateOf("") }
+                        var editUri by remember { mutableStateOf("") }
+                        var showSuccess by remember { mutableStateOf(false) }
+                        var isChecking by remember { mutableStateOf(false) }
+                        var buttonText by remember { mutableStateOf("Сохранить") }
+
+                        // Пункт 2.2: справа от радио-кнопки — название конфигурации,
+                        // «карандаш» для редактирования/просмотра + удаление.
                         proxies.forEach { proxy ->
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 RadioButton(
@@ -143,33 +254,55 @@ fun ServersContent(
                                         appSettings.setVlessUri(proxy.uri)
                                     },
                                 )
-                                Text(proxy.name, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    text = proxy.name.ifBlank { proxy.uri.substringAfter('#', "Конфигурация") },
+                                    modifier = Modifier.weight(1f),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                IconButton(onClick = {
+                                    editTargetId = proxy.id
+                                    editName = proxy.name
+                                    editUri = proxy.uri
+                                    showSuccess = false
+                                }) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Изменить",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
                                 IconButton(onClick = {
                                     proxies = proxies.filter { it.id != proxy.id }
                                     appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
                                 }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
 
-                        // Add new
-                        var newName by remember { mutableStateOf("") }
-                        var newUri by remember { mutableStateOf("") }
-                        var showSuccess by remember { mutableStateOf(false) }
-                        var buttonText by remember { mutableStateOf("Сохранить") }
-                        var isChecking by remember { mutableStateOf(false) }
+                        // Пункт 2.3: при сохранённых конфигурациях поля и кнопку
+                        // «Сохранить» прячем — вместо них ссылка «Добавить новый».
+                        if (proxies.isNotEmpty() && editTargetId == null && !isChecking) {
+                            TextButton(onClick = {
+                                editTargetId = "new"
+                                editName = ""
+                                editUri = ""
+                                showSuccess = false
+                            }) {
+                                Text("+ Добавить новый")
+                            }
+                        }
 
-                        Column(modifier = Modifier.fillMaxWidth()) {
+                        if (editTargetId != null || proxies.isEmpty()) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     KaiOutlinedTextField(
-                                        value = newName,
+                                        value = editName,
                                         onValueChange = {
-                                            newName = it
+                                            editName = it
                                             buttonText = "Сохранить"
                                         },
                                         placeholder = { Text("Название (например, NL-1)") },
@@ -178,10 +311,10 @@ fun ServersContent(
                                     )
                                     Spacer(Modifier.height(4.dp))
                                     KaiOutlinedTextField(
-                                        value = newUri,
+                                        value = editUri,
                                         onValueChange = {
-                                            newUri = it
-                                            buttonText = "Сохранить" // Reset button text when input changes
+                                            editUri = it
+                                            buttonText = "Сохранить"
                                         },
                                         placeholder = { Text("vless:// или http://...") },
                                         singleLine = true,
@@ -205,19 +338,16 @@ fun ServersContent(
                             ) {
                                 Button(
                                     onClick = {
-                                        val isValidUri = newUri.startsWith("vless://") || newUri.startsWith("http://") || newUri.startsWith("https://")
-                                        if (newName.isNotBlank() && newUri.isNotBlank() && isValidUri && !isChecking) {
+                                        val isValidUri = editUri.startsWith("vless://") || editUri.startsWith("http://") || editUri.startsWith("https://")
+                                        if (editName.isNotBlank() && editUri.isNotBlank() && isValidUri && !isChecking) {
                                             isChecking = true
                                             buttonText = "Проверка..."
                                             scope.launch {
-                                                val oldUri = appSettings.getVlessUri()
-                                                val oldId = appSettings.getActiveVlessProxyId()
-                                                val oldMode = appSettings.getActiveConnectionMode()
                                                 val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
 
                                                 appSettings.setActiveConnectionMode("VLESS")
                                                 appSettings.setVlessEnabled(true)
-                                                appSettings.setVlessUri(newUri)
+                                                appSettings.setVlessUri(editUri)
                                                 daemon.start()
 
                                                 var connected = false
@@ -227,8 +357,21 @@ fun ServersContent(
                                                     if (connected) break
                                                 }
 
-                                                val id = "vless_${kotlin.random.Random.nextInt()}"
-                                                proxies = proxies + VlessProxyProfile(id, newName, newUri)
+                                                val finalName = editName.trim().ifBlank {
+                                                    editUri.substringAfter('#', "").ifBlank { "VLESS ${proxies.size + 1}" }
+                                                }
+                                                val targetEditId = editTargetId
+                                                val isNewProfile = targetEditId == null || targetEditId == "new"
+                                                val id = if (isNewProfile) {
+                                                    "vless_${kotlin.random.Random.nextInt()}"
+                                                } else {
+                                                    targetEditId ?: "vless_${kotlin.random.Random.nextInt()}"
+                                                }
+                                                proxies = if (isNewProfile) {
+                                                    proxies + VlessProxyProfile(id, finalName, editUri)
+                                                } else {
+                                                    proxies.map { if (it.id == targetEditId) it.copy(id = id, name = finalName, uri = editUri) else it }
+                                                }
                                                 appSettings.setVlessProxyProfilesJson(kotlinx.serialization.json.Json.encodeToString(proxies))
                                                 appSettings.setActiveVlessProxyId(id)
 
@@ -239,12 +382,13 @@ fun ServersContent(
                                                     buttonText = "Нет связи (сохранено)"
                                                     showSuccess = true
                                                 }
-                                                newName = ""
-                                                newUri = ""
+                                                isChecking = false
 
                                                 kotlinx.coroutines.delay(3000)
                                                 showSuccess = false
-                                                isChecking = false
+                                                editTargetId = null
+                                                editName = ""
+                                                editUri = ""
                                             }
                                         }
                                     },
@@ -256,51 +400,6 @@ fun ServersContent(
                             }
                         }
                     }
-                }
-            }
-
-            // Индикатор подключения туннеля — виден всегда на карточке VLESS.
-            // Это общий транспорт для всего приложения (DeepSeek, Telegram,
-            // «замедленные» сайты), поэтому живой статус нужен прямо тут.
-            // Красный «не подключён» показываем только когда тумблер включён и есть
-            // что подключать: без прокси и при выключенном режиме это не ошибка,
-            // а нейтральное состояние — иначе ошибка кричит впустую.
-            val vlessConnected by appSettings.isVlessConnectedFlow.collectAsState()
-            val hasConfiguredProxy = proxies.isNotEmpty() || appSettings.getVlessUri().isNotBlank()
-            val showError = vlessChecked && hasConfiguredProxy && !vlessConnected
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = when {
-                        showError -> StatusColorError
-                        vlessChecked && hasConfiguredProxy && vlessConnected -> StatusColorConnected
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = when {
-                        !vlessChecked -> "VLESS выключен"
-                        !hasConfiguredProxy -> "VLESS включён · прокси не заданы"
-                        vlessConnected -> "VLESS-туннель подключён"
-                        else -> "VLESS-туннель не подключён"
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (showError) {
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        text = "проверка или ошибка",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                 }
             }
         }
@@ -341,6 +440,12 @@ fun ServersContent(
                     val launcher = koinInject<ComponentDownloadLauncher>()
                     val deviceAbi = currentAbi()
 
+                    // Пункт 3: не показываем компоненты под чужой ABI — чтобы нельзя было
+                    // скачать несовместимую сборку. Остаются только подходящие (или без ABI).
+                    val compatibleComponents = components.filter { component ->
+                        component.abi == null || component.abi == deviceAbi
+                    }
+
                     if (components.isEmpty()) {
                         Text(
                             "Нет компонентов",
@@ -350,10 +455,9 @@ fun ServersContent(
                         )
                     }
 
-                    components.forEach { component ->
+                    compatibleComponents.forEach { component ->
                         DownloadableComponentRow(
                             component = component,
-                            isForThisDevice = component.abi == null || component.abi == deviceAbi,
                             onUrlChange = { newUrl -> componentsRepository.updateUrl(component.id, newUrl) },
                             onDownload = { launcher.startDownload(component.id) },
                         )
@@ -598,7 +702,6 @@ fun ServersContent(
 @Composable
 private fun DownloadableComponentRow(
     component: DownloadableComponent,
-    isForThisDevice: Boolean,
     onUrlChange: (String) -> Unit,
     onDownload: () -> Unit,
 ) {
@@ -623,24 +726,16 @@ private fun DownloadableComponentRow(
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            if (!isForThisDevice) {
-                Text(
-                    text = "другая ABI",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                Text(
-                    text = when {
-                        isInstalled -> "установлен"
-                        isDownloading -> "качается"
-                        isFailed -> "ошибка"
-                        else -> "нет"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                text = when {
+                    isInstalled -> "установлен"
+                    isDownloading -> "качается"
+                    isFailed -> "ошибка"
+                    else -> "нет"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         // Зачем этот компонент и что будет, если он не скачан (#5.1).
