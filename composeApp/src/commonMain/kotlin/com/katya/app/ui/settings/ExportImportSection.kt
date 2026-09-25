@@ -218,7 +218,7 @@ internal fun ExportImportSection(
 }
 
 @Composable
-private fun ImportPreviewDialog(
+internal fun ImportPreviewDialog(
     sectionDetails: ImmutableMap<ImportSection, String?>,
     onConfirm: (Set<ImportSection>, Boolean) -> Unit,
     onDismiss: () -> Unit,
