@@ -127,9 +127,9 @@ internal fun buildEnvironmentSection(isSandbox: Boolean, isGodMode: Boolean): St
         "## Notes (Obsidian) & Calendar\n" +
         "- Use `manage_calendar` to interact natively with Android's calendar provider.\n" +
         "- If the user asks you to manage their notes, assume they use Obsidian (or Joplin) with local Markdown files. If in sandbox/bare Android mode, files might be in designated folders. If in GOD_MODE, you can access `/sdcard/Documents/Obsidian/...` directly.\n\n" +
-        "## Agent Reach & Hermes Skill Ecosystem\n" +
-        "- You have Agent-Reach CLI installed. You can use it to access Twitter/X, search Reddit, read Bilibili, and search the web. Use commands like `agent-reach doctor` or platform-specific CLIs to interact with these services.\n" +
-        "- You are familiar with awesome-hermes-skills. You can recommend and trigger installation of skills (like `youtube-full` for transcript extraction, `tdd` for test-driven development, or data science libraries) using standard installer commands: `hermes skills install skills-sh/ZeroPointRepo/youtube-skills/skills/youtube-full` or `npx skills@latest add ...`."
+        "## Навыки (Agent Reach и Hermes)\n" +
+        "- У тебя установлен Agent-Reach CLI. Через него ты можешь работать с Twitter/X, искать в Reddit, читать Bilibili и искать в интернете. Используй команды вида `agent-reach doctor` или CLI конкретной платформы.\n" +
+        "- Ты знакома с awesome-hermes-skills. Ты можешь рекомендовать и запускать установку навыков (например, `youtube-full` для извлечения транскриптов, `tdd` для разработки через тесты или библиотеки для data science) стандартными командами: `hermes skills install skills-sh/ZeroPointRepo/youtube-skills/skills/youtube-full` или `npx skills@latest add ...`."
 }
 
 /**
@@ -154,15 +154,15 @@ internal const val DEFAULT_STRUCTURED_LEARNING_SECTION =
  * Scheduled Tasks data dump so the guidance precedes any rendered tasks.
  */
 internal const val DEFAULT_AUTOMATION_SECTION =
-    "## Automation\n" +
-        "Every form of \"run something without the user typing it\" goes through `schedule_task`. " +
-        "The tool has three mutually exclusive triggers:\n" +
-        "- `execute_at` — one-off at a specific datetime (reminders, \"check back at 3pm\").\n" +
-        "- `cron` — recurring on a schedule (\"every morning at 8\", \"every 15 minutes\").\n" +
-        "- `on_heartbeat: true` — appended to every heartbeat self-check. Use this when the user asks for *standing* heartbeat behaviour (e.g. \"greet me on every heartbeat\", \"always summarize new emails\", \"flag overdue tasks each check\"). These are `HEARTBEAT` trigger tasks and show up in `list_tasks` alongside time/cron tasks.\n" +
-        "CRITICAL RULE: When executing any long-running action or starting a background task, you MUST use `schedule_task` to set a reminder (ping) for yourself based on the estimated completion time (e.g., in 5 minutes). This ensures you follow up and don't \"forget\" to complete the task.\n" +
-        "Each scheduled or heartbeat run starts fresh, so embed any context the prompt needs. Use `list_tasks` / `cancel_task` to inspect or remove.\n" +
-        "Heartbeat itself (on/off toggle, interval, active hours) is user-controlled in Settings → Agent → Heartbeat — you cannot enable, disable, or reschedule it. If the user asks for recurring updates and heartbeat seems off, either schedule a cron task or tell them to enable Heartbeat in settings — never claim to have \"enabled\" or \"turned on\" heartbeat."
+    "## Автоматизация\n" +
+        "Любая задача вида «сделай что-то, когда я не печатаю», выполняется через `schedule_task`. " +
+        "У инструмента три взаимоисключающих триггера:\n" +
+        "- `execute_at` — один раз в указанный момент (напоминание, «вернись к 15:00»).\n" +
+        "- `cron` — по расписанию («каждое утро в 8», «каждые 15 минут»).\n" +
+        "- `on_heartbeat: true` — добавляется к каждой самопроверке по heartbeat. Используй, когда пользователь просит *постоянное* поведение при heartbeat (например, «здоровайся при каждом heartbeat», «всегда summarizing новые письма», «отмечай просроченные задачи»). Это задачи с триггером `HEARTBEAT`, они видны в `list_tasks` рядом с задачами по времени и cron.\n" +
+        "ВАЖНОЕ ПРАВИЛО: выполняя любое длительное действие или запуская фоновую задачу, ты ОБЯЗАН вызвать `schedule_task` и поставить себе напоминание («пинг») на расчётное время завершения (например, через 5 минут). Так ты не «забудешь» доделать работу.\n" +
+        "Каждый запуск (по времени или по heartbeat) начинается с чистого диалога, поэтому вложи в prompt всё, что ему нужно знать. Для просмотра и удаления используй `list_tasks` / `cancel_task`.\n" +
+        "Сам heartbeat (вкл/выкл, интервал, активные часы) управляется пользователем в Настройки → Агент → Heartbeat — ты не можешь его включить, выключить или перенести. Если пользователь просит регулярные обновления, а heartbeat выключен, либо запланируй задачу по cron, либо скажи ему, что heartbeat нужно включить в настройках — но никогда не говори, что ты его «включила» или «включила сама»."
 
 /**
  * Composes the full chat system prompt for the given [variant].
@@ -292,8 +292,8 @@ internal fun buildChatSystemPrompt(
 
     appendContextSection(runtime)
 
-    append("\n## Output Formatting\n")
-    append("Do not use raw HTML tags (like <br>, <b>, <p>, etc) in your responses, as they will not be rendered correctly. Always use standard Markdown formatting instead.\n")
+    append("\n## Формат ответа\n")
+    append("Не используй сырые HTML-теги (например <br>, <b>, <p>) в ответах — они не отрендерятся. Всегда используй стандартную разметку Markdown.\n")
 
     if (variant == SystemPromptVariant.CHAT_REMOTE) {
         when (uiMode) {
@@ -313,12 +313,12 @@ internal fun buildChatSystemPrompt(
  * Termux, accessible via the existing `execute_shell_command` tool.
  */
 private fun StringBuilder.appendActiveSkillSection(skill: SkillManifest) {
-    append("\n\n## Active skill: ")
+    append("\n\n## Активный навык: ")
     append(skill.displayName)
     append('\n')
     append(skill.body.trim())
     if (skill.bundledFilePaths.isNotEmpty()) {
-        append("\n\nBundled files (available at `~/skills/")
+        append("\n\nПрикреплённые файлы (доступны в `~/skills/")
         append(skill.id)
         append("/` in Termux):\n")
         for (path in skill.bundledFilePaths.sorted()) {
@@ -411,13 +411,13 @@ private fun StringBuilder.appendHeartbeatAdditionsSection(additions: List<Schedu
 }
 
 private fun StringBuilder.appendScheduledTasksSection(pendingTasks: List<ScheduledTask>) {
-    append("\n\n## Scheduled Tasks\n")
+    append("\n\n## Запланированные задачи\n")
     for (t in pendingTasks) {
         append("- **")
         append(t.description)
         append("** (id: ")
         append(t.id)
-        append(", scheduled: ")
+        append(", запланировано на: ")
         append(t.scheduledAt)
         append(")")
         if (t.cron != null) {
@@ -430,11 +430,11 @@ private fun StringBuilder.appendScheduledTasksSection(pendingTasks: List<Schedul
 }
 
 private fun StringBuilder.appendContextSection(runtime: ChatPromptRuntimeContext) {
-    append("\n\n## Context\n")
+    append("\n\n## Контекст\n")
     // Lead with local time so the model anchors on the user's wall clock when computing
     // relative times ("in 3 minutes", "tomorrow at 9"). Tools that accept a naive datetime
     // (e.g. `schedule_task`'s `execute_at`) interpret it in this zone.
-    append("- Local time: ")
+    append("- Местное время: ")
     append(runtime.nowLocalIsoWithOffset)
     append(" (")
     append(runtime.timeZoneId)

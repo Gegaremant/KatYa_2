@@ -35,13 +35,13 @@ object SchedulingTools {
     fun scheduleTaskTool(taskStore: TaskStore) = object : Tool {
         override val schema = ToolSchema(
             name = "schedule_task",
-            description = "Schedule a prompt to run later, recurring, or on every heartbeat. This is the ONLY way to run something after this turn — reminders, follow-ups, periodic updates, check-ins, standing heartbeat additions (greetings, always-summarise-emails): all go through this tool. Each run starts a fresh conversation, so embed the context the prompt needs. Exactly one trigger must be provided: execute_at (one-off at a datetime), cron (recurring on a schedule), or on_heartbeat=true (appended to every heartbeat self-check). Schedule relative to the **Local time** shown in `## Context`, not UTC.",
+            description = "Запланировать выполнение prompt'а позже, по расписанию или на каждом heartbeat. Это ЕДИНСТВЕННЫЙ способ выполнить что-то после текущего хода диалога: напоминания, «вернуться позже», периодические обновления, проверки, постоянные дополнения к heartbeat (поздороваться, всегда summarizing письма) — всё через этот инструмент. Каждый запуск начинается с чистого диалога, поэтому вложи в prompt всё необходимое. Ровно один триггер: execute_at (один раз в момент), cron (по расписанию) или on_heartbeat=true (добавляется к каждой самопроверке heartbeat). Время считай по **локальному времени** из раздела `## Context`, а не по UTC.",
             parameters = mapOf(
-                "description" to ParameterSchema(type = "string", description = "Human-readable description of the task", required = true),
-                "prompt" to ParameterSchema(type = "string", description = "For execute_at/cron: the full prompt sent to the AI when it fires. For on_heartbeat: the instruction appended to each heartbeat self-check (e.g. 'Greet the user warmly with a time-appropriate greeting.').", required = true),
-                "execute_at" to ParameterSchema(type = "string", description = "ISO 8601 datetime for a one-off run. Either offset-qualified (e.g. '2025-03-15T09:00:00+02:00' or '2025-03-15T07:00:00Z') — interpreted as that exact instant — OR naive (e.g. '2025-03-15T09:00:00') — interpreted in the user's local timezone shown in `## Context`. Prefer offset-qualified to avoid ambiguity. Must be in the future.", required = false),
-                "cron" to ParameterSchema(type = "string", description = "Cron expression for recurring tasks (e.g. '0 9 * * 1' for every Monday at 9am)", required = false),
-                "on_heartbeat" to ParameterSchema(type = "boolean", description = "Set to true to run this prompt on every heartbeat self-check. Use for standing additions to heartbeat behaviour.", required = false),
+                "description" to ParameterSchema(type = "string", description = "Человекочитаемое описание задачи", required = true),
+                "prompt" to ParameterSchema(type = "string", description = "Для execute_at/cron: полный prompt, который уйдёт модели при срабатывании. Для on_heartbeat: инструкция, добавляемая к каждой самопроверке heartbeat (например, 'Поздоровайся с пользователем по времени суток.').", required = true),
+                "execute_at" to ParameterSchema(type = "string", description = "Дата-время ISO 8601 для одноразового запуска. Либо с часовым поясом (например, '2025-03-15T09:00:00+02:00') — трактуется как этот конкретный момент, — либо без него (например, '2025-03-15T09:00:00') — трактуется в местном часовом поясе пользователя из `## Context`. Предпочтительнее с часовым поясом. Должно быть в будущем.", required = false),
+                "cron" to ParameterSchema(type = "string", description = "Cron-выражение для повторяющейся задачи (например, '0 9 * * 1' — каждый понедельник в 9:00)", required = false),
+                "on_heartbeat" to ParameterSchema(type = "boolean", description = "true — выполнять этот prompt на каждой самопроверке heartbeat. Для постоянных дополнений к поведению heartbeat.", required = false),
             ),
         )
 
@@ -108,9 +108,9 @@ object SchedulingTools {
     fun cancelTaskTool(taskStore: TaskStore) = object : Tool {
         override val schema = ToolSchema(
             name = "cancel_task",
-            description = "Cancel a scheduled task by its ID. When the user asks to stop, cancel, or remove any scheduled or recurring task, call this tool with the matching task ID from the Scheduled Tasks list. If unsure which task, call list_tasks first.",
+            description = "Отменить запланированную задачу по её ID. Когда пользователь просит остановить, отменить или удалить задачу, вызови инструмент с ID из списка запланированных задач. Если не уверен, какая именно — сначала вызови list_tasks.",
             parameters = mapOf(
-                "task_id" to ParameterSchema(type = "string", description = "The ID of the task to cancel", required = true),
+                "task_id" to ParameterSchema(type = "string", description = "ID отменяемой задачи", required = true),
             ),
         )
 
@@ -130,9 +130,9 @@ object SchedulingTools {
     fun listTasksTool(taskStore: TaskStore) = object : Tool {
         override val schema = ToolSchema(
             name = "list_tasks",
-            description = "List all scheduled tasks with their IDs, descriptions, and status. Call this before cancel_task if you need to find a task ID. Optionally filter by status.",
+            description = "Показать все запланированные задачи с их ID, описаниями и статусом. Вызывай перед cancel_task, если нужно найти ID задачи. Можно отфильтровать по статусу.",
             parameters = mapOf(
-                "status" to ParameterSchema(type = "string", description = "Filter by status: PENDING or COMPLETED", required = false),
+                "status" to ParameterSchema(type = "string", description = "Фильтр по статусу: PENDING (в ожидании) или COMPLETED (выполнена)", required = false),
             ),
         )
 
