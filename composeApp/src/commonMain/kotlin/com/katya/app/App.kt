@@ -222,7 +222,13 @@ private fun AppContent(
         LocalDensity provides scaledDensity,
     ) {
         Theme(colorScheme = effectiveColorScheme) {
-            var isOnboardingCompleted by remember { mutableStateOf(appSettings.isOnboardingCompleted()) }
+            // Keyed on the stored value: onboarding state is also restored by "import
+            // settings", and an unkeyed remember left the flow showing (or hidden) against
+            // whatever the user had just imported.
+            val storedOnboardingCompleted = appSettings.isOnboardingCompleted()
+            var isOnboardingCompleted by remember(storedOnboardingCompleted) {
+                mutableStateOf(storedOnboardingCompleted)
+            }
 
             if (!isOnboardingCompleted && currentPlatform is Platform.Mobile.Android) {
                 com.katya.app.ui.components.StartupPermissionFlow(textToSpeech = speechEngine) {

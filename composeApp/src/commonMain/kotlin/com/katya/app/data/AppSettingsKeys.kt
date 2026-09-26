@@ -72,6 +72,7 @@ object AppSettingsKeys {
     const val KEY_GOD_MODE_ENABLED = "god_mode_enabled"
     const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
     const val KEY_INTRO_VOICE_DISABLED = "intro_voice_disabled"
+    const val KEY_INTRO_VOICE_PLAYED = "intro_voice_played"
     const val KEY_AGENT_VISIBILITY_ENABLED = "agent_visibility_enabled"
     const val KEY_VLESS_ENABLED = "vless_enabled"
     const val KEY_VLESS_URI = "vless_uri"

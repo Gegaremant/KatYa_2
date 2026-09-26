@@ -101,6 +101,7 @@ class PiperTtsSpeechEngine(
         }
         val myGeneration = ++generation
         activeJob?.cancel()
+        AudioDuckingController.duck()
         activeJob = scope.launch {
             stopPlayback()
             val sampleRate = res.config.sampleRate
@@ -110,6 +111,7 @@ class PiperTtsSpeechEngine(
                 if (track != null) awaitPlaybackEnd(track)
             }
             if (myGeneration == generation) {
+                AudioDuckingController.unduck()
                 onSpeechCompleted?.invoke()
             }
         }
@@ -119,6 +121,7 @@ class PiperTtsSpeechEngine(
         generation++
         activeJob?.cancel()
         stopPlayback()
+        AudioDuckingController.unduck()
         onSpeechCompleted?.invoke()
     }
 

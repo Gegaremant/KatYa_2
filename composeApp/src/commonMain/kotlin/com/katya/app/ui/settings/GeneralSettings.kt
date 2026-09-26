@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.katya.app.data.ThemeMode
 import com.katya.app.ui.KaiOutlinedTextField
@@ -54,10 +56,13 @@ import katya.composeapp.generated.resources.settings_theme_system
 import katya.composeapp.generated.resources.settings_ui_scale
 import katya.composeapp.generated.resources.settings_voice_response
 import katya.composeapp.generated.resources.settings_voice_response_description
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
+import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 
 @Composable
@@ -223,6 +228,9 @@ internal fun GeneralContent(
                     }
                 }
                 SettingsCard {
+                    PermissionsReRequestSection()
+                }
+                SettingsCard {
                     ExportImportSection(
                         onExportSettings = actions.onExportSettings,
                         onPrepareExport = actions.onPrepareExport,
@@ -231,6 +239,88 @@ internal fun GeneralContent(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Feedback #11: a way to re-prompt for every permission the app depends on.
+ *
+ * Android revokes a Magisk grant on reinstall and quietly stops honouring it later on, and
+ * the app had no way to ask again — God Mode would just quietly stop working. The root probe
+ * goes through `isRootAvailableUncached()`, which drops the cached answer and runs a real
+ * `su`, so Magisk shows its dialog again. The runtime permissions are only re-requested when
+ * they are actually missing, so this never nags about something already granted.
+ */
+@Composable
+private fun PermissionsReRequestSection() {
+    val scope = rememberCoroutineScope()
+    val commandExecutor = koinInject<com.katya.app.tools.CommandExecutor>()
+    val notification = koinInject<com.katya.app.tools.NotificationPermissionController>()
+    val localNetwork = koinInject<com.katya.app.tools.LocalNetworkPermissionController>()
+    val exactAlarm = koinInject<com.katya.app.tools.ExactAlarmPermissionController>()
+    val battery = koinInject<com.katya.app.tools.BatteryOptimizationPermissionController>()
+
+    var busy by remember { mutableStateOf(false) }
+    var rootGranted by remember { mutableStateOf<Boolean?>(null) }
+    var summary by remember { mutableStateOf<String?>(null) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Права и разрешения",
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Если Катя перестала отвечать или Android отобрал права — попросить заново.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = {
+                if (busy) return@Button
+                busy = true
+                rootGranted = null
+                summary = null
+                scope.launch {
+                    val requested = mutableListOf<String>()
+                    // Root first: this is the one that silently stops working, and the only
+                    // one where a fresh attempt is the entire point of the button.
+                    val root = withContext(Dispatchers.Default) {
+                        commandExecutor.isRootAvailableUncached()
+                    }
+                    rootGranted = root
+                    requested += if (root) "root" else "root не выдан"
+                    if (!notification.hasPermission()) {
+                        requested += if (notification.requestPermission()) "уведомления" else "уведомления отклонены"
+                    }
+                    if (!localNetwork.hasPermission()) {
+                        requested += if (localNetwork.requestPermission()) "локальная сеть" else "локальная сеть отклонена"
+                    }
+                    if (!exactAlarm.hasPermission()) {
+                        requested += if (exactAlarm.requestPermission()) "будильник" else "будильник отклонён"
+                    }
+                    if (!battery.hasPermission()) {
+                        requested += if (battery.requestPermission()) "фоновая работа" else "фоновая работа отклонена"
+                    }
+                    summary = if (requested.size == 1) requested.first() else requested.joinToString(", ")
+                    busy = false
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(if (busy) "Запрашиваю…" else "Перезапросить все права")
+        }
+        if (rootGranted != null || summary != null) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = summary.orEmpty(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+            )
         }
     }
 }
@@ -272,7 +362,8 @@ private fun AgentVisibilityToggle(
     onNavigateToAgent: () -> Unit,
 ) {
     val appSettings = org.koin.compose.koinInject<com.katya.app.data.AppSettings>()
-    var voiceThoughts by remember { mutableStateOf(appSettings.isShowAndVoiceThoughtsEnabled()) }
+    val storedVoiceThoughts = appSettings.isShowAndVoiceThoughtsEnabled()
+    var voiceThoughts by remember(storedVoiceThoughts) { mutableStateOf(storedVoiceThoughts) }
     val isVoiceResponseEnabled = appSettings.isVoiceResponseEnabled()
 
     Column(modifier = Modifier.fillMaxWidth()) {

@@ -36,6 +36,7 @@ class CloudTtsSpeechEngine(
         if (text.isBlank()) return
         val myGeneration = ++generation
         activeJob?.cancel()
+        AudioDuckingController.duck()
         activeJob = scope.launch {
             stopInternal()
             val result = requests.synthesizeSpeech(
@@ -50,6 +51,7 @@ class CloudTtsSpeechEngine(
             }.onFailure { e ->
                 AppLogger.w("CloudTts", "Synthesis failed: $e")
                 if (myGeneration == generation) {
+                    AudioDuckingController.unduck()
                     onSpeechCompleted?.invoke()
                 }
             }
@@ -60,6 +62,7 @@ class CloudTtsSpeechEngine(
         generation++
         activeJob?.cancel()
         stopInternal()
+        AudioDuckingController.unduck()
         onSpeechCompleted?.invoke()
     }
 
@@ -74,12 +77,14 @@ class CloudTtsSpeechEngine(
             p.setOnCompletionListener {
                 cleanup(p)
                 if (myGeneration == generation) {
+                    AudioDuckingController.unduck()
                     onSpeechCompleted?.invoke()
                 }
             }
             p.setOnErrorListener { player, _, _ ->
                 cleanup(player)
                 if (myGeneration == generation) {
+                    AudioDuckingController.unduck()
                     onSpeechCompleted?.invoke()
                 }
                 true
@@ -89,6 +94,7 @@ class CloudTtsSpeechEngine(
         } catch (e: Exception) {
             AppLogger.w("CloudTts", "Playback failed: $e")
             if (myGeneration == generation) {
+                AudioDuckingController.unduck()
                 onSpeechCompleted?.invoke()
             }
         }

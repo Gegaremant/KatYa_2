@@ -662,6 +662,14 @@ class AppSettings(internal val settings: Settings) {
         settings.putBoolean(AppSettingsKeys.KEY_INTRO_VOICE_DISABLED, disabled)
     }
 
+    // Feedback #12: the spoken greeting used to replay every time the flow was re-entered
+    // (e.g. going into settings and back), which is both annoying and the reason the user
+    // kept turning the volume down. This records that it already played once.
+    fun isIntroVoicePlayed(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_INTRO_VOICE_PLAYED, false)
+    fun setIntroVoicePlayed(played: Boolean) {
+        settings.putBoolean(AppSettingsKeys.KEY_INTRO_VOICE_PLAYED, played)
+    }
+
     // Agent Visibility (showing operations in UI)
     fun isAgentVisibilityEnabled(): Boolean = settings.getBoolean(AppSettingsKeys.KEY_AGENT_VISIBILITY_ENABLED, true)
 

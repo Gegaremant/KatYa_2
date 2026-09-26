@@ -255,7 +255,14 @@ fun StartupPermissionFlow(
         if (introVoiceDisabled) return@LaunchedEffect
         if (textToSpeech == null) return@LaunchedEffect
         when (step) {
-            OnboardingStep.Greeting -> speakOrStop(introSpeech, enabled = true)
+            OnboardingStep.Greeting -> {
+                // Feedback #12: the greeting speaks once and only once. It used to be tied to
+                // the step, so re-entering the flow (settings and back) replayed it verbatim.
+                if (!appSettings.isIntroVoicePlayed()) {
+                    appSettings.setIntroVoicePlayed(true)
+                    speakOrStop(introSpeech, enabled = true)
+                }
+            }
             OnboardingStep.Freedom -> speakOrStop(freedomSpeech, enabled = true)
             OnboardingStep.QuickSetup -> speakOrStop(null, enabled = false)
         }

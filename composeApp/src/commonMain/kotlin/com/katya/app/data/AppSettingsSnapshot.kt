@@ -321,6 +321,7 @@ private fun snapshotSpecs(): List<Spec> = listOf(
     boolSpec(AppSettingsKeys.KEY_DAEMON_ENABLED, ImportSection.SETTINGS, read = { isDaemonEnabled() }, write = { app, v -> app.setDaemonEnabled(v) }),
     boolSpec(AppSettingsKeys.KEY_ONBOARDING_COMPLETED, ImportSection.SETTINGS, read = { isOnboardingCompleted() }, write = { app, v -> app.setOnboardingCompleted(v) }),
     boolSpec(AppSettingsKeys.KEY_INTRO_VOICE_DISABLED, ImportSection.SETTINGS, read = { isIntroVoiceDisabled() }, write = { app, v -> app.setIntroVoiceDisabled(v) }),
+    boolSpec(AppSettingsKeys.KEY_INTRO_VOICE_PLAYED, ImportSection.SETTINGS, read = { isIntroVoicePlayed() }, write = { app, v -> app.setIntroVoicePlayed(v) }),
     boolSpec(AppSettingsKeys.KEY_SKIP_COMPONENTS_PROMPT, ImportSection.SETTINGS, read = { isComponentsPromptSkipped() }, write = { app, v -> app.setComponentsPromptSkipped(v) }),
 )
 

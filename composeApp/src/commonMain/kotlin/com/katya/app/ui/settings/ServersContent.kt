@@ -52,23 +52,31 @@ fun ServersContent(
     val scope = rememberCoroutineScope()
 
     // Connection Mode
-    var connectionMode by remember { mutableStateOf(appSettings.getActiveConnectionMode()) }
+    // Keyed on the stored value: an unkeyed remember() froze this at first composition,
+    // so importing a config changed the mode in storage — the tunnel came up on the new
+    // one — while the screen kept showing the old selection.
+    val storedConnectionMode = appSettings.getActiveConnectionMode()
+    var connectionMode by remember(storedConnectionMode) { mutableStateOf(storedConnectionMode) }
 
     // Device Status
-    var showDeviceStatus by remember { mutableStateOf(appSettings.isShowDeviceStateEnabled()) }
+    val storedShowDeviceStatus = appSettings.isShowDeviceStateEnabled()
+    var showDeviceStatus by remember(storedShowDeviceStatus) { mutableStateOf(storedShowDeviceStatus) }
 
     // Connection Status
-    var showConnectionStatus by remember { mutableStateOf(appSettings.isShowConnectionStateEnabled()) }
+    val storedShowConnectionStatus = appSettings.isShowConnectionStateEnabled()
+    var showConnectionStatus by remember(storedShowConnectionStatus) { mutableStateOf(storedShowConnectionStatus) }
 
     // Voice thoughts
 
     val isVoiceResponseEnabled = appSettings.isVoiceResponseEnabled()
 
     // Logging
-    var isLoggingEnabled by remember { mutableStateOf(appSettings.isLoggingEnabled()) }
+    val storedLoggingEnabled = appSettings.isLoggingEnabled()
+    var isLoggingEnabled by remember(storedLoggingEnabled) { mutableStateOf(storedLoggingEnabled) }
     var showLogsDialog by remember { mutableStateOf(false) }
     var showRootLogsDialog by remember { mutableStateOf(false) }
-    var logFilePath by remember { mutableStateOf(appSettings.getLogFilePath() ?: "") }
+    val storedLogFilePath = appSettings.getLogFilePath() ?: ""
+    var logFilePath by remember(storedLogFilePath) { mutableStateOf(storedLogFilePath) }
 
     // (LaunchedEffect already added above)
 
@@ -91,7 +99,10 @@ fun ServersContent(
             // Состояние списка поднимаем из-под AnimatedVisibility, чтобы индикатор ниже
             // видел актуальные прокси (и после добавления нового — тоже).
             val proxiesStr = appSettings.getVlessProxyProfilesJson()
-            var proxies by remember {
+            // Keyed on the stored JSON, same reason as connectionMode above. This list used
+            // to be captured once, which is why an import left the proxy running (the daemon
+            // re-reads storage) while the card showed an empty, unmanageable placeholder.
+            var proxies by remember(proxiesStr) {
                 mutableStateOf(
                     try {
                         Json.decodeFromString<List<VlessProxyProfile>>(proxiesStr)
@@ -100,7 +111,8 @@ fun ServersContent(
                     },
                 )
             }
-            var activeProxyId by remember { mutableStateOf(appSettings.getActiveVlessProxyId()) }
+            val storedActiveProxyId = appSettings.getActiveVlessProxyId()
+            var activeProxyId by remember(storedActiveProxyId) { mutableStateOf(storedActiveProxyId) }
 
             // Пункт 2.4: статус подключаемого прокси живёт на уровне заголовка
             // «VLESS Прокси»: «Подключен» (зелёная галочка), «Проверка доступа»
@@ -448,10 +460,16 @@ fun ServersContent(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
 
-                    var ip by remember { mutableStateOf(appSettings.getServerIp()) }
-                    var port by remember { mutableStateOf(appSettings.getServerPort().toString()) }
-                    var user by remember { mutableStateOf(appSettings.getServerUser()) }
-                    var password by remember { mutableStateOf(appSettings.getServerPassword()) }
+                    // Keyed on the stored values so an imported configuration actually shows
+                    // up here instead of leaving the old (or empty) text on screen.
+                    val storedIp = appSettings.getServerIp()
+                    val storedPort = appSettings.getServerPort().toString()
+                    val storedUser = appSettings.getServerUser()
+                    val storedPassword = appSettings.getServerPassword()
+                    var ip by remember(storedIp) { mutableStateOf(storedIp) }
+                    var port by remember(storedPort) { mutableStateOf(storedPort) }
+                    var user by remember(storedUser) { mutableStateOf(storedUser) }
+                    var password by remember(storedPassword) { mutableStateOf(storedPassword) }
                     var passwordVisible by remember { mutableStateOf(false) }
                     var showSavedMessage by remember { mutableStateOf(false) }
 
