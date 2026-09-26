@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import com.katya.app.data.AppSettings
 import com.katya.app.sandbox.FreeDeepSeekManager
+import com.katya.app.sandbox.VlessProxyManager
 import org.koin.java.KoinJavaComponent.inject
 
 actual fun createDaemonController(): DaemonController = AndroidDaemonController()
@@ -14,6 +15,7 @@ class AndroidDaemonController : DaemonController {
     private val context: Context by inject(Context::class.java)
     private val appSettings: AppSettings by inject(AppSettings::class.java)
     private val freeDeepSeekManager: FreeDeepSeekManager by inject(FreeDeepSeekManager::class.java)
+    private val vlessProxyManager: VlessProxyManager by inject(VlessProxyManager::class.java)
 
     fun shouldAutoStart(): Boolean = appSettings.isDaemonEnabled()
 
@@ -33,5 +35,12 @@ class AndroidDaemonController : DaemonController {
 
     override fun switchFreeDeepSeekInstance(instanceId: String) {
         freeDeepSeekManager.start(force = true, instanceId = instanceId)
+    }
+
+    override fun reconcileVlessAfterImport() {
+        // The imported URI/flag may be empty or different; "connected" describes the
+        // old config, so it has to go before anything restarts.
+        appSettings.setVlessConnected(false)
+        vlessProxyManager.start(force = true)
     }
 }

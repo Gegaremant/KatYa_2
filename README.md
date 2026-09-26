@@ -67,7 +67,7 @@ KatYa/
 4. **Песочница (нужна для автономной работы и VLESS)**
    - Вкладка **Сервер** → **Sandbox** → «Скачать песочницу». Приложение само скачает и распакует:
      - **Debian rootfs** (образ Linux для proot);
-     - **нативные библиотеки** (proot, xray) для вашей ABI — URL по умолчанию ведут на релиз v3.1.1 репозитория.
+     - **нативные библиотеки** (proot, xray) для вашей ABI — URL по умолчанию ведут на релиз v3.1.3 репозитория.
    - Ход загрузки виден в уведомлении и на вкладке «Сервер» → «Альтернативные ссылки». Любую ссылку можно заменить вручную (кнопка «Сохранить»), если загрузка не удалась с дефолтной.
 
 5. **Подключение моделей**
@@ -91,12 +91,18 @@ KatYa/
 2. Откройте проект в **Android Studio** (или Fleet) и дождитесь загрузки Gradle-зависимостей.
 3. Соберите проект через терминал:
    ```bash
-   # Для сборки отладочной версии:
-   ./gradlew assembleDebug
+   # Рабочая сборка (отладочный ключ, только для разработки):
+   ./gradlew assembleFossDebug
 
-   # Для сборки релизной версии:
-   ./gradlew assembleRelease
+   # Релизная сборка — та же задача, но с release-подписью.
+   # Без переменных ниже gradle подпишет APK отладочным ключом,
+   # и такой APK нельзя будет обновить поверх ранее установленного релиза.
+   export KEYSTORE_FILE=/path/to/katya-release.jks
+   export KEYSTORE_PASSWORD='...'
+   export KEY_ALIAS='...'
+   ./gradlew assembleFossDebug
    ```
+   Готовый файл: `androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk`.
 4. Установите получившийся APK на устройство. Для использования `God Mode` убедитесь, что на устройстве установлены Root-права (Magisk/KernelSU). Если прав нет, используйте `Sandbox`.
 
 ---
@@ -154,7 +160,7 @@ KatYa/
 4. **Sandbox (required for autonomous work and VLESS)**
    - **Servers** tab → **Sandbox** → "Download sandbox". The app downloads and unpacks automatically:
      - **Debian rootfs** (Linux image for proot);
-     - **native binaries** (proot, xray) for your ABI — default URLs point to the v3.1.1 release of this repository.
+     - **native binaries** (proot, xray) for your ABI — default URLs point to the v3.1.3 release of this repository.
    - Progress is shown in a notification and on **Servers** → **Alternative links**. Any link can be replaced manually (Save button) if the default one fails.
 
 5. **Model Connection**
@@ -178,10 +184,16 @@ KatYa/
 2. Open the project in **Android Studio** (or Fleet) and wait for the Gradle dependencies to sync.
 3. Build the project via terminal:
    ```bash
-   # Build the debug version:
-   ./gradlew assembleDebug
+   # Working build (debug key, for development only):
+   ./gradlew assembleFossDebug
 
-   # Build the release version:
-   ./gradlew assembleRelease
+   # Release build — same task, signed with the release key.
+   # Without these variables gradle signs with the debug key, and such an APK
+   # cannot be installed over a previously installed release.
+   export KEYSTORE_FILE=/path/to/katya-release.jks
+   export KEYSTORE_PASSWORD='...'
+   export KEY_ALIAS='...'
+   ./gradlew assembleFossDebug
    ```
+   Output: `androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk`.
 4. Install the resulting APK on your device. To use `God Mode`, make sure your device has Root access (Magisk/KernelSU). If you don't have Root, you can still use the `Sandbox` mode.

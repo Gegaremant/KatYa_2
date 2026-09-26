@@ -18,6 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +40,7 @@ import katya.composeapp.generated.resources.settings_bulk_no_catalogue
 import katya.composeapp.generated.resources.settings_bulk_no_servers
 import katya.composeapp.generated.resources.settings_tools_description
 import katya.composeapp.generated.resources.settings_tools_none_available
+import katya.composeapp.generated.resources.settings_tools_title
 import kotlinx.collections.immutable.ImmutableList
 import org.jetbrains.compose.resources.stringResource
 
@@ -119,29 +124,39 @@ internal fun ToolsContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val columns = when {
-                    maxWidth >= 800.dp -> 3
-                    maxWidth >= 500.dp -> 2
-                    else -> 1
-                }
-                val rows = tools.chunked(columns)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    rows.forEach { rowTools ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            rowTools.forEach { tool ->
-                                ToolItem(
-                                    modifier = Modifier.weight(1f).fillMaxHeight(),
-                                    tool = tool,
-                                    onToggle = { enabled -> onToggleTool(tool.id, enabled) },
-                                )
-                            }
-                            // Fill empty slots so last row items don't stretch
-                            repeat(columns - rowTools.size) {
-                                Spacer(modifier = Modifier.weight(1f))
+            // Feedback #5: the tool grid is a wall of switches that pushed everything
+            // else off the screen. Collapsed by default — and every tool is on by
+            // default, so nothing is hidden behind the fold in terms of behaviour.
+            var toolsExpanded by remember { mutableStateOf(false) }
+            SpoilerBlock(
+                title = stringResource(Res.string.settings_tools_title),
+                expanded = toolsExpanded,
+                onToggle = { toolsExpanded = !toolsExpanded },
+            ) {
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val columns = when {
+                        maxWidth >= 800.dp -> 3
+                        maxWidth >= 500.dp -> 2
+                        else -> 1
+                    }
+                    val rows = tools.chunked(columns)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        rows.forEach { rowTools ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                rowTools.forEach { tool ->
+                                    ToolItem(
+                                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                                        tool = tool,
+                                        onToggle = { enabled -> onToggleTool(tool.id, enabled) },
+                                    )
+                                }
+                                // Fill empty slots so last row items don't stretch
+                                repeat(columns - rowTools.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }

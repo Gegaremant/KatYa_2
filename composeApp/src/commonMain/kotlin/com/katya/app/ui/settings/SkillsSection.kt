@@ -119,28 +119,6 @@ internal fun SkillsSection(
 
         Spacer(Modifier.height(8.dp))
 
-        // Feedback #5: install everything the registries offer in one tap instead
-        // of tapping each row. Progress is shown on the button itself.
-        OutlinedButton(
-            onClick = onInstallAll,
-            enabled = !bulk.running,
-            modifier = Modifier.fillMaxWidth().handCursor(),
-        ) {
-            if (bulk.running) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(Res.string.settings_bulk_progress, bulk.current, bulk.done + 1, bulk.total),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            } else {
-                Text(stringResource(Res.string.settings_skills_add_all))
-            }
-        }
-        BulkResultText(bulk)
-
-        Spacer(Modifier.height(8.dp))
-
         OutlinedButton(
             onClick = { onShowAddDialog(true) },
             modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
@@ -160,6 +138,11 @@ internal fun SkillsSection(
             isBrowsing = isBrowsing,
             browseFailed = browseFailed,
             installedIds = remember(skills) { skills.map { it.id }.toSet() },
+            // Feedback #4: the bulk action belongs in the sheet the user opened to
+            // pick a skill, not on the tab behind it — otherwise the button is
+            // hidden behind a modal and looks like it does not exist.
+            onInstallAll = onInstallAll,
+            bulk = bulk,
         )
     }
 }
@@ -230,6 +213,8 @@ private fun AddSkillDialog(
     isBrowsing: Boolean,
     browseFailed: Boolean,
     installedIds: Set<String>,
+    onInstallAll: () -> Unit,
+    bulk: BulkProgress,
 ) {
     var url by remember { mutableStateOf("") }
     var search by remember { mutableStateOf("") }
@@ -390,6 +375,25 @@ private fun AddSkillDialog(
                         }
                     }
                 }
+
+                // Feedback #4: «Добавить все» живёт здесь, в окне выбора.
+                OutlinedButton(
+                    onClick = onInstallAll,
+                    enabled = !bulk.running,
+                    modifier = Modifier.fillMaxWidth().handCursor(),
+                ) {
+                    if (bulk.running) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(Res.string.settings_bulk_progress, bulk.current, bulk.done + 1, bulk.total),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    } else {
+                        Text(stringResource(Res.string.settings_skills_add_all))
+                    }
+                }
+                BulkResultText(bulk)
 
                 Spacer(Modifier.height(16.dp))
             }

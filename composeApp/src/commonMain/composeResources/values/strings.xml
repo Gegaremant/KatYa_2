@@ -54,6 +54,7 @@
     <string name="heartbeat_banner_dismiss">Dismiss</string>
     <string name="settings_tools_description">Enable or disable AI tools that can perform actions on your behalf.</string>
     <string name="settings_tools_none_available">No tools available on this platform.</string>
+    <string name="settings_tools_title">Инструменты (все включены по умолчанию)</string>
     <string name="settings_tab_general">General</string>
     <string name="settings_tab_agent">Agent</string>
     <string name="settings_tab_services">Services</string>

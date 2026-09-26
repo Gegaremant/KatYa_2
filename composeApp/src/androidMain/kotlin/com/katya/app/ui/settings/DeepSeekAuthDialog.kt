@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
@@ -49,6 +50,10 @@ actual fun PlatformDeepSeekAuthDialog(
         // only accept a token that differs from it.
         var staleTokenSnapshot by remember { mutableStateOf<String?>(null) }
 
+        // Cleared once per attempt: the stale-token rejection wipes storage a single
+        // time, otherwise every poll would reload the page and restart the sign-in.
+        var staleTokenCleared by remember { mutableStateOf(false) }
+
         val dsEmail = initialEmail
         val dsPassword = initialPassword
 
@@ -57,24 +62,37 @@ actual fun PlatformDeepSeekAuthDialog(
             onStatus(text)
         }
 
-        // "Проверяю доступность (15 с)" — the countdown the card shows while the
-        // sign-in is in flight. It loops every 15s so it never goes stale/negative.
+        // The card shows one status line. A 1 Hz countdown used to race the real
+        // messages for it and won almost every time, so "Токен из localStorage
+        // устарел" flashed for well under a second and the user only ever saw
+        // "проверяю доступность (15 с)" — which also never reached zero, because
+        // the modulo maps 0 back to 15. Now the sign-in loop owns the line and
+        // writes it only when it actually changes; this ticker exists purely to
+        // re-render the elapsed-seconds suffix.
         val authStartMs = remember { System.currentTimeMillis() }
         var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+        var lastStatus by remember { mutableStateOf("") }
+        val reportStatus: (String) -> Unit = { text ->
+            if (text != lastStatus) {
+                lastStatus = text
+                onStatus(text)
+            }
+        }
         LaunchedEffect(Unit) {
             while (true) {
                 nowMs = System.currentTimeMillis()
                 delay(500)
             }
         }
-        LaunchedEffect(extractedToken) {
-            if (extractedToken == null) {
-                while (true) {
-                    val left = 15L - ((nowMs - authStartMs) / 1000L) % 15L
-                    onStatus("🟢 Подключаю DeepSeek... проверяю доступность ($left с)")
-                    delay(1000)
-                }
-            }
+
+        // The elapsed counter is appended to the live status rather than replacing
+        // it, so a real message ("Жду свежий вход…") stays readable while it ticks.
+        val elapsedSeconds = (nowMs - authStartMs) / 1000L
+        LaunchedEffect(lastStatus, elapsedSeconds / 5, extractedToken) {
+            if (extractedToken != null) return@LaunchedEffect
+            val base = lastStatus.ifBlank { "🟢 Подключаю DeepSeek…" }
+            if (!base.startsWith("🟢")) return@LaunchedEffect
+            onStatus("$base идёт уже $elapsedSeconds с")
         }
 
         // Kick the autopilot repeatedly in case the page finished loading before
@@ -107,10 +125,12 @@ actual fun PlatformDeepSeekAuthDialog(
                     layoutDirection = android.view.View.LAYOUT_DIRECTION_LTR
 
                     // The black screen some users saw on the second open was a
-                    // combination of a cached WebView surface and the default
-                    // (dark) canvas. Force white rendering + no cache so the
-                    // page actually re-draws every time auth starts.
-                    setBackgroundColor(android.graphics.Color.WHITE)
+                    // cached WebView surface, so the page has to re-draw every time
+                    // auth starts. The background itself is transparent rather than
+                    // white: the view is headless (1 dp, alpha 0) and a white canvas
+                    // was still being composited, which is the white flash users
+                    // reported when they pressed «Подключить».
+                    setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
                     clearCache(true)
 
@@ -193,7 +213,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                 if (hit) {
                                     android.util.Log.d(
                                         "DeepSeekAuth",
-                                        "Captured hif from ${request.url?.host} (dliq=${hifDliq.take(12)}... leim=${hifLeim.take(12)}...)",
+                                        "Captured hif from ${request.url?.host} (dliq=${secretFingerprint(hifDliq)} leim=${secretFingerprint(hifLeim)})",
                                     )
                                 }
                             }
@@ -223,7 +243,12 @@ actual fun PlatformDeepSeekAuthDialog(
                     loadUrl("https://chat.deepseek.com/sign_in")
                 }
             },
-            modifier = Modifier.size(1.dp),
+            // alpha 0 on top of the 1 dp size: the WebView keeps loading, running JS
+            // and completing requests, but contributes nothing to the frame. This is
+            // what finally put the sign-in fully "under the hood" (feedback #8).
+            modifier = Modifier
+                .size(1.dp)
+                .alpha(0f),
         )
 
         // Polling loop for session extraction.
@@ -236,7 +261,7 @@ actual fun PlatformDeepSeekAuthDialog(
             // Whole-attempt budget: if the autopilot never manages to sign in
             // (bad creds, DeepSeek layout change, CAPTCHA), fail loudly instead
             // of spinning forever.
-            val totalTimeoutMs = 60_000L
+            val totalTimeoutMs = 90_000L
             val startTime = System.currentTimeMillis()
 
             // Snapshot the token already present in localStorage before any
@@ -280,7 +305,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                 staleTokenSnapshot = snap
                                 android.util.Log.d(
                                     "DeepSeekAuth",
-                                    "Stale localStorage token snapshot: ${snap.take(20)}... (will reject it, need a FRESH login)",
+                                    "Stale localStorage token snapshot: ${secretFingerprint(snap)} (will reject it, need a FRESH login)",
                                 )
                             }
                         }
@@ -292,8 +317,17 @@ actual fun PlatformDeepSeekAuthDialog(
                 delay(1500)
                 attempt++
 
-                if (System.currentTimeMillis() - startTime > totalTimeoutMs && extractedToken == null) {
-                    report("⏱️ Не удалось войти за 60 с. Проверь логин/пароль — иначе DeepSeek просто не пустит.")
+                // One absolute deadline for the whole attempt. The old guard was
+                // `&& extractedToken == null`, so the moment *any* token showed up
+                // the budget was void and the loop lived on until hifDeadline — and
+                // if the composable left and re-entered, `startTime` was rebuilt and
+                // the user saw the same "token expired" cycle start over forever.
+                if (System.currentTimeMillis() - startTime > totalTimeoutMs) {
+                    if (extractedToken == null) {
+                        report("⏱️ Не удалось войти за 90 с. Проверь логин/пароль — иначе DeepSeek просто не пустит.")
+                    } else {
+                        report("⏱️ Вход не завершился за 90 с — сессия неполная. Попробуй ещё раз.")
+                    }
                     delay(2000)
                     onDismiss()
                     break
@@ -307,7 +341,7 @@ actual fun PlatformDeepSeekAuthDialog(
                     android.util.Log.d("DeepSeekAuth", "Cookies present (attempt $attempt)")
                     val token = cookieTokenMatch.groupValues[1]
                     if (extractedToken == null && token.length > 10) {
-                        android.util.Log.d("DeepSeekAuth", "Cookie token found: ${token.take(20)}...")
+                        android.util.Log.d("DeepSeekAuth", "Cookie token found: ${secretFingerprint(token)}")
                         extractedToken = token
                         hifDeadline = System.currentTimeMillis() + hifGraceMs
                         report("✅ Токен получен! Жду антибот-хедеры...")
@@ -390,9 +424,40 @@ actual fun PlatformDeepSeekAuthDialog(
                                                 // recognises.
                                                 android.util.Log.d(
                                                     "DeepSeekAuth",
-                                                    "REJECTING stale localStorage token (matches start snapshot): ${token.take(20)}... keep waiting for fresh login",
+                                                    "REJECTING stale localStorage token (matches start snapshot): ${secretFingerprint(token)} keep waiting for fresh login",
                                                 )
-                                                report("Токен из localStorage устарел. Жду свежий вход...")
+                                                report("Токен из localStorage устарел. Сбрасываю его и жду свежий вход...")
+                                                // Rejecting alone is not enough: the token is still
+                                                // sitting in the WebView's localStorage, so every
+                                                // poll re-read the very same value and the user saw
+                                                // the same message over and over with no way out.
+                                                // Wipe it (and the session cookie) once so the page
+                                                // is forced back through the real sign-in form.
+                                                if (!staleTokenCleared) {
+                                                    staleTokenCleared = true
+                                                    webViewRef?.evaluateJavascript(
+                                                        """
+                                                        (function() {
+                                                            try {
+                                                                var keys = ['userToken','token','auth_token','access_token',
+                                                                            'Authorization','authorization','jwt','id_token',
+                                                                            'user_token','session_token','ds_token',
+                                                                            'deepseek_token','chat_token','login_token'];
+                                                                for (var i = 0; i < keys.length; i++) {
+                                                                    try { localStorage.removeItem(keys[i]); } catch(e) {}
+                                                                }
+                                                                try { localStorage.clear(); } catch(e) {}
+                                                                try { sessionStorage.clear(); } catch(e) {}
+                                                            } catch(e) {}
+                                                            return 'CLEARED';
+                                                        })();
+                                                        """.trimIndent(),
+                                                        null,
+                                                    )
+                                                    CookieManager.getInstance().removeAllCookies(null)
+                                                    CookieManager.getInstance().flush()
+                                                    webViewRef?.loadUrl("https://chat.deepseek.com/sign_in")
+                                                }
                                             } else {
                                                 extractedToken = token
                                                 hifDeadline = System.currentTimeMillis() + hifGraceMs
@@ -415,7 +480,7 @@ actual fun PlatformDeepSeekAuthDialog(
                 ) {
                     android.util.Log.d(
                         "DeepSeekAuth",
-                        "Extracting session: hif_dliq=${hifDliq.take(16)}... hif_leim=${hifLeim.take(16)}...",
+                        "Extracting session: hif_dliq=${secretFingerprint(hifDliq)} hif_leim=${secretFingerprint(hifLeim)}",
                     )
                     val fullCookie = cookies?.takeIf { it.isNotBlank() } ?: "user_session=$token"
                     val session = DeepSeekAuthSession(
@@ -466,6 +531,25 @@ actual fun PlatformDeepSeekAuthDialog(
  * poll tick plus right after the page settles. `unicode-bidi: plaintext` keeps
  * direction neutral for empty fields while forcing the *layout* left-to-right.
  */
+
+/**
+ * A loggable stand-in for a secret.
+ *
+ * The auth flow used to print `token.take(20)` and the anti-bot headers verbatim,
+ * which puts a usable prefix of a live DeepSeek session into logcat — readable by
+ * anything with READ_LOGS and by whoever collects a bug report. Debugging only
+ * needs to tell two values apart, so log length plus a short digest: same value
+ * gives the same fingerprint, the secret itself never appears.
+ */
+private fun secretFingerprint(value: String): String {
+    if (value.isEmpty()) return "<empty>"
+    val digest = java.security.MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray())
+        .take(4)
+        .joinToString("") { "%02x".format(it) }
+    return "len=${value.length},sha=$digest"
+}
+
 private fun enforceLtr(view: android.webkit.WebView?) {
     installHifHook(view)
     val css = java.net.URLEncoder.encode(

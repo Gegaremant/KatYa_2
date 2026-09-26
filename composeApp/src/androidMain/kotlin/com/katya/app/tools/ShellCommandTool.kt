@@ -118,6 +118,8 @@ object ShellCommandTool : Tool {
         description = "Execute a shell command in the Linux sandbox",
         nameRes = Res.string.tool_execute_shell_command_name,
         descriptionRes = Res.string.tool_execute_shell_command_description,
-        isEnabled = false,
+        // Feedback #5: enabled by default. AppSettings.isToolEnabled already defaults to
+        // true, so `isEnabled = false` here only made the switch read "off" while the
+        // tool was actually registered and callable — a lie in the UI.
     )
 }

@@ -24,14 +24,26 @@ import java.util.concurrent.TimeUnit
 object ShellExecutor {
 
     const val DEFAULT_TIMEOUT_MS = 15_000L
-    const val ROOT_CHECK_TIMEOUT_MS = 15_000L
+
+    /**
+     * A `su` probe is not a shell command — on a fresh Magisk/KernelSU install the
+     * manager puts a "grant root to this app?" dialog in front of it and waits for
+     * the user. The field logs showed `id` timing out with code 124 after 15 s and
+     * the app then reporting "no root" even though the permission *was* granted a
+     * second later. Give the prompt room, and treat a timeout as "not yet" rather
+     * than as a denial so the callers can retry instead of lying to the user.
+     */
+    const val ROOT_CHECK_TIMEOUT_MS = 60_000L
     private const val ROOT_CACHE_TTL_MS = 15_000L
 
     data class ExecResult(
         val isSuccess: Boolean,
         val output: String,
         val exitCode: Int,
-    )
+    ) {
+        /** A timeout kills the process (code 124); that is a "still waiting", not a "denied". */
+        val isTimeout: Boolean get() = exitCode == 124
+    }
 
     @Volatile
     private var cachedRoot: Boolean? = null
@@ -40,8 +52,8 @@ object ShellExecutor {
     private var cachedRootAtMs: Long = 0L
 
     /**
-     * Non-suspending root probe. Safe to call from any thread; each call blocks
-     * at most [ROOT_CHECK_TIMEOUT_MS] and results are cached for [ROOT_CACHE_TTL_MS].
+     * Non-suspending root probe. Safe to call from any thread; each call blocks at
+     * most [ROOT_CHECK_TIMEOUT_MS] and results are cached for [ROOT_CACHE_TTL_MS].
      */
     fun hasRootAccess(): Boolean {
         val now = System.currentTimeMillis()
@@ -54,6 +66,10 @@ object ShellExecutor {
                 result.output.contains("uid=0", ignoreCase = true) ||
                     result.output.contains("root", ignoreCase = true)
                 )
+        // A timeout is not an answer. Caching "no" for it would make the very next
+        // call report a denial the user never made; leave the cache empty so the
+        // next probe runs again.
+        if (!ok && result.isTimeout) return false
         cachedRoot = ok
         cachedRootAtMs = now
         return ok

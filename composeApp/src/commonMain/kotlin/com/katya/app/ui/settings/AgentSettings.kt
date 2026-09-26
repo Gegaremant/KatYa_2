@@ -319,62 +319,6 @@ internal fun AgentContent(
                         )
                     }
                     SettingsCard {
-                        AudioEnginesCard(
-                            sttEngine = uiState.sttEngine,
-                            ttsEngine = uiState.ttsEngine,
-                            ttsEngineInstalled = uiState.ttsEngineInstalled,
-                            textToSpeech = textToSpeech,
-                            isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
-                            onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
-                            sendDelayMs = uiState.sendDelayMs,
-                            onChangeSendDelayMs = actions.onChangeSendDelayMs,
-                            isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
-                            onToggleVoiceResponse = actions.onToggleVoiceResponse,
-                            onChangeSttEngine = actions.onChangeSttEngine,
-                            onChangeTtsEngine = actions.onChangeTtsEngine,
-                            sysTtsPitch = uiState.sysTtsPitch,
-                            sysTtsRate = uiState.sysTtsRate,
-                            onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
-                            onChangeSysTtsRate = actions.onChangeSysTtsRate,
-                            cloudSttUrl = uiState.cloudSttUrl,
-                            cloudSttKey = uiState.cloudSttKey,
-                            cloudSttModel = uiState.cloudSttModel,
-                            cloudTtsUrl = uiState.cloudTtsUrl,
-                            cloudTtsKey = uiState.cloudTtsKey,
-                            cloudTtsModel = uiState.cloudTtsModel,
-                            cloudTtsVoice = uiState.cloudTtsVoice,
-                            onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
-                            onChangeCloudSttKey = actions.onChangeCloudSttKey,
-                            onChangeCloudSttModel = actions.onChangeCloudSttModel,
-                            onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
-                            onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
-                            onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
-                            onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
-                            piperInstalledVoices = uiState.piperInstalledVoices,
-                            piperSelectedVoice = uiState.piperSelectedVoice,
-                            piperVoiceUrl = uiState.piperVoiceUrl,
-                            piperDownloadingBase = uiState.piperDownloadingBase,
-                            piperDownloadProgress = uiState.piperDownloadProgress,
-                            piperDownloadError = uiState.piperDownloadError,
-                            onChangePiperVoiceUrl = actions.onChangePiperVoiceUrl,
-                            onDownloadPiperVoice = actions.onDownloadPiperVoice,
-                            onSelectPiperVoice = actions.onSelectPiperVoice,
-                            onImportPiperVoice = actions.onImportPiperVoice,
-                            onDeletePiperVoice = actions.onDeletePiperVoice,
-                            onExportPiperVoice = actions.onExportPiperVoice,
-                            isVoskReady = uiState.isVoskReady,
-                            isVoskDownloading = uiState.isVoskDownloading,
-                            voskDownloadProgress = uiState.voskDownloadProgress,
-                            onDownloadVosk = actions.onDownloadVosk,
-                        )
-
-                        SandboxDistroCard(
-                            distro = uiState.distro,
-                            onChangeDistro = actions.onChangeDistro,
-                        )
-                    }
-
-                    SettingsCard {
                         ScheduledTaskList(
                             tasks = uiState.scheduledTasks,
                             heartbeatLog = uiState.heartbeatLog,
@@ -481,49 +425,6 @@ internal fun AgentContent(
                     AgentModeCard(
                         agentMode = uiState.agentMode,
                         onChangeAgentMode = actions.onChangeAgentMode,
-                    )
-                }
-                SettingsCard {
-                    AudioEnginesCard(
-                        sttEngine = uiState.sttEngine,
-                        ttsEngine = uiState.ttsEngine,
-                        ttsEngineInstalled = uiState.ttsEngineInstalled,
-                        textToSpeech = textToSpeech,
-                        isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
-                        onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
-                        sendDelayMs = uiState.sendDelayMs,
-                        onChangeSendDelayMs = actions.onChangeSendDelayMs,
-                        isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
-                        onToggleVoiceResponse = actions.onToggleVoiceResponse,
-                        onChangeSttEngine = actions.onChangeSttEngine,
-                        onChangeTtsEngine = actions.onChangeTtsEngine,
-                        sysTtsPitch = uiState.sysTtsPitch,
-                        sysTtsRate = uiState.sysTtsRate,
-                        onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
-                        onChangeSysTtsRate = actions.onChangeSysTtsRate,
-                        cloudSttUrl = uiState.cloudSttUrl,
-                        cloudSttKey = uiState.cloudSttKey,
-                        cloudSttModel = uiState.cloudSttModel,
-                        cloudTtsUrl = uiState.cloudTtsUrl,
-                        cloudTtsKey = uiState.cloudTtsKey,
-                        cloudTtsModel = uiState.cloudTtsModel,
-                        cloudTtsVoice = uiState.cloudTtsVoice,
-                        onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
-                        onChangeCloudSttKey = actions.onChangeCloudSttKey,
-                        onChangeCloudSttModel = actions.onChangeCloudSttModel,
-                        onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
-                        onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
-                        onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
-                        onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
-                        isVoskReady = uiState.isVoskReady,
-                        isVoskDownloading = uiState.isVoskDownloading,
-                        voskDownloadProgress = uiState.voskDownloadProgress,
-                        onDownloadVosk = actions.onDownloadVosk,
-                    )
-
-                    SandboxDistroCard(
-                        distro = uiState.distro,
-                        onChangeDistro = actions.onChangeDistro,
                     )
                 }
                 SettingsCard {
@@ -1652,7 +1553,7 @@ private fun AudioEnginesCard(
     onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
     onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
     sysTtsPitch: Float = 1.0f,
-    sysTtsRate: Float = 1.0f,
+    sysTtsRate: Float = 1.5f,
     onChangeSysTtsPitch: (Float) -> Unit = {},
     onChangeSysTtsRate: (Float) -> Unit = {},
     cloudSttUrl: String = "",
@@ -1939,7 +1840,7 @@ private fun AudioEnginesCard(
 }
 
 @Composable
-private fun SpoilerBlock(
+internal fun SpoilerBlock(
     title: String,
     expanded: Boolean,
     onToggle: () -> Unit,
@@ -2146,6 +2047,12 @@ private fun SandboxDistroCard(
         }
 
         PlatformExternalStorageButton()
+
+        // Пункт 7: альтернативные ссылки на компоненты песочницы (rootfs, Proot,
+        // Xray) — прямо под выбором песочницы, где они и уместны. Раньше панель
+        // жила на вкладке «Серверы», в двух экранах от места, где ей ищут.
+        Spacer(modifier = Modifier.height(16.dp))
+        AlternativeLinksCard()
     }
 }
 
@@ -2329,5 +2236,76 @@ private fun PiperVoicesCard(
                 Text("Импортировать .tflite / .json / .zip")
             }
         }
+    }
+}
+
+/**
+ * Слух/речь + выбор песочницы.
+ *
+ * Раньше это жило во вкладке «Агент», хотя к агенту отношения не имеет: это
+ * устройственные настройки (микрофон, синтез речи, дистрибутив Linux). Перенесено
+ * в «Общие»; здесь вынесено в отдельный composable, чтобы вкладка не вызывала
+ * карточки напрямую и перенос был одной правкой, а не двумя.
+ */
+@Composable
+internal fun VoiceAndSandboxSection(
+    uiState: SettingsUiState,
+    actions: SettingsActions,
+    textToSpeech: com.katya.app.tts.SpeechEngine? = null,
+) {
+    SettingsCard {
+        AudioEnginesCard(
+            sttEngine = uiState.sttEngine,
+            ttsEngine = uiState.ttsEngine,
+            ttsEngineInstalled = uiState.ttsEngineInstalled,
+            textToSpeech = textToSpeech,
+            isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
+            onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
+            sendDelayMs = uiState.sendDelayMs,
+            onChangeSendDelayMs = actions.onChangeSendDelayMs,
+            isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
+            onToggleVoiceResponse = actions.onToggleVoiceResponse,
+            onChangeSttEngine = actions.onChangeSttEngine,
+            onChangeTtsEngine = actions.onChangeTtsEngine,
+            sysTtsPitch = uiState.sysTtsPitch,
+            sysTtsRate = uiState.sysTtsRate,
+            onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
+            onChangeSysTtsRate = actions.onChangeSysTtsRate,
+            cloudSttUrl = uiState.cloudSttUrl,
+            cloudSttKey = uiState.cloudSttKey,
+            cloudSttModel = uiState.cloudSttModel,
+            cloudTtsUrl = uiState.cloudTtsUrl,
+            cloudTtsKey = uiState.cloudTtsKey,
+            cloudTtsModel = uiState.cloudTtsModel,
+            cloudTtsVoice = uiState.cloudTtsVoice,
+            onChangeCloudSttUrl = actions.onChangeCloudSttUrl,
+            onChangeCloudSttKey = actions.onChangeCloudSttKey,
+            onChangeCloudSttModel = actions.onChangeCloudSttModel,
+            onChangeCloudTtsUrl = actions.onChangeCloudTtsUrl,
+            onChangeCloudTtsKey = actions.onChangeCloudTtsKey,
+            onChangeCloudTtsModel = actions.onChangeCloudTtsModel,
+            onChangeCloudTtsVoice = actions.onChangeCloudTtsVoice,
+            piperInstalledVoices = uiState.piperInstalledVoices,
+            piperSelectedVoice = uiState.piperSelectedVoice,
+            piperVoiceUrl = uiState.piperVoiceUrl,
+            piperDownloadingBase = uiState.piperDownloadingBase,
+            piperDownloadProgress = uiState.piperDownloadProgress,
+            piperDownloadError = uiState.piperDownloadError,
+            onChangePiperVoiceUrl = actions.onChangePiperVoiceUrl,
+            onDownloadPiperVoice = actions.onDownloadPiperVoice,
+            onSelectPiperVoice = actions.onSelectPiperVoice,
+            onImportPiperVoice = actions.onImportPiperVoice,
+            onDeletePiperVoice = actions.onDeletePiperVoice,
+            onExportPiperVoice = actions.onExportPiperVoice,
+            isVoskReady = uiState.isVoskReady,
+            isVoskDownloading = uiState.isVoskDownloading,
+            voskDownloadProgress = uiState.voskDownloadProgress,
+            onDownloadVosk = actions.onDownloadVosk,
+        )
+
+        SandboxDistroCard(
+            distro = uiState.distro,
+            onChangeDistro = actions.onChangeDistro,
+        )
     }
 }

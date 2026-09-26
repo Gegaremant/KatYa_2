@@ -519,7 +519,16 @@ class SettingsViewModel(
         val instance = dataRepository.addConfiguredService(service.id)
         refreshServiceList()
         _state.update { it.copy(expandedServiceId = instance.instanceId) }
-        checkConnection(instance.instanceId, service)
+        // Feedback: adding a service must not start probing it. For the DeepSeek
+        // proxy the endpoint is 127.0.0.1:11434 and only answers after a sign-in,
+        // so the probe could only ever produce a red cross while the card was still
+        // empty — "проверка крутится, логин не введён". Nothing is verified until
+        // the user actually connects; a blank credential is not a failure.
+        if (service is Service.FreeDeepSeekProxy) {
+            updateConnectionStatus(instance.instanceId, ConnectionStatus.Unknown)
+        } else {
+            checkConnection(instance.instanceId, service)
+        }
     }
 
     private fun onRemoveService(instanceId: String) {
@@ -1375,6 +1384,10 @@ class SettingsViewModel(
     ): ImportResult = try {
         val currentTab = _state.value.currentTab
         val errors = dataRepository.applyPreparedImport(json, sections, mode, payload)
+        // Feedback #10: the imported values replace the live VLESS config, so the
+        // in-memory "connected" flag has to be re-derived from them — otherwise the
+        // card keeps claiming a tunnel that the new settings never described.
+        com.katya.app.createDaemonController().reconcileVlessAfterImport()
         _state.value = buildFullState().copy(currentTab = currentTab)
         taskScheduler.rearmAll()
         checkAllConnections()

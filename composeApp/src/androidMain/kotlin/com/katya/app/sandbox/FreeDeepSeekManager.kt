@@ -145,11 +145,44 @@ class FreeDeepSeekManager(
                     AppLogger.d("FreeDeepSeekManager", "No valid session token, starting server without auth (user must authorize via DeepSeek button)")
                 }
 
-                // Verify the file is visible inside proot
-                val verifyResult = executor.execute("cat $repoPath/deepseek-auth.json")
+                // Verify the file is visible inside proot. The log used to show
+                // "exit_code=-1" here, which was read as "no session" and left the
+                // server starting unauthenticated — and an unauthenticated server
+                // answers every request with "DeepSeek PoW response has no
+                // data.biz_data.challenge", which is what the user saw as an endless
+                // "token expired" loop. A short `cat` is given room and, if the
+                // bind-mounted write still is not visible, the file is pushed in
+                // through proot itself.
+                val verifyResult = executor.execute("cat $repoPath/deepseek-auth.json", timeoutSeconds = 90L)
                 val verifyExit = verifyResult["exit_code"]
-                val verifyContent = verifyResult["stdout"]?.toString()?.take(80)
-                AppLogger.d("FreeDeepSeekManager", "Auth file inside proot: exit_code=$verifyExit, content=$verifyContent")
+                val verifyOk = verifyExit == 0
+                AppLogger.d(
+                    "FreeDeepSeekManager",
+                    "Auth file inside proot: exit_code=$verifyExit, ok=$verifyOk, " +
+                        "error=${verifyResult["error"] ?: "-"}, stderr=${verifyResult["stderr"]?.toString()?.take(120) ?: "-"}",
+                )
+                if (authContent != null && !verifyOk) {
+                    // The host-side write did not show up inside the container; push the
+                    // exact bytes through the same channel the server reads from.
+                    val encoded = android.util.Base64.encodeToString(authContent.toByteArray(), android.util.Base64.NO_WRAP)
+                    val push = executor.execute(
+                        "echo '$encoded' | base64 -d > $repoPath/deepseek-auth.json && " +
+                            "test -s $repoPath/deepseek-auth.json && echo WRITE_OK",
+                        timeoutSeconds = 90L,
+                    )
+                    val pushed = push["stdout"]?.toString()?.contains("WRITE_OK") == true
+                    AppLogger.d(
+                        "FreeDeepSeekManager",
+                        "Auth file pushed through proot: ok=$pushed, error=${push["error"] ?: "-"}, " +
+                            "stderr=${push["stderr"]?.toString()?.take(120) ?: "-"}",
+                    )
+                    if (!pushed) {
+                        _state.value = DeepSeekProxyState.Error(
+                            "Не удалось передать сессию DeepSeek внутрь песочницы — вход не сохранён, попробуй ещё раз",
+                        )
+                        return@launch
+                    }
+                }
 
                 val proxyEnv = vlessProxyEnvOrEmpty()
 

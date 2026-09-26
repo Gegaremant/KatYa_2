@@ -451,7 +451,10 @@ class AppSettings(internal val settings: Settings) {
     private val _sysTtsPitchFlow = MutableStateFlow(getSysTtsPitch())
     val sysTtsPitchFlow: StateFlow<Float> = _sysTtsPitchFlow
 
-    fun getSysTtsRate(): Float = settings.getFloat("sys_tts_rate", 1.2f)
+    // 1.5 instead of 1.2: at 1.2 the greeting dragged, and the field report asked
+    // for a faster voice outright. Only the default moves — an install that already
+    // saved a rate keeps it.
+    fun getSysTtsRate(): Float = settings.getFloat("sys_tts_rate", 1.5f)
     fun setSysTtsRate(rate: Float) {
         settings.putFloat("sys_tts_rate", rate)
         _sysTtsRateFlow.value = rate

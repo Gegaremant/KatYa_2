@@ -254,7 +254,12 @@ private fun snapshotSpecs(): List<Spec> = listOf(
     strSpec(AppSettingsKeys.KEY_SPLINTERLANDS_INSTANCE_IDS, ImportSection.SPLINTERLANDS, read = { getSplinterlandsInstanceIdsJson() }, write = { app, v -> app.setSplinterlandsInstanceIdsJson(v) }),
 
     // --- MCP -----------------------------------------------------------------
-    strSpec(AppSettingsKeys.KEY_MCP_SERVERS, ImportSection.MCP, read = { getMcpServersJson() }, write = { app, v -> app.setMcpServersJson(v) }),
+    // The MCP config carries per-server `headers`, and those routinely hold
+    // `Authorization: Bearer …`. The whole blob is one settings value, so it is
+    // masked as a unit — a diff that helpfully printed the token back at the user
+    // (or into a screenshot of the import dialog) was a leak. This only affects
+    // display; the export file still contains the real values.
+    strSpec(AppSettingsKeys.KEY_MCP_SERVERS, ImportSection.MCP, secret = true, read = { getMcpServersJson() }, write = { app, v -> app.setMcpServersJson(v) }),
 
     // --- Servers, tunnel, VLESS ---------------------------------------------
     strSpec("local_server_profiles", ImportSection.SERVERS, read = { getLocalServerProfilesJson() }, write = { app, v -> app.setLocalServerProfilesJson(v) }),
@@ -375,8 +380,27 @@ private fun AppSettings.localInstanceIds(): List<String> = getConfiguredServiceI
 /** Instance ids declared by a backup, so a restore onto a clean install sees them. */
 private fun instanceIdsIn(imported: JsonObject): List<String> = imported[SNAPSHOT_INSTANCES_KEY]?.jsonObject?.keys?.toList().orEmpty()
 
-/** The flat settings map of a backup, or an empty object for a legacy backup. */
-private fun flatMapOf(imported: JsonObject): JsonObject = imported[SNAPSHOT_KEY]?.jsonObject ?: JsonObject(emptyMap())
+/**
+ * The flat settings map of a backup.
+ *
+ * A 3.1.3-fix backup nests everything under [SNAPSHOT_KEY]. An older backup keeps
+ * the same field names at the top level, so its flat map *is* the document minus
+ * the bookkeeping keys. Falling back to an empty object here is what made the
+ * review dialog answer "Различий нет" for every legacy file while the import
+ * itself went on to change plenty — the diff was computed from nothing.
+ */
+private fun flatMapOf(imported: JsonObject): JsonObject = imported[SNAPSHOT_KEY]?.jsonObject
+    ?: JsonObject(imported.filterKeys { it !in NON_SETTING_TOP_LEVEL_KEYS })
+
+/** Top-level keys that are structure rather than a setting, and never a diff row. */
+private val NON_SETTING_TOP_LEVEL_KEYS = setOf(
+    "version",
+    "conversations",
+    "email_passwords",
+    "email_sync_states",
+    "splinterlands_posting_keys",
+    SNAPSHOT_INSTANCES_KEY,
+)
 
 /** Instance specs for a diff: the union of what exists here and what the backup has. */
 private fun AppSettings.allInstanceIds(imported: JsonObject): List<String> = (localInstanceIds() + instanceIdsIn(imported)).distinct()

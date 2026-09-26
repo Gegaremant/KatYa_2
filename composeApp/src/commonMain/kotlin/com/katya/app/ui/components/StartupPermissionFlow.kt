@@ -49,6 +49,17 @@ import org.koin.compose.koinInject
 
 private enum class OnboardingStep { Greeting, Freedom, QuickSetup }
 
+/**
+ * How long to keep re-probing root before declaring it denied.
+ *
+ * The root manager's grant dialog is modal and the user has to find and press it,
+ * so one probe is not an answer. 10 attempts × 1.5 s ≈ 15 s of waiting, on top of
+ * the probe's own budget, is enough to cover a user who is already holding the
+ * phone — and the UI shows a spinner the whole time instead of a wrong "нет".
+ */
+private const val ROOT_PROBE_ATTEMPTS = 10
+private const val ROOT_PROBE_RETRY_MS = 1500L
+
 /** The four freedom modes, in Katya's own words. */
 private data class FreedomMode(
     val title: String,
@@ -234,8 +245,15 @@ fun StartupPermissionFlow(
 
     // Voice per step. Both the greeting and the freedom picker are narrated; the
     // "no voice" choice persists so the next launch stays quiet.
-    LaunchedEffect(step) {
+    //
+    // The engine is part of the key on purpose. Android TTS is created
+    // asynchronously, so on a cold start `textToSpeech` is still null when the
+    // first composition runs — the effect fired, the greeting was dropped into a
+    // null engine and the very first thing Katya says was silence. Re-keying on
+    // the engine makes the greeting wait for a voice instead of the reverse.
+    LaunchedEffect(step, textToSpeech) {
         if (introVoiceDisabled) return@LaunchedEffect
+        if (textToSpeech == null) return@LaunchedEffect
         when (step) {
             OnboardingStep.Greeting -> speakOrStop(introSpeech, enabled = true)
             OnboardingStep.Freedom -> speakOrStop(freedomSpeech, enabled = true)
@@ -498,10 +516,23 @@ fun StartupPermissionFlow(
                                     if (mode.godMode && isCheckingRoot) return@ModeSelectorItem
                                     if (mode.godMode) {
                                         // God_Mode starts with a root request, like the old flow.
+                                        // Magisk puts its "grant root?" dialog in front of the
+                                        // `su` probe and waits for the user, so a single short
+                                        // probe used to come back empty and the flow declared
+                                        // "root не выдан" even though the permission *was*
+                                        // granted a moment later. Retry while showing progress
+                                        // instead of deciding on the first answer.
                                         isCheckingRoot = true
                                         coroutineScope.launch {
                                             val rootAvailable = withContext(Dispatchers.Default) {
-                                                commandExecutor.isRootAvailable()
+                                                var granted = commandExecutor.isRootAvailableUncached()
+                                                var attempt = 0
+                                                while (!granted && attempt < ROOT_PROBE_ATTEMPTS) {
+                                                    attempt++
+                                                    delay(ROOT_PROBE_RETRY_MS)
+                                                    granted = commandExecutor.isRootAvailableUncached()
+                                                }
+                                                granted
                                             }
                                             isCheckingRoot = false
                                             if (rootAvailable) {

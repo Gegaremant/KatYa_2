@@ -110,6 +110,8 @@ object SshConfigureHostTool : Tool {
         description = "Register a named SSH host for the Linux sandbox",
         nameRes = null,
         descriptionRes = null,
-        isEnabled = false,
+        // Feedback #5: enabled by default. AppSettings.isToolEnabled already defaults to
+        // true, so `isEnabled = false` here only made the switch read "off" while the
+        // tool was actually registered and callable — a lie in the UI.
     )
 }

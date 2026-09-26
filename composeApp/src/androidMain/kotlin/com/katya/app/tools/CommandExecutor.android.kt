@@ -18,4 +18,9 @@ actual class CommandExecutor actual constructor() {
     }
 
     actual fun isRootAvailable(): Boolean = ShellExecutor.hasRootAccess()
+
+    actual fun isRootAvailableUncached(): Boolean {
+        ShellExecutor.invalidateRootCache()
+        return ShellExecutor.hasRootAccess()
+    }
 }

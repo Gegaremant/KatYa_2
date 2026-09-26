@@ -97,6 +97,11 @@ internal fun GeneralContent(
                             )
                         }
                     }
+                    VoiceAndSandboxSection(
+                        uiState = uiState,
+                        actions = actions,
+                        textToSpeech = textToSpeech,
+                    )
                     SettingsCard {
                         DynamicUiToggle(
                             isDynamicUiEnabled = uiState.isDynamicUiEnabled,
@@ -159,6 +164,11 @@ internal fun GeneralContent(
                         )
                     }
                 }
+                VoiceAndSandboxSection(
+                    uiState = uiState,
+                    actions = actions,
+                    textToSpeech = textToSpeech,
+                )
                 SettingsCard {
                     DynamicUiToggle(
                         isDynamicUiEnabled = uiState.isDynamicUiEnabled,

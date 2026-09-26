@@ -120,28 +120,6 @@ internal fun McpServersSection(
         ) {
             Text(stringResource(Res.string.settings_mcp_add_server))
         }
-
-        // Feedback #6: one tap instead of enabling and connecting each server by hand.
-        if (mcpServers.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onConnectAll,
-                enabled = !bulk.running,
-                modifier = Modifier.fillMaxWidth().handCursor(),
-            ) {
-                if (bulk.running) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(Res.string.settings_bulk_progress, bulk.current, bulk.done + 1, bulk.total),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                } else {
-                    Text(stringResource(Res.string.settings_mcp_connect_all))
-                }
-            }
-            BulkResultText(bulk)
-        }
     }
 
     if (showAddDialog) {
@@ -149,6 +127,11 @@ internal fun McpServersSection(
             onDismiss = { onShowAddDialog(false) },
             onAdd = onAddMcpServer,
             onAddPopular = onAddPopularMcpServer,
+            // Feedback #4: the bulk action belongs in the sheet the user opened to
+            // pick a server, not on the tab behind it — otherwise the button is
+            // hidden behind a modal and looks like it does not exist.
+            onConnectAll = onConnectAll,
+            bulk = bulk,
         )
     }
 }
@@ -300,6 +283,8 @@ private fun AddMcpServerDialog(
     onDismiss: () -> Unit,
     onAdd: (String, String, Map<String, String>) -> Unit,
     onAddPopular: (PopularMcpServer) -> Unit,
+    onConnectAll: () -> Unit,
+    bulk: BulkProgress,
 ) {
     var name by remember { mutableStateOf("") }
     var url by remember { mutableStateOf("") }
@@ -439,6 +424,25 @@ private fun AddMcpServerDialog(
                         Spacer(Modifier.height(4.dp))
                     }
                 }
+
+                // Feedback #4: «Подключить все» живёт здесь, в окне выбора.
+                OutlinedButton(
+                    onClick = onConnectAll,
+                    enabled = !bulk.running,
+                    modifier = Modifier.fillMaxWidth().handCursor(),
+                ) {
+                    if (bulk.running) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(Res.string.settings_bulk_progress, bulk.current, bulk.done + 1, bulk.total),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    } else {
+                        Text(stringResource(Res.string.settings_mcp_connect_all))
+                    }
+                }
+                BulkResultText(bulk)
 
                 Spacer(Modifier.height(16.dp))
             }

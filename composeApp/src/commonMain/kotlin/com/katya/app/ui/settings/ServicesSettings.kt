@@ -32,6 +32,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -658,13 +660,15 @@ private fun ConfiguredServiceCardContent(
                     // "check the key" button.
                     ConnectionStatusIndicator(entry.connectionStatus, onOpenAppPermissionSettings)
 
-                    if (entry.models.isNotEmpty()) {
-                        Spacer(Modifier.height(8.dp))
-                        ModelSelection(entry.selectedModel, entry.models, onSelectModel)
-                    }
-
                     Spacer(Modifier.height(8.dp))
                     if (entry.connectionStatus == ConnectionStatus.Connected) {
+                        // Model choice only makes sense against a live server, and the
+                        // static list is populated whether or not anything answered —
+                        // offering it before sign-in read as "already configured".
+                        if (entry.models.isNotEmpty()) {
+                            ModelSelection(entry.selectedModel, entry.models, onSelectModel)
+                            Spacer(Modifier.height(8.dp))
+                        }
                         // Connected: green lamp, hide the connect form
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -689,6 +693,7 @@ private fun ConfiguredServiceCardContent(
                         // user never sees a browser window.
                         var dsEmail by remember { mutableStateOf("") }
                         var dsPassword by remember { mutableStateOf("") }
+                        var dsPasswordVisible by remember { mutableStateOf(false) }
                         val isAuthorizing = dsAuthRunning && dsAuthIsThisInstance
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -708,7 +713,26 @@ private fun ConfiguredServiceCardContent(
                                 label = { Text("Пароль") },
                                 singleLine = true,
                                 enabled = !isAuthorizing,
-                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                visualTransformation = if (dsPasswordVisible) {
+                                    androidx.compose.ui.text.input.VisualTransformation.None
+                                } else {
+                                    androidx.compose.ui.text.input.PasswordVisualTransformation()
+                                },
+                                // Feedback: the only masked field in the app had no way
+                                // back to what was typed, so a mistyped password could
+                                // only be discovered by deleting the whole field.
+                                trailingIcon = {
+                                    IconButton(onClick = { dsPasswordVisible = !dsPasswordVisible }) {
+                                        Icon(
+                                            imageVector = if (dsPasswordVisible) {
+                                                Icons.Default.VisibilityOff
+                                            } else {
+                                                Icons.Default.Visibility
+                                            },
+                                            contentDescription = if (dsPasswordVisible) "Скрыть пароль" else "Показать пароль",
+                                        )
+                                    }
+                                },
                                 modifier = Modifier.fillMaxWidth(),
                             )
                             Button(
@@ -730,7 +754,12 @@ private fun ConfiguredServiceCardContent(
                                 Text(
                                     text = dsAuthStatus,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    // A hard failure must not look like progress.
+                                    color = if (dsAuthStatus.startsWith("⏱️") || dsAuthStatus.startsWith("⚠️")) {
+                                        StatusColorError
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                 )
                             }
                         }

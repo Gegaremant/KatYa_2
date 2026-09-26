@@ -422,78 +422,6 @@ fun ServersContent(
 
         Spacer(Modifier.height(16.dp))
 
-        // Загрузки компонентов / «Альтернативные ссылки»
-        SettingsCard {
-            var altExpanded by remember { mutableStateOf(false) }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { altExpanded = !altExpanded },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = "Загрузки · Альтернативные ссылки",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Icon(
-                    imageVector = if (altExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (altExpanded) "Свернуть" else "Развернуть",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            AnimatedVisibility(
-                visible = altExpanded,
-                enter = expandVertically(),
-                exit = shrinkVertically(),
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    val componentsRepository = koinInject<ComponentsRepository>()
-                    val components by componentsRepository.components.collectAsState()
-                    val launcher = koinInject<ComponentDownloadLauncher>()
-                    val deviceAbi = currentAbi()
-
-                    // Пункт 3: не показываем компоненты под чужой ABI — чтобы нельзя было
-                    // скачать несовместимую сборку. Остаются только подходящие (или без ABI).
-                    val compatibleComponents = components.filter { component ->
-                        component.abi == null || component.abi == deviceAbi
-                    }
-
-                    if (components.isEmpty()) {
-                        Text(
-                            "Нет компонентов",
-                            modifier = Modifier.padding(16.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    compatibleComponents.forEach { component ->
-                        DownloadableComponentRow(
-                            component = component,
-                            onUrlChange = { newUrl -> componentsRepository.updateUrl(component.id, newUrl) },
-                            onDownload = { launcher.startDownload(component.id) },
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-                    }
-
-                    Text(
-                        "Здесь лежат ссылки на Debian, Proot, Xray и другие компоненты. " +
-                            "В APK они больше не встроены — всё скачивается по запросу и " +
-                            "видно в этой панели. Ссылки можно заменить на свои.",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
         // Local Servers
         SettingsCard {
             val localChecked = connectionMode == "LOCAL"
@@ -904,4 +832,83 @@ fun LogsDialog(onDismiss: () -> Unit) {
             }
         },
     )
+}
+
+/**
+ * Панель «Загрузки · Альтернативные ссылки».
+ *
+ * Переехала сюда из «Серверов» под карточку выбора песочницы: ссылки ведут на
+ * rootfs/Proot/Xray, то есть ровно на то, чем наполняется песочница, и держать
+ * их на отдельной вкладке было неудобно.
+ */
+@Composable
+internal fun AlternativeLinksCard() {
+    SettingsCard {
+        var altExpanded by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { altExpanded = !altExpanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Загрузки · Альтернативные ссылки",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Icon(
+                imageVector = if (altExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (altExpanded) "Свернуть" else "Развернуть",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        AnimatedVisibility(
+            visible = altExpanded,
+            enter = expandVertically(),
+            exit = shrinkVertically(),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                val componentsRepository = koinInject<ComponentsRepository>()
+                val components by componentsRepository.components.collectAsState()
+                val launcher = koinInject<ComponentDownloadLauncher>()
+                val deviceAbi = currentAbi()
+
+                // Пункт 3: не показываем компоненты под чужой ABI — чтобы нельзя было
+                // скачать несовместимую сборку. Остаются только подходящие (или без ABI).
+                val compatibleComponents = components.filter { component ->
+                    component.abi == null || component.abi == deviceAbi
+                }
+
+                if (components.isEmpty()) {
+                    Text(
+                        "Нет компонентов",
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                compatibleComponents.forEach { component ->
+                    DownloadableComponentRow(
+                        component = component,
+                        onUrlChange = { newUrl -> componentsRepository.updateUrl(component.id, newUrl) },
+                        onDownload = { launcher.startDownload(component.id) },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                }
+
+                Text(
+                    "Здесь лежат ссылки на Debian, Proot, Xray и другие компоненты. " +
+                        "В APK они больше не встроены — всё скачивается по запросу и " +
+                        "видно в этой панели. Ссылки можно заменить на свои.",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }

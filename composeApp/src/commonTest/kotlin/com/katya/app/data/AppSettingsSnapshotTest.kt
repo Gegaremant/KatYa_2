@@ -166,6 +166,28 @@ class AppSettingsSnapshotTest {
         assertEquals("top-secret-password", target.getServerPassword(), "Masking is for display only")
     }
 
+    @Test
+    fun `mcp server headers are masked in the diff but restored`() {
+        val token = "Bearer mcp-secret-token-value"
+        val target = settingsWith()
+        val backup = settingsWith()
+        backup.setMcpServersJson(
+            """[{"id":"a","name":"Files","url":"https://mcp.example.com","headers":{"Authorization":"$token"}}]""",
+        )
+
+        val preview = target.previewSnapshot(backupOf(backup), ImportSection.entries.toSet(), ImportMode.Merge)
+        val row = assertNotNull(preview.diff.firstOrNull { it.key == AppSettingsKeys.KEY_MCP_SERVERS })
+
+        assertEquals("••••••••", row.incoming, "MCP headers routinely carry bearer tokens")
+        assertFalse(row.incoming.contains("mcp-secret-token-value"), "The token must not reach the review screen")
+
+        target.applySnapshot(backupOf(backup), ImportSection.entries.toSet(), ImportMode.Merge)
+        assertTrue(
+            target.getMcpServersJson().contains("mcp-secret-token-value"),
+            "Masking is display-only — the real header has to survive the import",
+        )
+    }
+
     // --- The diff tells the truth --------------------------------------------
 
     @Test
@@ -229,5 +251,72 @@ class AppSettingsSnapshotTest {
         store.setInstanceApiKey("ghost", "key-ghost")
 
         assertNull(store.exportSnapshotInstances()["ghost"])
+    }
+
+    @Test
+    fun `a legacy backup without app_settings still produces a real diff`() {
+        val target = settingsWith(AppSettingsKeys.KEY_UI_SCALE to 1.0f)
+        // Pre-3.1.3-fix layout: the same field names sit at the top level and there
+        // is no "app_settings" object at all. This is the file that used to report
+        // "no changes" while the import went on to rewrite the settings.
+        val legacy = JsonObject(
+            mapOf(
+                "version" to JsonPrimitive(1),
+                AppSettingsKeys.KEY_UI_SCALE to JsonPrimitive(1.4f),
+                "conversations" to JsonPrimitive("[]"),
+            ),
+        )
+
+        val preview = target.previewSnapshot(legacy, ImportSection.entries.toSet(), ImportMode.Merge)
+
+        assertTrue(preview.diff.isNotEmpty(), "A legacy backup that differs must not read as 'no changes'")
+        val scaleRow = preview.diff.firstOrNull { it.key == AppSettingsKeys.KEY_UI_SCALE }
+        assertNotNull(scaleRow, "The scale is a top-level setting and must appear as a row")
+        assertTrue(scaleRow.changed, "1.0 -> 1.4 is a change")
+    }
+
+    @Test
+    fun `legacy bookkeeping keys never become diff rows`() {
+        val target = settingsWith()
+        val legacy = JsonObject(
+            mapOf(
+                "version" to JsonPrimitive(1),
+                "conversations" to JsonPrimitive("[]"),
+                "email_passwords" to JsonObject(emptyMap()),
+                "email_sync_states" to JsonObject(emptyMap()),
+                "splinterlands_posting_keys" to JsonObject(emptyMap()),
+                SNAPSHOT_INSTANCES_KEY to JsonObject(emptyMap()),
+                AppSettingsKeys.KEY_UI_SCALE to JsonPrimitive(1.4f),
+            ),
+        )
+
+        val preview = target.previewSnapshot(legacy, ImportSection.entries.toSet(), ImportMode.Merge)
+
+        val keys = preview.diff.map { it.key }
+        assertFalse(keys.contains("version"), "version is bookkeeping")
+        assertFalse(keys.contains("conversations"), "conversations are data, not a setting")
+        assertFalse(keys.contains("email_passwords"))
+        assertFalse(keys.contains("email_sync_states"))
+        assertFalse(keys.contains("splinterlands_posting_keys"))
+        assertFalse(keys.contains(SNAPSHOT_INSTANCES_KEY))
+        assertEquals(listOf(AppSettingsKeys.KEY_UI_SCALE), keys)
+    }
+
+    @Test
+    fun `a legacy backup equal to the current install still reports no change`() {
+        val target = settingsWith(AppSettingsKeys.KEY_UI_SCALE to 1.4f)
+        val legacy = JsonObject(
+            mapOf(
+                "version" to JsonPrimitive(1),
+                AppSettingsKeys.KEY_UI_SCALE to JsonPrimitive(1.4f),
+            ),
+        )
+
+        // Replace is the mode that compares against the live value, so it is the one
+        // that can answer "is there really anything to do here". Merge counts any
+        // non-default incoming value as a write by design.
+        val preview = target.previewSnapshot(legacy, ImportSection.entries.toSet(), ImportMode.Replace)
+
+        assertTrue(preview.diff.none { it.changed }, "Identical legacy backup must not invent changes")
     }
 }
