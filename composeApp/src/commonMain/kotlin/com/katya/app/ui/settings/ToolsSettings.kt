@@ -132,6 +132,8 @@ internal fun ToolsContent(
                 title = stringResource(Res.string.settings_tools_title),
                 expanded = toolsExpanded,
                 onToggle = { toolsExpanded = !toolsExpanded },
+                description = "Возможности, которыми Катя может пользоваться сама: файлы, процессы, " +
+                    "SSH, команды. Всё включено, но список спрятан, чтобы не мешал.",
             ) {
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                     val columns = when {

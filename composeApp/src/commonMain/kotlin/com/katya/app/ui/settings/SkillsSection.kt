@@ -86,44 +86,43 @@ internal fun SkillsSection(
     onInstallAll: () -> Unit,
     bulk: BulkProgress,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(Res.string.settings_skills),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(Res.string.settings_skills_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    // Feedback #6.1: the skill list is long and always present, so the heading became a
+    // centred collapsible — the word in the middle, the toggle behind it.
+    var skillsExpanded by remember { mutableStateOf(false) }
+    SpoilerBlock(
+        title = stringResource(Res.string.settings_skills),
+        expanded = skillsExpanded,
+        onToggle = { skillsExpanded = !skillsExpanded },
+        centerTitle = true,
+        description = stringResource(Res.string.settings_skills_description),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(4.dp))
 
-        Spacer(Modifier.height(12.dp))
-
-        if (skills.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.settings_skills_none),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            for (skill in skills) {
-                SkillCard(
-                    skill = skill,
-                    onRemove = { onUninstallSkill(skill.id) },
+            if (skills.isEmpty()) {
+                Text(
+                    text = stringResource(Res.string.settings_skills_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(8.dp))
+            } else {
+                for (skill in skills) {
+                    SkillCard(
+                        skill = skill,
+                        onRemove = { onUninstallSkill(skill.id) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
             }
-        }
 
-        Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-        OutlinedButton(
-            onClick = { onShowAddDialog(true) },
-            modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
-        ) {
-            Text(stringResource(Res.string.settings_skills_add))
+            OutlinedButton(
+                onClick = { onShowAddDialog(true) },
+                modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
+            ) {
+                Text(stringResource(Res.string.settings_skills_add))
+            }
         }
     }
 

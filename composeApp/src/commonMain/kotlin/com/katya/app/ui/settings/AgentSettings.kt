@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -1845,6 +1846,8 @@ internal fun SpoilerBlock(
     expanded: Boolean,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
+    description: String? = null,
+    centerTitle: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier) {
@@ -1860,12 +1863,27 @@ internal fun SpoilerBlock(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
+                modifier = if (centerTitle) {
+                    Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally)
+                } else {
+                    Modifier.weight(1f)
+                },
+                textAlign = if (centerTitle) TextAlign.Center else TextAlign.Start,
             )
             Text(
                 text = if (expanded) "▴" else "▾",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            )
+        }
+        // Feedback #6.3: a bare title gives no idea what lives behind the fold, so the
+        // collapsed section says what it is for.
+        if (description != null && !expanded) {
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 4.dp),
             )
         }
         AnimatedVisibility(
