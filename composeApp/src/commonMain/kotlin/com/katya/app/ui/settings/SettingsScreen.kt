@@ -558,7 +558,7 @@ private fun SettingsTabSelector(
                             SettingsTab.Services -> stringResource(Res.string.settings_tab_services)
                             SettingsTab.Tools -> stringResource(Res.string.settings_tab_tools)
                             SettingsTab.Integrations -> "Интеграции"
-                            SettingsTab.Servers -> "Серверы"
+                            SettingsTab.Servers -> "Сервера"
                             else -> ""
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

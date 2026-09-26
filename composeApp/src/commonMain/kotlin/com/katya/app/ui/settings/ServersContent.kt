@@ -870,7 +870,7 @@ internal fun AlternativeLinksCard() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Загрузки · Альтернативные ссылки",
+                text = "Скачать другие",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface,

@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.katya.app.data.ThemeMode
 import com.katya.app.ui.KaiOutlinedTextField
@@ -545,6 +546,11 @@ private fun UiScaleSection(
  * Р СџР С•Р В·Р Р†Р С•Р В»РЎРЏР ВµРЎвЂљ Р Т‘Р С•Р В±Р В°Р Р†Р В»РЎРЏРЎвЂљРЎРЉ, РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°РЎвЂљРЎРЉ Р С‘ РЎС“Р Т‘Р В°Р В»РЎРЏРЎвЂљРЎРЉ Р С”Р Р…Р С•Р С—Р С”Р С‘ РЎРѓ Р С—РЎР‚Р С•Р СР С—РЎвЂљР В°Р СР С‘, Р С”Р С•РЎвЂљР С•РЎР‚РЎвЂ№Р Вµ
  * Р В±РЎС“Р Т‘РЎС“РЎвЂљ Р С•РЎвЂљР С•Р В±РЎР‚Р В°Р В¶Р В°РЎвЂљРЎРЉРЎРѓРЎРЏ Р Р…Р В°Р Т‘ Р С—Р С•Р В»Р ВµР С Р Р†Р Р†Р С•Р Т‘Р В° РЎвЂЎР В°РЎвЂљР В°.
  */
+private val QUICK_ACTION_EXAMPLES = listOf(
+    "Кнопка «Переведи» — промпт «Переведи этот текст на английский»",
+    "Кнопка «Сократи» — промпт «Сделай краткую выжимку из этого текста»",
+)
+
 @Composable
 private fun QuickActionsSection(
     quickActions: kotlinx.collections.immutable.ImmutableList<com.katya.app.data.QuickAction>,
@@ -555,29 +561,47 @@ private fun QuickActionsSection(
     var showAddDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f).padding(16.dp)) {
+        // Feedback #3: the heading used to sit left-aligned in a cramped row with a small
+        // "Добавить" beside it, and the examples were one blob of text with hard-coded
+        // newlines. Title centred, examples as their own rows, and the primary action as a
+        // full-width button underneath — it is the thing you actually come here to press.
+        Text(
+            text = "Быстрые действия",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, start = 16.dp, end = 16.dp),
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = "Кнопки над полем ввода чата — одним нажатием отправляют свой промпт.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            textAlign = TextAlign.Center,
+        )
+        for (example in QUICK_ACTION_EXAMPLES) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
                 Text(
-                    text = "Быстрые действия",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = "Управление кнопками быстрых действий, отображаемыми над полем ввода чата.\n\nПримеры:\n1. Кнопка: 'Переведи', Промпт: 'Переведи этот текст на английский'.\n2. Кнопка: 'Сократи', Промпт: 'Сделай краткую выжимку из этого текста'.",
+                    text = "•",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Text(
+                    text = example,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
             }
-            androidx.compose.material3.TextButton(
-                onClick = { showAddDialog = true },
-                modifier = Modifier.padding(end = 8.dp),
-            ) {
-                Text("Добавить")
-            }
+        }
+        androidx.compose.material3.TextButton(
+            onClick = { showAddDialog = true },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            Text("Добавить", style = MaterialTheme.typography.titleMedium)
         }
 
         if (quickActions.isNotEmpty()) {
