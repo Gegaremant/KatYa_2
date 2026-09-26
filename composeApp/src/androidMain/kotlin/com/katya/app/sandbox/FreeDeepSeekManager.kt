@@ -22,6 +22,16 @@ sealed class DeepSeekProxyState {
     data class Error(val message: String) : DeepSeekProxyState()
 }
 
+/**
+ * FreeDeepseekAPI's own default port.
+ *
+ * This used to be 11434 — which is ollama's port and also the SSH tunnel's default
+ * local port, so the proxy either failed to bind or, worse, answered for ollama while
+ * the app kept probing 11434 for a model list ("why is it still calling ollama when
+ * everything is off"). Nothing else in the app claims 9655.
+ */
+private const val FREE_DEEPSEEK_PORT = 9655
+
 class FreeDeepSeekManager(
     private val dataRepository: DataRepository,
     private val linuxSandboxManager: LinuxSandboxManager,
@@ -192,7 +202,7 @@ class FreeDeepSeekManager(
                     // PORT/HOST env vars pick the listening address. Requires deepseek-auth.json,
                     // which we pre-write above when a token is set; otherwise the server exits
                     // fatally instead of hanging on the interactive menu in the background.
-                    command = "cd $repoPath && ${proxyEnv}NON_INTERACTIVE=1 PORT=11434 HOST=127.0.0.1 npm start",
+                    command = "cd $repoPath && ${proxyEnv}NON_INTERACTIVE=1 PORT=$FREE_DEEPSEEK_PORT HOST=127.0.0.1 npm start",
                     onStdout = {
                         AppLogger.d("DeepSeekOut", it)
                         if (it.contains("running on") || it.contains("listening") || it.contains("started")) {
@@ -207,6 +217,25 @@ class FreeDeepSeekManager(
                 Log.e("FreeDeepSeekManager", "Error running DeepSeek proxy", e)
                 _state.value = DeepSeekProxyState.Error(e.message ?: "Unknown error")
             }
+        }
+    }
+
+    /**
+     * Feedback #5: a configured instance was removed from the UI.
+     *
+     * The proxy used to be left running on the deleted instance's auth file while
+     * [activeInstanceId] still pointed at it, so deleting a proxy and adding a new one
+     * looked broken — the old coroutine never went away and the new row did nothing.
+     * Stop the tunnel, forget the id, and if other instances remain, serve one of those.
+     */
+    fun onInstanceRemoved(instanceId: String) {
+        if (_activeInstanceId.value != instanceId) return
+        stop()
+        _activeInstanceId.value = null
+        val remaining = dataRepository.getConfiguredServiceInstances()
+            .filter { it.serviceId == "freedeepseekproxy" }
+        if (remaining.isNotEmpty()) {
+            start(force = true, instanceId = remaining.first().instanceId)
         }
     }
 

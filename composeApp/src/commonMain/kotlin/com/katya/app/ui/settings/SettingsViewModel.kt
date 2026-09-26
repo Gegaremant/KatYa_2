@@ -1758,6 +1758,13 @@ class SettingsViewModel(
 
             is PendingDeletion.Service -> {
                 val service = _state.value.configuredServices.find { it.instanceId == deletion.instanceId }?.service
+                // Feedback #5: removing a Free DeepSeek Proxy left its proot process running
+                // with the deleted instance's auth file, and the manager still pointed at that
+                // now-gone instance — so adding a fresh proxy appeared to do nothing, because
+                // the old coroutine never went away. Stop the tunnel before dropping the row.
+                if (service == Service.FreeDeepSeekProxy) {
+                    com.katya.app.createDaemonController().onFreeDeepSeekInstanceRemoved(deletion.instanceId)
+                }
                 dataRepository.removeConfiguredService(deletion.instanceId)
                 // If removing the last on-device service, delete all downloaded models
                 if (service?.isOnDevice == true) {

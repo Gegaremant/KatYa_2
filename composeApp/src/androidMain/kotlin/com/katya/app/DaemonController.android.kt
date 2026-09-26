@@ -43,4 +43,8 @@ class AndroidDaemonController : DaemonController {
         appSettings.setVlessConnected(false)
         vlessProxyManager.start(force = true)
     }
+
+    override fun onFreeDeepSeekInstanceRemoved(instanceId: String) {
+        freeDeepSeekManager.onInstanceRemoved(instanceId)
+    }
 }

@@ -267,4 +267,13 @@ data class SettingsModel(
     val parameterCount: String? = null,
     /** LMArena Elo score, or null when unknown. */
     val arenaScore: Int? = null,
+    /**
+     * Feedback #13: whether this model can actually be driven with tools.
+     *
+     * `null` means "not advertised" — the common case, so it must never be read as
+     * "no tools". `false` is a definite no: the provider told us, and sending a tools
+     * payload to such a model produces a reply that looks like a tool call but never
+     * executes anything.
+     */
+    val supportsTools: Boolean? = null,
 )

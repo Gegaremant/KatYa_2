@@ -22,6 +22,16 @@ interface DaemonController {
      * Default no-op: only Android runs the tunnel.
      */
     fun reconcileVlessAfterImport() {}
+
+    /**
+     * A configured Free DeepSeek Proxy instance was deleted.
+     *
+     * Feedback #5: the proot process kept running on the deleted instance's auth file
+     * and the manager still pointed at that instance, so creating a new proxy afterwards
+     * looked broken — the old coroutine was never stopped. Default no-op: only Android
+     * runs the sandboxed proxy.
+     */
+    fun onFreeDeepSeekInstanceRemoved(instanceId: String) {}
 }
 
 expect fun createDaemonController(): DaemonController

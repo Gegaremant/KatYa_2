@@ -117,8 +117,8 @@ sealed class Service(
         requiresApiKey = false, // Auth is handled via DeepSeek auth dialog, not API key field
         defaultModel = "deepseek-chat",
         settingsKeyPrefix = "freedeepseekproxy",
-        chatUrl = "http://127.0.0.1:11434/v1/chat/completions",
-        modelsUrl = "http://127.0.0.1:11434/v1/models",
+        chatUrl = "http://127.0.0.1:9655/v1/chat/completions",
+        modelsUrl = "http://127.0.0.1:9655/v1/models",
         defaultModels = listOf(
             ModelDefinition("deepseek-chat", "DeepSeek Chat (V3)"),
             ModelDefinition("deepseek-v3", "DeepSeek V3 Alias"),

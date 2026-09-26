@@ -268,6 +268,7 @@ class RemoteDataRepository(
             appSettings.getInstanceModelId(instanceId).ifEmpty { appSettings.getSelectedModelId(service) }
         },
         baseUrl = getInstanceBaseUrl(instanceId, service),
+        instanceId = instanceId,
     )
 
     override val chatHistory: MutableStateFlow<List<History>> = MutableStateFlow(emptyList())
@@ -476,7 +477,28 @@ class RemoteDataRepository(
         val response = requests.getOpenAICompatibleModels(service, creds).getOrThrow()
         val selectedModelId = appSettings.getInstanceModelId(instanceId)
         val models = mapOpenAICompatibleModels(response.data, service, selectedModelId)
-        updateModelsForInstance(instanceId, models)
+        // Feedback #13: a provider that advertises per-model tool support is asked about it,
+        // so a model that cannot be driven with tools is labelled instead of silently
+        // returning a reply that looks like a tool call and does nothing.
+        val toolSupport = if (service == Service.FreeDeepSeekProxy) {
+            requests.getModelToolCapabilities(service, creds).getOrDefault(emptyMap())
+        } else {
+            emptyMap()
+        }
+        val annotated = models.map { model ->
+            val supported = toolSupport[model.id]
+            if (supported == null || supported) {
+                model
+            } else {
+                model.copy(
+                    supportsTools = false,
+                    subtitle = listOf(model.subtitle, "инструменты не поддерживаются")
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · "),
+                )
+            }
+        }
+        updateModelsForInstance(instanceId, annotated, service)
     }
 
     private fun updateModelsForInstance(instanceId: String, models: List<SettingsModel>, service: Service? = null) {

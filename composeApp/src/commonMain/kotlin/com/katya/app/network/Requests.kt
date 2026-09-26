@@ -47,8 +47,10 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -59,6 +61,10 @@ data class ServiceCredentials(
     val apiKey: String = "",
     val modelId: String = "",
     val baseUrl: String = "",
+    // Feedback #5: FreeDeepseekAPI keys a DeepSeek session per agent. Without this the
+    // proxy lumped every configured proxy instance into one shared session, so two
+    // instances talked over each other and deleting one left the other's session running.
+    val instanceId: String = "",
 )
 
 class Requests {
@@ -213,6 +219,13 @@ class Requests {
                     contentType(ContentType.Application.Json)
                     apiKey?.let { bearerAuth(it) }
                     customHeaders.forEach { (k, v) -> header(k, v) }
+                    // Feedback #5: one DeepSeek session per configured proxy instance, so
+                    // several proxies no longer share (and clobber) a single upstream chat.
+                    if (service == com.katya.app.data.Service.FreeDeepSeekProxy &&
+                        credentials.instanceId.isNotBlank()
+                    ) {
+                        header("x-agent-session", credentials.instanceId)
+                    }
                     setBody(
                         OpenAICompatibleChatRequestDto(
                             messages = messages,
@@ -234,6 +247,81 @@ class Requests {
         } catch (e: Exception) {
             Result.failure(mapOpenAICompatibleException(e))
         }
+    }
+
+    /**
+     * Feedback #13: ask a provider which of its models can be driven with tools.
+     *
+     * Only FreeDeepseekAPI advertises this (`GET /v1/model-capabilities`), and its exact
+     * shape is not pinned down, so the parse is deliberately loose: walk whatever object
+     * we get, and for each entry look for a boolean field whose name mentions "tool". A
+     * miss stays absent rather than false, because "we don't know" must never disable
+     * tools for a model that would have worked.
+     */
+    suspend fun getModelToolCapabilities(
+        service: Service,
+        credentials: ServiceCredentials,
+    ): Result<Map<String, Boolean>> = withRetry {
+        try {
+            val modelsUrl = service.modelsUrl ?: return@withRetry Result.success(emptyMap())
+            val base = resolveUrl(service, credentials, modelsUrl)
+            // modelsUrl is .../v1/models; the capability map hangs off the same prefix.
+            val url = base.substringBeforeLast("/models") + "/model-capabilities"
+            val apiKey = getOptionalApiKey(service, credentials)
+            val response: HttpResponse = defaultClient.get(url) {
+                apiKey?.let { bearerAuth(it) }
+            }
+            if (!response.status.isSuccess()) return@withRetry Result.success(emptyMap())
+            val body = response.bodyAsText()
+            val root = runCatching { Json.parseToJsonElement(body) }.getOrNull()
+                ?: return@withRetry Result.success(emptyMap())
+            Result.success(parseToolCapabilities(root))
+        } catch (e: Exception) {
+            Result.success(emptyMap())
+        }
+    }
+
+    private fun parseToolCapabilities(root: kotlinx.serialization.json.JsonElement): Map<String, Boolean> {
+        val result = mutableMapOf<String, Boolean>()
+        val modelsNode = when {
+            root is JsonObject && root["models"] is JsonObject -> root["models"] as JsonObject
+            root is JsonObject && root["models"] is JsonArray -> {
+                for (entry in (root["models"] as JsonArray)) {
+                    val obj = entry as? JsonObject ?: continue
+                    val id = (obj["id"] ?: obj["alias"] ?: obj["model"])?.jsonPrimitive?.contentOrNull
+                    val toolFlag = obj.toolFlag() ?: continue
+                    if (id != null) result[id] = toolFlag
+                }
+                return result
+            }
+            root is JsonObject -> root
+            else -> return result
+        }
+        for ((key, value) in modelsJsonObject(modelsNode).entries) {
+            val obj = value as? JsonObject ?: continue
+            val flag = obj.toolFlag() ?: continue
+            result[key] = flag
+        }
+        return result
+    }
+
+    private fun modelsJsonObject(node: JsonObject): Map<String, JsonElement> = node
+
+    private fun JsonObject.toolFlag(): Boolean? {
+        for ((name, value) in this) {
+            if (!name.contains("tool", ignoreCase = true)) continue
+            val primitive = value as? kotlinx.serialization.json.JsonPrimitive ?: continue
+            val bool = primitive.booleanOrNull
+            if (bool != null) return bool
+        }
+        // Some shapes nest the flags one level down, e.g. {"capabilities":{"tools":true}}.
+        for ((name, value) in this) {
+            if (name.contains("capab", ignoreCase = true) || name.contains("feature", ignoreCase = true)) {
+                val nested = value as? JsonObject ?: continue
+                nested.toolFlag()?.let { return it }
+            }
+        }
+        return null
     }
 
     suspend fun getOpenAICompatibleModels(
