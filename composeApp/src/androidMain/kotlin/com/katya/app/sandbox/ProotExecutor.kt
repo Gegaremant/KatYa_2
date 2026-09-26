@@ -2,6 +2,7 @@ package com.katya.app.sandbox
 
 import com.katya.app.data.Distro
 import com.katya.app.smartTruncate
+import com.katya.app.tools.AppLogger
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -160,11 +161,38 @@ class ProotExecutor(
         return ProotHandle(process, cancelled, listOf(stdoutFuture, stderrFuture))
     }
 
+    /**
+     * How to actually invoke proot.
+     *
+     * `libproot.so` is a shared object, and exec'ing one directly works only when the
+     * platform is happy to load it as a program — which is not what the standalone
+     * proot-distro does, and where the built-in sandbox visibly diverged from it. The
+     * vendored loader is the supported path: it loads the binary and, in the 32-bit
+     * variant, keeps 32-bit syscall interception working inside the rootfs.
+     *
+     * The loader ships in the same native archive. If it is somehow absent we still fall
+     * back to the direct exec rather than losing the sandbox outright.
+     */
+    private fun prootLauncher(): Array<String> {
+        val dir = File(prootPath).parent.orEmpty()
+        val loader = File(dir, "libproot-loader.so")
+        return if (loader.isFile && loader.canExecute()) {
+            arrayOf(loader.absolutePath, prootPath)
+        } else {
+            AppLogger.w(
+                "ProotExecutor",
+                "libproot-loader.so не найден или не исполняемый — запускаю proot напрямую",
+            )
+            arrayOf(prootPath)
+        }
+    }
+
     private fun buildProcessArgs(command: String, workingDir: String): Array<String> {
-        val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
+        val launcher = prootLauncher()
+        val prefix = launcher
         return when (distro) {
             Distro.TERMUX -> arrayOf(
-                prootPath,
+                *prefix,
                 "--bind=$rootfsPath:/data/data/com.termux/files/usr",
                 "--bind=$homePath:/data/data/com.termux/files/home",
                 "--bind=$tmpPath:/data/data/com.termux/files/usr/tmp",
@@ -191,7 +219,7 @@ class ProotExecutor(
                 )
                 val shell = candidates.firstOrNull { File(rootfsPath, it).exists() } ?: "bin/sh"
                 arrayOf(
-                    prootPath,
+                    *prefix,
                     "--bind=$rootfsPath:/",
                     "--bind=$homePath:/root",
                     "--bind=$tmpPath:/tmp",
@@ -221,6 +249,10 @@ class ProotExecutor(
         }
 
         val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
+        // The 32-bit loader is what keeps 32-bit binaries inside the rootfs working on a
+        // 64-bit process. Ship it in the same archive, and point the env at it when present.
+        val loader32 = File(prootPath).parent.orEmpty() + "/libproot-loader32.so"
+        val loader32Env = if (File(loader32).isFile) "PROOT_LOADER32=$loader32" else null
         val baseEnv = when (distro) {
             Distro.TERMUX -> arrayOf(
                 "PREFIX=/data/data/com.termux/files/usr",
@@ -247,7 +279,8 @@ class ProotExecutor(
                 "PROOT_LOADER=$loaderPath",
             )
         }
-        return baseEnv + extraEnv.map { (k, v) -> "$k=$v" }.toTypedArray()
+        val withLoader32 = loader32Env?.let { baseEnv + it } ?: baseEnv
+        return withLoader32 + extraEnv.map { (k, v) -> "$k=$v" }.toTypedArray()
     }
 
     private fun readBounded(reader: BufferedReader): String {
