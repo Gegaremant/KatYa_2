@@ -115,7 +115,18 @@ class LinuxSandboxManager(
             }
         }
         if (File(prootPath).exists()) {
-            componentsRepository.markInstalled("native_${com.katya.app.components.currentAbi()}")
+            // exists() is not enough: a native install that was interrupted (ETXTBSY while
+            // xray was running) left proot.so on disk without the exec bit, and the app
+            // happily reported the component as installed. The sandbox then failed at the
+            // first exec with a bare "Permission denied" and the user had no idea why.
+            if (File(prootPath).canExecute()) {
+                componentsRepository.markInstalled("native_${com.katya.app.components.currentAbi()}")
+            } else {
+                AppLogger.action(
+                    "Песочница",
+                    "proot.so лежит на диске, но не исполняемый — компонент нужно переустановить",
+                )
+            }
         }
         if (_state.value !is SandboxState.Ready) {
             AppLogger.d("LinuxSandbox", "Rootfs/native установлены, но песочница не собрана (нужен запуск setup)")
@@ -138,6 +149,10 @@ class LinuxSandboxManager(
         if (rootfs.isDirectory && proot.exists() && proot.canExecute()) {
             AppLogger.action("Песочница", "компоненты на месте — запускаю сборку")
             setup()
+        } else if (rootfs.isDirectory && proot.exists()) {
+            // Previously this fell through in silence, so the only symptom the user ever
+            // saw was the sandbox refusing to work with no hint that a reinstall fixes it.
+            AppLogger.action("Песочница", "proot.so не исполняемый — переустановите нативный компонент")
         }
     }
 

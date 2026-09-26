@@ -71,7 +71,7 @@ class VlessProxyManager(
             appSettings.setVlessStatusReason("Не задан VLESS-адрес")
             return
         }
-        AppLogger.d("VlessProxyManager", "VLESS URI (truncated): ${uri.take(100)}")
+        AppLogger.d("VlessProxyManager", "VLESS URI: ${AppLogger.secretFingerprint(uri)}")
         recoveryCount = 0
         appSettings.setVlessStatusReason("Подключаюсь…")
 
@@ -154,7 +154,7 @@ class VlessProxyManager(
         var finalUri = uri
         if (!uri.startsWith("vless://") && !uri.startsWith("http://") && !uri.startsWith("https://")) {
             finalUri = "http://$uri"
-            AppLogger.d("VlessProxyManager", "Prepended http:// to URI: $finalUri")
+            AppLogger.d("VlessProxyManager", "Subscription URL had no scheme — prepending http://")
         }
 
         if (finalUri.startsWith("http://") || finalUri.startsWith("https://")) {
@@ -164,7 +164,7 @@ class VlessProxyManager(
                     // (http -> https) 307 redirects, which our subscription endpoints emit.
                     // Walk the redirect chain manually instead.
                     val response = fetchWithRedirects(finalUri)
-                    AppLogger.d("VlessProxyManager", "Fetched subscription response (length ${response.length}): ${response.take(100).replace('\n', ' ')}")
+                    AppLogger.d("VlessProxyManager", "Fetched subscription response: ${AppLogger.secretFingerprint(response)}")
 
                     // 1) Plain-text vless:// lines — the common subscription format.
                     val lines = response.lines().map { it.trim().removePrefix("\uFEFF") }
@@ -186,7 +186,7 @@ class VlessProxyManager(
                             "Could not find vless:// link in subscription response (lines=${lines.size}, sample=${response.take(120).replace('\n', ' ')})",
                         )
                     } else {
-                        AppLogger.d("VlessProxyManager", "Subscription parsed OK: ${foundVless.take(80)}... ($linkCount vless links)")
+                        AppLogger.d("VlessProxyManager", "Subscription parsed OK: $linkCount vless links, first=${AppLogger.secretFingerprint(foundVless)}")
                     }
                     foundVless ?: uri
                 } catch (e: Exception) {
@@ -195,7 +195,7 @@ class VlessProxyManager(
                 }
             }
         }
-        AppLogger.d("VlessProxyManager", "Final URI after processing: ${finalUri.take(100)}")
+        AppLogger.d("VlessProxyManager", "Final URI after processing: ${AppLogger.secretFingerprint(finalUri)}")
         return finalUri
     }
 
@@ -372,7 +372,7 @@ class VlessProxyManager(
                     } else {
                         java.net.URI(currentUrl).resolve(location).toString()
                     }
-                    AppLogger.d("VlessProxyManager", "Subscription redirect $code -> $currentUrl")
+                    AppLogger.d("VlessProxyManager", "Subscription redirect $code -> ${AppLogger.secretFingerprint(currentUrl)}")
                     return@repeat
                 }
                 if (code !in 200..299) {

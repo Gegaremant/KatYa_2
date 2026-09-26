@@ -191,11 +191,42 @@ class ComponentDownloaderService : Service() {
             ComponentType.NATIVE -> {
                 val abi = component.abi ?: currentAbi()
                 val dest = File(filesDir, "katya-native/$abi")
-                dest.mkdirs()
+                val staging = File(filesDir, "katya-native/$abi.staging")
                 AppLogger.action("Установка нативных библиотек «${component.name}»", "начата")
-                extractZipFlat(archive, dest)
+                // Unpack to a staging dir, mark it executable there, and only then swap the
+                // files in. Writing straight over the live directory failed with ETXTBSY
+                // whenever xray was still running from libxray.so, and because that threw
+                // before setExecutableRecursive() the natives were left on disk *without* the
+                // exec bit. proot.so then could not be exec'd at all (EACCES) and the whole
+                // sandbox — tools included — was dead while the UI still showed it installed.
+                staging.deleteRecursively()
+                staging.mkdirs()
+                extractZipFlat(archive, staging)
+                setExecutableRecursive(staging)
+                dest.mkdirs()
+                var replaced = 0
+                staging.listFiles()?.forEach { src ->
+                    val target = File(dest, src.name)
+                    // rename(2) does not need the destination open for writing, so this
+                    // succeeds even while the old binary is still mapped by a live process.
+                    if (src.renameTo(target)) {
+                        replaced++
+                    } else {
+                        AppLogger.e("ComponentDownloader", "Не удалось заменить ${src.name} в $dest")
+                    }
+                }
+                staging.deleteRecursively()
+                // Belt and braces: the swap preserves modes, but a partially replaced
+                // directory must never be left in a state the sandbox cannot start from.
                 setExecutableRecursive(dest)
-                AppLogger.action("Установка нативных библиотек «${component.name}»", "OK")
+                AppLogger.action(
+                    "Установка нативных библиотек «${component.name}»",
+                    if (replaced == 0) "ОШИБКА: ни один файл не установлен" else "OK ($replaced файлов)",
+                )
+                val proot = File(dest, "libproot.so")
+                if (!proot.exists() || !proot.canExecute()) {
+                    throw IOException("libproot.so не исполняемый после установки — песочница не запустится")
+                }
             }
 
             ComponentType.MODEL -> {

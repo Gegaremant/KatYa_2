@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
+import com.katya.app.tools.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -213,7 +214,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                 if (hit) {
                                     android.util.Log.d(
                                         "DeepSeekAuth",
-                                        "Captured hif from ${request.url?.host} (dliq=${secretFingerprint(hifDliq)} leim=${secretFingerprint(hifLeim)})",
+                                        "Captured hif from ${request.url?.host} (dliq=${AppLogger.secretFingerprint(hifDliq)} leim=${AppLogger.secretFingerprint(hifLeim)})",
                                     )
                                 }
                             }
@@ -305,7 +306,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                 staleTokenSnapshot = snap
                                 android.util.Log.d(
                                     "DeepSeekAuth",
-                                    "Stale localStorage token snapshot: ${secretFingerprint(snap)} (will reject it, need a FRESH login)",
+                                    "Stale localStorage token snapshot: ${AppLogger.secretFingerprint(snap)} (will reject it, need a FRESH login)",
                                 )
                             }
                         }
@@ -341,7 +342,7 @@ actual fun PlatformDeepSeekAuthDialog(
                     android.util.Log.d("DeepSeekAuth", "Cookies present (attempt $attempt)")
                     val token = cookieTokenMatch.groupValues[1]
                     if (extractedToken == null && token.length > 10) {
-                        android.util.Log.d("DeepSeekAuth", "Cookie token found: ${secretFingerprint(token)}")
+                        android.util.Log.d("DeepSeekAuth", "Cookie token found: ${AppLogger.secretFingerprint(token)}")
                         extractedToken = token
                         hifDeadline = System.currentTimeMillis() + hifGraceMs
                         report("✅ Токен получен! Жду антибот-хедеры...")
@@ -424,7 +425,7 @@ actual fun PlatformDeepSeekAuthDialog(
                                                 // recognises.
                                                 android.util.Log.d(
                                                     "DeepSeekAuth",
-                                                    "REJECTING stale localStorage token (matches start snapshot): ${secretFingerprint(token)} keep waiting for fresh login",
+                                                    "REJECTING stale localStorage token (matches start snapshot): ${AppLogger.secretFingerprint(token)} keep waiting for fresh login",
                                                 )
                                                 report("Токен из localStorage устарел. Сбрасываю его и жду свежий вход...")
                                                 // Rejecting alone is not enough: the token is still
@@ -480,7 +481,7 @@ actual fun PlatformDeepSeekAuthDialog(
                 ) {
                     android.util.Log.d(
                         "DeepSeekAuth",
-                        "Extracting session: hif_dliq=${secretFingerprint(hifDliq)} hif_leim=${secretFingerprint(hifLeim)}",
+                        "Extracting session: hif_dliq=${AppLogger.secretFingerprint(hifDliq)} hif_leim=${AppLogger.secretFingerprint(hifLeim)}",
                     )
                     val fullCookie = cookies?.takeIf { it.isNotBlank() } ?: "user_session=$token"
                     val session = DeepSeekAuthSession(
@@ -531,24 +532,6 @@ actual fun PlatformDeepSeekAuthDialog(
  * poll tick plus right after the page settles. `unicode-bidi: plaintext` keeps
  * direction neutral for empty fields while forcing the *layout* left-to-right.
  */
-
-/**
- * A loggable stand-in for a secret.
- *
- * The auth flow used to print `token.take(20)` and the anti-bot headers verbatim,
- * which puts a usable prefix of a live DeepSeek session into logcat — readable by
- * anything with READ_LOGS and by whoever collects a bug report. Debugging only
- * needs to tell two values apart, so log length plus a short digest: same value
- * gives the same fingerprint, the secret itself never appears.
- */
-private fun secretFingerprint(value: String): String {
-    if (value.isEmpty()) return "<empty>"
-    val digest = java.security.MessageDigest.getInstance("SHA-256")
-        .digest(value.toByteArray())
-        .take(4)
-        .joinToString("") { "%02x".format(it) }
-    return "len=${value.length},sha=$digest"
-}
 
 private fun enforceLtr(view: android.webkit.WebView?) {
     installHifHook(view)

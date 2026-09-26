@@ -490,28 +490,52 @@ class Requests {
 
             val e = result.exceptionOrNull()
             val name = e?.let { it::class.simpleName.orEmpty() } ?: ""
+            val detail = describe(e)
             // A ProviderError means the upstream answered with a 500/502 carrying a real
             // message (e.g. kai9000's "All free providers failed"). For keyless/free
             // endpoints that's a permanent condition — retrying just makes the UI look
             // frozen for another ~30s, so let it fail fast and move down the fallback chain.
             val providerError = name.contains("ProviderError", ignoreCase = true)
-            val isNetworkOrServerError = name.contains("Connection", ignoreCase = true) ||
-                name.contains("Timeout", ignoreCase = true) ||
-                (providerError && !avoidProviderRetries) ||
-                name.contains("ServiceUnavailable", ignoreCase = true) ||
-                name.contains("Overloaded", ignoreCase = true) ||
-                name.contains("IOException", ignoreCase = true) ||
-                name.contains("SocketException", ignoreCase = true) ||
-                e?.cause != null
+            // ECONNREFUSED means nothing is listening on that address at all. A local
+            // endpoint (ollama on :11434) is the common case, and it was probed 5 times
+            // with 2/4/6/8/10s backoff plus a 10s connect timeout each — roughly 80s of
+            // hammering per check, and it repeated on every visit to the settings screen.
+            // The user has to start the server; retrying cannot help.
+            val connectionRefused = detail.contains("ECONNREFUSED", ignoreCase = true) ||
+                detail.contains("Connection refused", ignoreCase = true)
+            val isNetworkOrServerError = !connectionRefused && (
+                name.contains("Connection", ignoreCase = true) ||
+                    name.contains("Timeout", ignoreCase = true) ||
+                    (providerError && !avoidProviderRetries) ||
+                    name.contains("ServiceUnavailable", ignoreCase = true) ||
+                    name.contains("Overloaded", ignoreCase = true) ||
+                    name.contains("IOException", ignoreCase = true) ||
+                    name.contains("SocketException", ignoreCase = true) ||
+                    e?.cause != null
+                )
 
             if (isNetworkOrServerError && retryCount < maxRetries) {
                 retryCount++
-                com.katya.app.tools.AppLogger.w("Network", "Request failed (${e?.let { it::class.simpleName + ": " + it.message + "\n" + it.stackTraceToString() }}). Retrying ($retryCount/$maxRetries)...")
+                com.katya.app.tools.AppLogger.w("Network", "Request failed ($detail). Retrying ($retryCount/$maxRetries)...")
                 kotlinx.coroutines.delay(2000L * retryCount)
             } else {
                 return result
             }
         }
+    }
+
+    /**
+     * A short, single-line description of a failure for the log.
+     *
+     * This used to interpolate `stackTraceToString()`, which wrote a full stack trace
+     * into the log for every single retry. Against a dead local endpoint that filled the
+     * user's log with pages of `at kotlin.coroutines...` — and those logs are exactly what
+     * gets attached to a bug report, so the noise also destroyed any signal in them.
+     */
+    private fun describe(e: Throwable?): String {
+        if (e == null) return "null"
+        val chain = generateSequence(e) { it.cause }.take(3).toList()
+        return chain.joinToString(" <- ") { "${it::class.simpleName}: ${it.message}" }.take(300)
     }
 
     private fun resolveUrl(service: Service, credentials: ServiceCredentials, path: String): String = if (service == Service.OpenAICompatible) {

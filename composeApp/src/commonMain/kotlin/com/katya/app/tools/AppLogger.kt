@@ -81,6 +81,33 @@ object AppLogger {
         _rootLogs.value = emptyList()
     }
 
+    /**
+     * A loggable stand-in for a secret.
+     *
+     * Values like a VLESS URI, a DeepSeek session token or an MCP `Authorization`
+     * header are credentials in their entirety — the UUID in a `vless://` link *is* the
+     * proxy identity, and printing any prefix of it hands a working proxy to whoever
+     * reads the log. Debugging only needs to tell two values apart, so log the length
+     * plus a short digest: the same value always yields the same fingerprint.
+     */
+    fun secretFingerprint(value: String?): String {
+        if (value.isNullOrEmpty()) return "<empty>"
+        val digest = sha256Hex(value).take(8)
+        return "len=${value.length},sha=$digest"
+    }
+
+    private fun sha256Hex(value: String): String {
+        val bytes = value.encodeToByteArray()
+        // FNV-1a: no crypto dependency needed, and this only has to distinguish values
+        // in a log line, not resist an attacker.
+        var hash = -0x340d631b7bdddcdbL
+        for (b in bytes) {
+            hash = hash xor (b.toLong() and 0xff)
+            hash *= 0x100000001b3L
+        }
+        return java.lang.Long.toHexString(hash xor (hash ushr 32))
+    }
+
     private fun addLog(entry: String, sink: MutableStateFlow<List<String>>, filePath: String?) {
         val truncatedEntry = if (entry.length > 2000) entry.take(2000) + "... [TRUNCATED]" else entry
         sink.update { current ->
