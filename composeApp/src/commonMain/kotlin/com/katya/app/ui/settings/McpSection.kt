@@ -88,37 +88,36 @@ internal fun McpServersSection(
     onConnectAll: () -> Unit,
     bulk: BulkProgress,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(Res.string.settings_mcp_servers),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(Res.string.settings_mcp_servers_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    // Feedback #6: same treatment as the skills list — a centred collapsible named
+    // «Серверы MCP», since it shares the tools tab and is not the main event there.
+    var mcpExpanded by remember { mutableStateOf(false) }
+    SpoilerBlock(
+        title = stringResource(Res.string.settings_mcp_servers),
+        expanded = mcpExpanded,
+        onToggle = { mcpExpanded = !mcpExpanded },
+        centerTitle = true,
+        description = stringResource(Res.string.settings_mcp_servers_description),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(4.dp))
 
-        Spacer(Modifier.height(12.dp))
+            for (server in mcpServers) {
+                McpServerCard(
+                    server = server,
+                    onToggle = { enabled -> onToggleMcpServer(server.id, enabled) },
+                    onRemove = { onRemoveMcpServer(server.id) },
+                    onRefresh = { onRefreshMcpServer(server.id) },
+                    onToggleTool = onToggleTool,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
 
-        for (server in mcpServers) {
-            McpServerCard(
-                server = server,
-                onToggle = { enabled -> onToggleMcpServer(server.id, enabled) },
-                onRemove = { onRemoveMcpServer(server.id) },
-                onRefresh = { onRefreshMcpServer(server.id) },
-                onToggleTool = onToggleTool,
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-
-        OutlinedButton(
-            onClick = { onShowAddDialog(true) },
-            modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
-        ) {
-            Text(stringResource(Res.string.settings_mcp_add_server))
+            OutlinedButton(
+                onClick = { onShowAddDialog(true) },
+                modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
+            ) {
+                Text(stringResource(Res.string.settings_mcp_add_server))
+            }
         }
     }
 
