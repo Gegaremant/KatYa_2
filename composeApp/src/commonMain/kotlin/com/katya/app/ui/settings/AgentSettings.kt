@@ -1598,241 +1598,247 @@ private fun AudioEnginesCard(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Text(
-            text = "Слух и речь",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.Bold,
-        )
-
-        Text(
-            text = "Выберите движки для распознавания и синтеза речи. Локальные модели работают полностью без интернета, но требуют загрузки.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
-                .padding(12.dp),
+        // Feedback #1: hearing, speaking and the sandbox each get their own island that
+        // collapses on its own toggle, instead of one tall "Слух и речь" block. The two
+        // halves were already separate surfaces below, so this only wraps them.
+        var hearingExpanded by remember { mutableStateOf(true) }
+        SpoilerBlock(
+            title = "Слух",
+            expanded = hearingExpanded,
+            onToggle = { hearingExpanded = !hearingExpanded },
+            description = "Распознавание речи: микрофон, движок, локальные и облачные модели.",
         ) {
-            ToggleableHeadline(
-                title = "Включить распознавание речи",
-                description = "Агент будет слушать вас и переводить речь в текст (состояние синхронизировано с кнопкой микрофона)",
-                checked = isVoiceRecognitionEnabled,
-                onCheckedChange = onToggleVoiceRecognition,
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+            ) {
+                ToggleableHeadline(
+                    title = "Включить распознавание речи",
+                    description = "Агент будет слушать вас и переводить речь в текст (состояние синхронизировано с кнопкой микрофона)",
+                    checked = isVoiceRecognitionEnabled,
+                    onCheckedChange = onToggleVoiceRecognition,
+                )
 
-            if (isVoiceRecognitionEnabled) {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val headingColor = com.katya.app.ui.adaptiveTextColor()
-                    Text(
-                        text = "Распознавание речи (Слух)",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = headingColor,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    com.katya.app.data.SttEngine.entries.forEach { engine ->
-                        val name = when (engine) {
-                            com.katya.app.data.SttEngine.GKPSR -> "GKPSR (Google Keyboard Parsing Speech Recognizer)"
-                            com.katya.app.data.SttEngine.SYSTEM -> "Android STT"
-                            com.katya.app.data.SttEngine.LOCAL -> "Local (Vosk)"
-                            com.katya.app.data.SttEngine.CLOUD -> "Cloud API"
-                        }
-                        val isCloudStt = engine == com.katya.app.data.SttEngine.CLOUD
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !isCloudStt) { onChangeSttEngine(engine) },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.RadioButton(
-                                selected = sttEngine == engine,
-                                onClick = { onChangeSttEngine(engine) },
-                                enabled = !isCloudStt,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = name, style = MaterialTheme.typography.bodyMedium, color = if (isCloudStt) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface)
-                        }
-
-                        if (engine == com.katya.app.data.SttEngine.CLOUD) {
-                            Text(
-                                text = "(в разработке)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
-                            )
-                        }
-
-                        if (engine == com.katya.app.data.SttEngine.LOCAL) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                if (isVoiceRecognitionEnabled) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        val headingColor = com.katya.app.ui.adaptiveTextColor()
+                        Text(
+                            text = "Распознавание речи (Слух)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = headingColor,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                        )
+                        com.katya.app.data.SttEngine.entries.forEach { engine ->
+                            val name = when (engine) {
+                                com.katya.app.data.SttEngine.GKPSR -> "GKPSR (Google Keyboard Parsing Speech Recognizer)"
+                                com.katya.app.data.SttEngine.SYSTEM -> "Android STT"
+                                com.katya.app.data.SttEngine.LOCAL -> "Local (Vosk)"
+                                com.katya.app.data.SttEngine.CLOUD -> "Cloud API"
+                            }
+                            val isCloudStt = engine == com.katya.app.data.SttEngine.CLOUD
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !isCloudStt) { onChangeSttEngine(engine) },
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                when {
-                                    isVoskReady -> {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.fillMaxWidth(),
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.CheckCircle,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp),
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                androidx.compose.material3.RadioButton(
+                                    selected = sttEngine == engine,
+                                    onClick = { onChangeSttEngine(engine) },
+                                    enabled = !isCloudStt,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = name, style = MaterialTheme.typography.bodyMedium, color = if (isCloudStt) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface)
+                            }
+
+                            if (engine == com.katya.app.data.SttEngine.CLOUD) {
+                                Text(
+                                    text = "(в разработке)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
+                                )
+                            }
+
+                            if (engine == com.katya.app.data.SttEngine.LOCAL) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(start = 48.dp, bottom = 4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    when {
+                                        isVoskReady -> {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "Модель Vosk установлена — распознавание работает офлайн",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
+                                        }
+
+                                        isVoskDownloading -> {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            ) {
+                                                LinearProgressIndicator(
+                                                    progress = { voskDownloadProgress ?: 0f },
+                                                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                                )
+                                                Text(
+                                                    text = if (voskDownloadProgress != null) {
+                                                        "${(voskDownloadProgress * 100).toInt()}%"
+                                                    } else {
+                                                        "0%"
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
                                             Text(
-                                                text = "Модель Vosk установлена — распознавание работает офлайн",
+                                                text = "Скачивается модель распознавания...",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                             )
                                         }
-                                    }
 
-                                    isVoskDownloading -> {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.fillMaxWidth(),
-                                        ) {
-                                            LinearProgressIndicator(
-                                                progress = { voskDownloadProgress ?: 0f },
-                                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                                        else -> {
+                                            Text(
+                                                text = "Для локального распознавания нужна модель Vosk. Она скачается прямо в приложение и будет работать без интернета:",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                             )
                                             Text(
-                                                text = if (voskDownloadProgress != null) {
-                                                    "${(voskDownloadProgress * 100).toInt()}%"
-                                                } else {
-                                                    "0%"
-                                                },
+                                                text = "Скачать модель Vosk",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurface,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier
+                                                    .handCursor()
+                                                    .clickable { onDownloadVosk() }
+                                                    .padding(vertical = 4.dp),
                                             )
                                         }
-                                        Text(
-                                            text = "Скачивается модель распознавания...",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                        )
-                                    }
-
-                                    else -> {
-                                        Text(
-                                            text = "Для локального распознавания нужна модель Vosk. Она скачается прямо в приложение и будет работать без интернета:",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                        )
-                                        Text(
-                                            text = "Скачать модель Vosk",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier
-                                                .handCursor()
-                                                .clickable { onDownloadVosk() }
-                                                .padding(vertical = 4.dp),
-                                        )
                                     }
                                 }
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    val delayTextColor = com.katya.app.ui.adaptiveTextColor()
-                    Text("Пауза для отправки при диктовке: $sendDelayMs мс", style = MaterialTheme.typography.labelMedium, color = delayTextColor)
-                    androidx.compose.material3.Slider(
-                        value = sendDelayMs.toFloat(),
-                        onValueChange = { onChangeSendDelayMs(it.toLong()) },
-                        valueRange = 0f..5000f,
-                        steps = 50,
-                    )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        val delayTextColor = com.katya.app.ui.adaptiveTextColor()
+                        Text("Пауза для отправки при диктовке: $sendDelayMs мс", style = MaterialTheme.typography.labelMedium, color = delayTextColor)
+                        androidx.compose.material3.Slider(
+                            value = sendDelayMs.toFloat(),
+                            onValueChange = { onChangeSendDelayMs(it.toLong()) },
+                            valueRange = 0f..5000f,
+                            steps = 50,
+                        )
+                    }
                 }
             }
         }
 
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
-                .padding(12.dp),
+        var speechExpanded by remember { mutableStateOf(true) }
+        SpoilerBlock(
+            title = "Речь",
+            expanded = speechExpanded,
+            onToggle = { speechExpanded = !speechExpanded },
+            description = "Синтез речи: движок, скорость, тональность, облачные и локальные голоса.",
         ) {
-            ToggleableHeadline(
-                title = "Включить синтез речи",
-                description = "Агент будет озвучивать свои ответы (состояние синхронизировано с кнопкой динамика)",
-                checked = isVoiceResponseEnabled,
-                onCheckedChange = onToggleVoiceResponse,
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth()
+                    .katyaAdaptiveCardSurface(RoundedCornerShape(8.dp))
+                    .padding(12.dp),
+            ) {
+                ToggleableHeadline(
+                    title = "Включить синтез речи",
+                    description = "Агент будет озвучивать свои ответы (состояние синхронизировано с кнопкой динамика)",
+                    checked = isVoiceResponseEnabled,
+                    onCheckedChange = onToggleVoiceResponse,
+                )
 
-            if (isVoiceResponseEnabled) {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val headingColor = com.katya.app.ui.adaptiveTextColor()
-                    Text(
-                        text = "Синтез речи (Голос)",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = headingColor,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                    )
-                    com.katya.app.data.TtsEngine.entries.forEach { engine ->
-                        val name = when (engine) {
-                            com.katya.app.data.TtsEngine.SYSTEM -> "По умолчанию (Android)"
-                            com.katya.app.data.TtsEngine.LOCAL -> "Локальный"
-                            com.katya.app.data.TtsEngine.CLOUD -> "Cloud API"
-                        }
-                        val isCloudTts = engine == com.katya.app.data.TtsEngine.CLOUD
-                        val isLocalTts = engine == com.katya.app.data.TtsEngine.LOCAL
-                        val isTtsDisabled = isCloudTts || (isLocalTts && !ttsEngineInstalled)
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !isTtsDisabled) { onChangeTtsEngine(engine) },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.RadioButton(
-                                selected = ttsEngine == engine,
-                                onClick = { onChangeTtsEngine(engine) },
-                                enabled = !isTtsDisabled,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = name, style = MaterialTheme.typography.bodyMedium, color = if (isTtsDisabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface)
-                        }
-
-                        if (engine == com.katya.app.data.TtsEngine.LOCAL && !ttsEngineInstalled) {
-                            Text(
-                                text = "Для локального голоса необходимо скачать модель с внешнего ресурса",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier
-                                    .padding(start = 48.dp, bottom = 8.dp)
-                                    .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") },
-                            )
-                        }
-
-                        if (engine == com.katya.app.data.TtsEngine.CLOUD) {
-                            Text(
-                                text = "(в разработке)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
-                            )
-                        }
-                    }
-
-                    // Pitch/rate apply to any engine (system TTS or local).
-                    // Speed comes first (that's what people tweak most); pitch below it.
-                    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                        val textColor = com.katya.app.ui.adaptiveTextColor()
-                        Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
-                        androidx.compose.material3.Slider(
-                            value = sysTtsRate,
-                            onValueChange = onChangeSysTtsRate,
-                            onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                            // Wider range towards "fast": Katya should be able to talk briskly.
-                            valueRange = 0.5f..3f,
+                if (isVoiceResponseEnabled) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        val headingColor = com.katya.app.ui.adaptiveTextColor()
+                        Text(
+                            text = "Синтез речи (Голос)",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = headingColor,
+                            modifier = Modifier.padding(bottom = 8.dp),
                         )
-                        Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
-                        androidx.compose.material3.Slider(
-                            value = sysTtsPitch,
-                            onValueChange = onChangeSysTtsPitch,
-                            onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                            valueRange = 0.5f..2f,
-                        )
+                        com.katya.app.data.TtsEngine.entries.forEach { engine ->
+                            val name = when (engine) {
+                                com.katya.app.data.TtsEngine.SYSTEM -> "По умолчанию (Android)"
+                                com.katya.app.data.TtsEngine.LOCAL -> "Локальный"
+                                com.katya.app.data.TtsEngine.CLOUD -> "Cloud API"
+                            }
+                            val isCloudTts = engine == com.katya.app.data.TtsEngine.CLOUD
+                            val isLocalTts = engine == com.katya.app.data.TtsEngine.LOCAL
+                            val isTtsDisabled = isCloudTts || (isLocalTts && !ttsEngineInstalled)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(enabled = !isTtsDisabled) { onChangeTtsEngine(engine) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                androidx.compose.material3.RadioButton(
+                                    selected = ttsEngine == engine,
+                                    onClick = { onChangeTtsEngine(engine) },
+                                    enabled = !isTtsDisabled,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = name, style = MaterialTheme.typography.bodyMedium, color = if (isTtsDisabled) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f) else MaterialTheme.colorScheme.onSurface)
+                            }
+
+                            if (engine == com.katya.app.data.TtsEngine.LOCAL && !ttsEngineInstalled) {
+                                Text(
+                                    text = "Для локального голоса необходимо скачать модель с внешнего ресурса",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .padding(start = 48.dp, bottom = 8.dp)
+                                        .clickable { onDownloadPiperVoice("https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium/ru_RU-dmitri-medium.onnx.json") },
+                                )
+                            }
+
+                            if (engine == com.katya.app.data.TtsEngine.CLOUD) {
+                                Text(
+                                    text = "(в разработке)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
+                                )
+                            }
+                        }
+
+                        // Pitch/rate apply to any engine (system TTS or local).
+                        // Speed comes first (that's what people tweak most); pitch below it.
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                            val textColor = com.katya.app.ui.adaptiveTextColor()
+                            Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
+                            androidx.compose.material3.Slider(
+                                value = sysTtsRate,
+                                onValueChange = onChangeSysTtsRate,
+                                onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
+                                // Wider range towards "fast": Katya should be able to talk briskly.
+                                valueRange = 0.5f..3f,
+                            )
+                            Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
+                            androidx.compose.material3.Slider(
+                                value = sysTtsPitch,
+                                onValueChange = onChangeSysTtsPitch,
+                                onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
+                                valueRange = 0.5f..2f,
+                            )
+                        }
                     }
                 }
             }
@@ -2321,9 +2327,19 @@ internal fun VoiceAndSandboxSection(
             onDownloadVosk = actions.onDownloadVosk,
         )
 
-        SandboxDistroCard(
-            distro = uiState.distro,
-            onChangeDistro = actions.onChangeDistro,
-        )
+        // Feedback #1: the sandbox is the third island, collapsing on its own toggle like
+        // Слух and Речь do.
+        var sandboxExpanded by remember { mutableStateOf(false) }
+        SpoilerBlock(
+            title = "Песочница",
+            expanded = sandboxExpanded,
+            onToggle = { sandboxExpanded = !sandboxExpanded },
+            description = "Дистрибутив Linux для запуска команд, локальных сервисов и туннелей.",
+        ) {
+            SandboxDistroCard(
+                distro = uiState.distro,
+                onChangeDistro = actions.onChangeDistro,
+            )
+        }
     }
 }
