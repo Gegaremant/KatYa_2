@@ -126,9 +126,9 @@ jobs:
         run: |
           APK_FILE=$(find androidApp/build/outputs/apk -name "*.apk" | head -n 1)
           if [ -n "$APK_FILE" ]; then
-            cp "$APK_FILE" "Katya-${VERSION}-android-debug.apk"
-            echo "Successfully prepared Katya-${VERSION}-android-debug.apk from $APK_FILE"
-            ls -la Katya-${VERSION}-android-debug.apk
+            cp "$APK_FILE" "Katya-${VERSION}.apk"
+            echo "Successfully prepared Katya-${VERSION}.apk from $APK_FILE"
+            ls -la Katya-${VERSION}.apk
           else
             echo "::error::No APK file found in androidApp/build/outputs/apk!"
             exit 1
@@ -154,6 +154,6 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           name: Release ${{ env.TAG_NAME }}
           body_path: changelog.txt
-          files: Katya-${{ env.VERSION }}-android-debug.apk
+          files: Katya-${{ env.VERSION }}.apk
           make_latest: true
           overwrite: true
