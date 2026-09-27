@@ -23,12 +23,12 @@ class SystemTtsSpeechEngine(
 
     override fun speak(text: String) {
         val myGeneration = ++generation
-        AudioDuckingController.duck()
+        AudioFocusController.acquire()
         scope.launch {
             // Callback overload: fires when the utterance actually completes.
             instance.say(text, true) { result ->
                 if (myGeneration == generation && result.isSuccess) {
-                    AudioDuckingController.unduck()
+                    AudioFocusController.release()
                     onSpeechCompleted?.invoke()
                 }
             }
@@ -38,7 +38,7 @@ class SystemTtsSpeechEngine(
     override fun stop() {
         generation++
         instance.stop()
-        AudioDuckingController.unduck()
+        AudioFocusController.release()
         onSpeechCompleted?.invoke()
     }
 }

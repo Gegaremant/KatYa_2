@@ -327,31 +327,9 @@ class AndroidSttController : SttController {
             }
         }
 
-        // Pause music (Exclusive focus)
-        val focusRequest = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            android.media.AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
-                .setAudioAttributes(
-                    android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .build(),
-                )
-                .setOnAudioFocusChangeListener { }
-                .build()
-        } else {
-            null
-        }
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && focusRequest != null) {
-            audioManager.requestAudioFocus(focusRequest)
-        } else {
-            @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                null,
-                AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE,
-            )
-        }
+        // Shared with the TTS engines: exclusive focus, pause the player if media was
+        // playing, and resume it on release — but only if we were the ones who paused it.
+        com.katya.app.tts.AudioFocusController.acquire()
     }
 
     private fun abandonAudioFocus() {
@@ -361,8 +339,7 @@ class AndroidSttController : SttController {
             audioManager.mode = android.media.AudioManager.MODE_NORMAL
         }
 
-        @Suppress("DEPRECATION")
-        audioManager.abandonAudioFocus(null)
+        com.katya.app.tts.AudioFocusController.release()
 
         // Restart WakeWord if it is enabled
         if (dataRepository.isWakeWordEnabled()) {
