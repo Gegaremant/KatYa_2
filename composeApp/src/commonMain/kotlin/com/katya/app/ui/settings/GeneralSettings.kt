@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.katya.app.data.ThemeMode
+import com.katya.app.tools.CommandExecutor
 import com.katya.app.ui.KaiOutlinedTextField
 import com.katya.app.ui.components.KatyaSlider
 import com.katya.app.ui.handCursor
@@ -256,7 +257,9 @@ internal fun GeneralContent(
 @Composable
 private fun PermissionsReRequestSection() {
     val scope = rememberCoroutineScope()
-    val commandExecutor = koinInject<com.katya.app.tools.CommandExecutor>()
+    // CommandExecutor is an expect class with a no-arg constructor, not a Koin bean —
+    // asking Koin for it threw NoBeanDefFoundException and crashed the tab on entry.
+    val commandExecutor = remember { CommandExecutor() }
     val notification = koinInject<com.katya.app.tools.NotificationPermissionController>()
     val localNetwork = koinInject<com.katya.app.tools.LocalNetworkPermissionController>()
     val exactAlarm = koinInject<com.katya.app.tools.ExactAlarmPermissionController>()
