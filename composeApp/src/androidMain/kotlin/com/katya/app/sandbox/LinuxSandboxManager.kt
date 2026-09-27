@@ -101,6 +101,12 @@ class LinuxSandboxManager(
     /** Публичный вызов после установки rootfs/нативных компонентов — обновляет состояние. */
     fun recheckInstallation() {
         checkExistingInstallation()
+        // Field log 27.09: every exec failed with "error=13, Permission denied" on
+        // libproot-loader.so. Those natives were unpacked by the older installer, whose
+        // ETXTBSY bug skipped the chmod — and the component was never re-downloaded, so
+        // simply telling the user to reinstall was not an option they had. Repair the exec
+        // bits in place: it costs nothing and revives an otherwise dead sandbox.
+        repairNativePermissions()
         val rootfs = File(sandboxDir, "rootfs")
         if (rootfs.isDirectory) {
             val d = currentDistro()
@@ -130,6 +136,21 @@ class LinuxSandboxManager(
         }
         if (_state.value !is SandboxState.Ready) {
             AppLogger.d("LinuxSandbox", "Rootfs/native установлены, но песочница не собрана (нужен запуск setup)")
+        }
+    }
+
+    /** Restore the exec bit on the vendored binaries if an earlier install left it unset. */
+    private fun repairNativePermissions() {
+        val dir = File(nativeLibDir)
+        if (!dir.isDirectory) return
+        var repaired = 0
+        dir.listFiles()?.forEach { f ->
+            if (f.isFile && !f.canExecute()) {
+                if (f.setExecutable(true, false)) repaired++
+            }
+        }
+        if (repaired > 0) {
+            AppLogger.action("Песочница", "восстановил права на $repaired нативных файлов")
         }
     }
 
@@ -378,14 +399,20 @@ class LinuxSandboxManager(
         }
     }
 
-    fun createProotExecutor(d: Distro? = null): ProotExecutor = ProotExecutor(
-        prootPath = prootPath,
-        libDir = sandboxDir.absolutePath,
-        rootfsPath = rootfsPath,
-        homePath = homePath,
-        tmpPath = tmpPath,
-        distro = d ?: currentDistro(),
-    )
+    fun createProotExecutor(d: Distro? = null): ProotExecutor {
+        // Every exec funnels through here, and recheckInstallation() only runs after a
+        // component install — so an un-repaired set of natives would otherwise still be
+        // broken on the very first tool call after an app update.
+        repairNativePermissions()
+        return ProotExecutor(
+            prootPath = prootPath,
+            libDir = sandboxDir.absolutePath,
+            rootfsPath = rootfsPath,
+            homePath = homePath,
+            tmpPath = tmpPath,
+            distro = d ?: currentDistro(),
+        )
+    }
 
     // One bash session per logical caller (chat conversation, terminal scratch,
     // package-manager UI, etc.). Lazily created on first access; tracked here so
