@@ -106,7 +106,7 @@ class SkillManager(
             ?: return@mapNotNull null
         SkillManifest(
             id = parsed.id,
-            displayName = SkillFrontmatterParser.displayName(parsed.id),
+            displayName = BUILT_IN_DISPLAY_NAMES[parsed.id] ?: SkillFrontmatterParser.displayName(parsed.id),
             description = parsed.description,
             body = parsed.body,
             isBuiltIn = true,
@@ -114,6 +114,26 @@ class SkillManager(
     }
 
     companion object {
+        /**
+         * Feedback 27.09 #10: the built-in skills showed as "Android App Api",
+         * "Bypass Proxy", "Create Skill" — displayName() title-cases the id and every id
+         * is an English slug, so the list read as half-translated even though the
+         * descriptions were already Russian. These are our own skills, so they get Russian
+         * names; skills installed from a marketplace still fall back to the id.
+         */
+        private val BUILT_IN_DISPLAY_NAMES: Map<String, String> = mapOf(
+            "android-app-api" to "Android API (реверс-инжиниринг)",
+            "android-filesystem" to "Файловая система Android и Root",
+            "bypass-proxy" to "Обход блокировок и прокси",
+            "code-server" to "Code-Server",
+            "create-skill" to "Создание навыка",
+            "github-integration" to "Git и GitHub",
+            "hardware-control" to "Управление железом (Termux)",
+            "joplin-webdav" to "Синхронизация Joplin (WebDAV)",
+            "model-discovery" to "Поиск и смена моделей",
+            "network-storage" to "Сетевые хранилища и туннели",
+        )
+
         /** Absolute sandbox path of the skills folder (`~/skills`, home = `/root`). */
         const val SKILLS_DIR = "/root/skills"
 

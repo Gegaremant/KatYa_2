@@ -1,6 +1,6 @@
 ---
 name: Hardware Control (Termux)
-description: Fallback to Termux API for Bluetooth and Infrared control when native tools are insufficient.
+description: Запасной вариант через Termux API для Bluetooth и инфракрасного управления, когда штатных инструментов не хватает.
 ---
 
 # Управление устройствами через Termux
