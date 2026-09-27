@@ -218,6 +218,15 @@ private fun McpServerCard(
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
+                    // Feedback 27.09 #7: show *why* it failed, not just that it did.
+                    if (server.connectionStatus == McpConnectionStatus.Error && !server.errorMessage.isNullOrBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = server.errorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
 

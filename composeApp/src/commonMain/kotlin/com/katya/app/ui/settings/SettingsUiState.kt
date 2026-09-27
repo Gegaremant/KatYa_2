@@ -190,6 +190,14 @@ data class McpServerUiState(
     val isEnabled: Boolean,
     val connectionStatus: McpConnectionStatus,
     val tools: ImmutableList<ToolInfo>,
+    /**
+     * Feedback 27.09 #7: why the connection actually failed.
+     *
+     * The status was only an enum, so a refused connection, a bad URL and an auth
+     * rejection all read as the same bare "Ошибка" — with nothing in the log either,
+     * leaving no way to tell them apart.
+     */
+    val errorMessage: String? = null,
 )
 
 enum class McpConnectionStatus {

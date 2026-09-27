@@ -93,6 +93,11 @@ class SettingsViewModel(
 ) : ViewModel() {
 
     private var connectionCheckJobs: MutableMap<String, Job> = mutableMapOf()
+
+    // Feedback 27.09 #7: the last failure per MCP server, kept outside the UI state
+    // because buildMcpServerEntries() rebuilds the list from the repository and would
+    // otherwise drop it on the next refresh.
+    private val mcpErrors: MutableMap<String, String> = mutableMapOf()
     private var hasCheckedInitialConnection = false
     private var pendingDeleteJob: Job? = null
     private var piperVoiceUrlText = ""
@@ -1428,6 +1433,7 @@ class SettingsViewModel(
                 McpConnectionStatus.Unknown
             },
             tools = dataRepository.getMcpToolsForServer(config.id).toImmutableList(),
+            errorMessage = mcpErrors[config.id] ?: mcpErrors[config.url] ?: mcpErrors[config.name],
         )
     }
 
@@ -1631,11 +1637,14 @@ class SettingsViewModel(
             servers.forEachIndexed { index, server ->
                 _state.update { it.copy(mcpBulk = it.mcpBulk.copy(done = index, current = server.name)) }
                 updateMcpConnectionStatus(server.id, McpConnectionStatus.Connecting)
-                if (dataRepository.connectMcpServer(server.id).isSuccess) {
+                val result = dataRepository.connectMcpServer(server.id)
+                if (result.isSuccess) {
                     ok++
+                    mcpErrors.remove(server.id)
                     updateMcpConnectionStatus(server.id, McpConnectionStatus.Connected)
                 } else {
                     failed++
+                    recordMcpFailure(server.id, server.name, server.url, result)
                     updateMcpConnectionStatus(server.id, McpConnectionStatus.Error)
                 }
             }
@@ -1690,11 +1699,31 @@ class SettingsViewModel(
         updateMcpConnectionStatus(serverId, McpConnectionStatus.Connecting)
         val result = dataRepository.connectMcpServer(serverId)
         if (result.isSuccess) {
+            mcpErrors.remove(serverId)
             updateMcpConnectionStatus(serverId, McpConnectionStatus.Connected)
             refreshMcpServers()
         } else {
+            val name = dataRepository.getMcpServers().firstOrNull { it.id == serverId }?.name.orEmpty()
+            val url = dataRepository.getMcpServers().firstOrNull { it.id == serverId }?.url.orEmpty()
+            recordMcpFailure(serverId, name, url, result)
             updateMcpConnectionStatus(serverId, McpConnectionStatus.Error)
         }
+    }
+
+    /**
+     * Feedback 27.09 #7: the failure was read as `isSuccess` and then thrown away, so a
+     * refused connection, a malformed URL and an auth rejection were indistinguishable
+     * and nothing reached the log. Keep the reason, show it on the card and log it.
+     */
+    private fun recordMcpFailure(id: String, name: String, url: String, result: Result<*>) {
+        val reason = result.exceptionOrNull()?.let { e ->
+            val cause = generateSequence(e) { it.cause }.last()
+            "${cause::class.simpleName}: ${cause.message ?: e.message ?: "без описания"}"
+        } ?: "неизвестная ошибка"
+        mcpErrors[id] = reason
+        mcpErrors[url] = reason
+        mcpErrors[name] = reason
+        com.katya.app.tools.AppLogger.e("Mcp", "Подключение «$name» ($url) не удалось: $reason")
     }
 
     private fun updateMcpConnectionStatus(serverId: String, status: McpConnectionStatus) {
