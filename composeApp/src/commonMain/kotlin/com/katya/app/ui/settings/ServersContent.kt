@@ -127,7 +127,11 @@ fun ServersContent(
             val statusReason by appSettings.vlessStatusReasonFlow.collectAsState()
             // Feedback (27.09 #1): hoisted above the probe loop so it can gate it.
             val hasAnyProxy = proxies.isNotEmpty() || appSettings.getVlessUri().isNotBlank()
-            val tunnelUp = vlessConnected && localPortOk
+            // Feedback 27.09 #2: this was `vlessConnected && localPortOk`, and the second
+            // term could go stale — the local port probe is a 12s UI-side guess while the
+            // manager re-checks through the tunnel every 2s and owns the flag. Requiring
+            // both meant a card reading "Не доступен" while the tunnel was answering 200.
+            val tunnelUp = vlessConnected
 
             val runProbe: suspend () -> Unit = {
                 isCheckingNow = true
@@ -185,6 +189,10 @@ fun ServersContent(
                         !hasAnyProxy -> "Прокси не заданы"
                         isCheckingNow -> "Проверка доступности…"
                         tunnelUp -> "Подключен"
+                        // The manager records *why* ("Туннель не отвечает (попытка N)");
+                        // it was collected here and never rendered, so the card could only
+                        // ever say "Не доступен" — the conflict the user could not see.
+                        statusReason.isNotBlank() -> "Не доступен: $statusReason"
                         else -> "Не доступен"
                     }
 
@@ -203,6 +211,17 @@ fun ServersContent(
                             style = MaterialTheme.typography.bodySmall,
                             color = statusColor,
                         )
+                        // The probe no longer decides the status, but a disagreement is
+                        // itself information: the tunnel answers while the local port does
+                        // not, which usually means something else holds 10809.
+                        if (tunnelUp && !localPortOk) {
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "локальный порт не отвечает",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         if (vlessChecked && hasAnyProxy) {
                             Spacer(Modifier.width(12.dp))
                             Text(
