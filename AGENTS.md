@@ -4,11 +4,16 @@
 
 ### Basic Setup
 ```bash
-# Android debug (includes all features):
-./gradlew assembleDebug
+# The one shippable task. It is release-*signed* only when the keystore env
+# vars are set — otherwise gradle silently signs with the debug key and the
+# result cannot be installed over an existing release:
+export KEYSTORE_FILE=/path/to/katya-release.jks
+export KEYSTORE_PASSWORD='...'
+export KEY_ALIAS='...'
+./gradlew assembleFossDebug
 
-# Android release (includes all features):
-./gradlew assembleRelease
+# Debug-key build (development only):
+# ./gradlew assembleFossDebug  with the vars unset
 
 # For product-specific builds:
 ./gradlew assemblePlayStoreDebug  # Google Play store version
@@ -50,14 +55,18 @@ The project uses a centralized version catalog (`gradle/libs.versions.toml`) for
    - Non-root: Install PRoot Debian terminal
 
 2. **Build & Deploy**:
-   - Build APK with `./gradlew assembleDebug`
+   - Build APK with `./gradlew assembleFossDebug` (see signing note above)
    - Test on device via USB or Android Studio
    - For Sandbox mode: Ensure device supports Linux containerization
 
 3. **Version Updates**:
    - Edit `gradle/libs.versions.toml`
    - Update `appVersion` (UI) and `android-versionCode` (Play Store)
-   - Run `./gradlew build` to regenerate `AppVersion.kt` in `composeApp/src/commonMain/kotlin/com/katya/app/AppVersion.kt`
+   - `appVersion` / `android-versionCode` live only in `gradle/libs.versions.toml`.
+     `Version.kt` is *generated* at `composeApp/build/generated/.../Version.kt` — do
+     not look for a hand-written `AppVersion.kt`, it does not exist. Rebuild to refresh.
+   - The release workflow greps `appVersion` out of the catalog and derives the tag as
+     `v<appVersion>`, so the catalog is the single source of truth for the release tag.
 
 ## Common Tasks
 

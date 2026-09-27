@@ -47,7 +47,16 @@ KatYa/
 │       └── commonMain/  # Общая бизнес-логика, UI экраны (Settings, Chat), работа с БД, интеграции API и работа с локальными LLM.
 ├── gradle/              # Конфигурация сборки Gradle и версии библиотек (libs.versions.toml).
 ├── RELEASE_NOTES.md     # История релизов и списки изменений (Changelogs).
-└── .github/             # CI/CD: release.yml (сборка APK + публикация релиза по тегу v*), test.yml (проверки).
+└── .github/             # CI/CD: release.yml (сборка APK + публикация релиза), test.yml (проверки).
+
+> **Как выходит релиз.** Версина живёт в одном месте — `appVersion` в
+> `gradle/libs.versions.toml`. `release.yml` берёт её оттуда и подставляет тег
+> `v<appVersion>`, так что руками ничего проставлять не нужно. Сборка запускается
+> при `push` в `master`, при `push` тега `v*` и вручную (workflow_dispatch) — и
+> **публикует** GitHub Release с `make_latest`. Ветки `main` в репозитории нет,
+> релизная — `master`; `dev` для публикации не используется. Перед сборкой workflow
+> сверяет SHA-256 сертификата APK с ключом, которым подписан весь текущий ряд
+> релизов, и останавливает публикацию при несовпадении.
 ```
 
 ## 📱 Как пользоваться (пошаговая инструкция)
@@ -140,7 +149,7 @@ KatYa/
 │       └── commonMain/  # Shared business logic, UI screens (Settings, Chat), DB operations, API integrations, and local LLM logic.
 ├── gradle/              # Gradle build configurations and library versions (libs.versions.toml).
 ├── RELEASE_NOTES.md     # Release history and changelogs.
-└── .github/             # CI: release.yml (build APK + publish release on v* tags), test.yml (checks).
+└── .github/             # CI: release.yml (build APK + publish release), test.yml (checks).
 ```
 
 ## 📱 How to Use (Step-by-Step Guide)
