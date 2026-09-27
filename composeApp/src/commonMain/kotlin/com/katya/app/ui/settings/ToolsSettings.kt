@@ -109,14 +109,6 @@ internal fun ToolsContent(
         Spacer(Modifier.height(24.dp))
 
         // Native tools section
-        Text(
-            text = stringResource(Res.string.settings_tools_description),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(16.dp))
-
         if (tools.isEmpty()) {
             Text(
                 text = stringResource(Res.string.settings_tools_none_available),
@@ -132,9 +124,16 @@ internal fun ToolsContent(
                 title = stringResource(Res.string.settings_tools_title),
                 expanded = toolsExpanded,
                 onToggle = { toolsExpanded = !toolsExpanded },
-                description = "Возможности, которыми Катя может пользоваться сама: файлы, процессы, " +
-                    "SSH, команды. Всё включено, но список спрятан, чтобы не мешал.",
+                description = "Возможности, которыми Катя может пользоваться сама: файлы, процессы, SSH, команды.",
             ) {
+                // Feedback 27.09 #9: this used to sit outside the spoiler, hanging on the
+                // page describing switches the user had not opened yet.
+                Text(
+                    text = stringResource(Res.string.settings_tools_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(12.dp))
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                     val columns = when {
                         maxWidth >= 800.dp -> 3

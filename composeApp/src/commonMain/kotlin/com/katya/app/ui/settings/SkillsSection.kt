@@ -97,7 +97,15 @@ internal fun SkillsSection(
         description = stringResource(Res.string.settings_skills_description),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Spacer(Modifier.height(4.dp))
+            // Feedback 27.09 #8: "кнопочку добавить навык надо не вниз, а в самый верх,
+            // прямо сразу под шапкой" — adding is why you opened the section.
+            OutlinedButton(
+                onClick = { onShowAddDialog(true) },
+                modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
+            ) {
+                Text(stringResource(Res.string.settings_skills_add))
+            }
+            Spacer(Modifier.height(12.dp))
 
             if (skills.isEmpty()) {
                 Text(
@@ -116,13 +124,6 @@ internal fun SkillsSection(
             }
 
             Spacer(Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = { onShowAddDialog(true) },
-                modifier = Modifier.align(Alignment.CenterHorizontally).handCursor(),
-            ) {
-                Text(stringResource(Res.string.settings_skills_add))
-            }
         }
     }
 
