@@ -61,6 +61,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
@@ -613,6 +614,14 @@ private fun ConfiguredServiceCardContent(
             }
         }
 
+        // Feedback (27.09 #5): collapsing the card used to wipe a half-typed DeepSeek
+        // login and password. The expanded body is inside `if (isExpanded)`, so it leaves
+        // the composition entirely on collapse and every `remember` inside it was thrown
+        // away. Hoisted above the branch — still per card, but it survives collapsing.
+        var dsEmail by rememberSaveable { mutableStateOf("") }
+        var dsPassword by rememberSaveable { mutableStateOf("") }
+        var dsPasswordVisible by rememberSaveable { mutableStateOf(false) }
+
         // Expanded content
         if (isExpanded) {
             Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp)) {
@@ -691,9 +700,6 @@ private fun ConfiguredServiceCardContent(
                         // Not connected yet: inline email/password + Подключить.
                         // The actual sign-in runs headlessly (hidden WebView), the
                         // user never sees a browser window.
-                        var dsEmail by remember { mutableStateOf("") }
-                        var dsPassword by remember { mutableStateOf("") }
-                        var dsPasswordVisible by remember { mutableStateOf(false) }
                         val isAuthorizing = dsAuthRunning && dsAuthIsThisInstance
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp),

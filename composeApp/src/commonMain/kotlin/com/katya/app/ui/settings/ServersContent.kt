@@ -125,6 +125,8 @@ fun ServersContent(
             // so a leftover process or another tunnel can't pose as a working VLESS.
             var localPortOk by remember { mutableStateOf(vlessConnected) }
             val statusReason by appSettings.vlessStatusReasonFlow.collectAsState()
+            // Feedback (27.09 #1): hoisted above the probe loop so it can gate it.
+            val hasAnyProxy = proxies.isNotEmpty() || appSettings.getVlessUri().isNotBlank()
             val tunnelUp = vlessConnected && localPortOk
 
             val runProbe: suspend () -> Unit = {
@@ -133,8 +135,14 @@ fun ServersContent(
                 isCheckingNow = false
             }
 
-            LaunchedEffect(vlessChecked, vlessConnected) {
-                if (!vlessChecked) return@LaunchedEffect
+            // Feedback (27.09 #1): with no proxy configured this loop still ran, probing a
+            // port nothing was listening on every 12 seconds and showing a countdown for a
+            // tunnel that cannot exist. There is nothing to check until a config exists.
+            LaunchedEffect(vlessChecked, vlessConnected, hasAnyProxy) {
+                if (!vlessChecked || !hasAnyProxy) {
+                    secondsLeft = 0
+                    return@LaunchedEffect
+                }
                 localPortOk = vlessConnected
                 while (true) {
                     secondsLeft = 12
@@ -158,7 +166,6 @@ fun ServersContent(
                     )
                     Spacer(Modifier.height(4.dp))
 
-                    val hasAnyProxy = proxies.isNotEmpty() || appSettings.getVlessUri().isNotBlank()
                     val statusColor = when {
                         !vlessChecked -> MaterialTheme.colorScheme.onSurfaceVariant
                         !hasAnyProxy -> MaterialTheme.colorScheme.onSurfaceVariant
