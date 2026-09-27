@@ -125,6 +125,7 @@ internal fun ToolsContent(
                 expanded = toolsExpanded,
                 onToggle = { toolsExpanded = !toolsExpanded },
                 description = "Возможности, которыми Катя может пользоваться сама: файлы, процессы, SSH, команды.",
+                asSwitch = true,
             ) {
                 // Feedback 27.09 #9: this used to sit outside the spoiler, hanging on the
                 // page describing switches the user had not opened yet.

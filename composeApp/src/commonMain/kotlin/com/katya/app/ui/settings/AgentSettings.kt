@@ -1854,43 +1854,55 @@ internal fun SpoilerBlock(
     modifier: Modifier = Modifier,
     description: String? = null,
     centerTitle: Boolean = false,
+    // Feedback 27.09 #6: on the Tools tab the three sections should carry the same
+    // semicircle switch as the sound toggle elsewhere, instead of a bare ▾ triangle.
+    asSwitch: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .handCursor()
-                .clickable(onClick = onToggle)
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = if (centerTitle) {
-                    Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally)
-                } else {
-                    Modifier.weight(1f)
-                },
-                textAlign = if (centerTitle) TextAlign.Center else TextAlign.Start,
+        if (asSwitch) {
+            ToggleableHeadline(
+                title = title,
+                description = description.orEmpty(),
+                checked = expanded,
+                onCheckedChange = { onToggle() },
             )
-            Text(
-                text = if (expanded) "▴" else "▾",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            )
-        }
-        // Feedback #6.3: a bare title gives no idea what lives behind the fold, so the
-        // collapsed section says what it is for.
-        if (description != null && !expanded) {
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .handCursor()
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = if (centerTitle) {
+                        Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally)
+                    } else {
+                        Modifier.weight(1f)
+                    },
+                    textAlign = if (centerTitle) TextAlign.Center else TextAlign.Start,
+                )
+                Text(
+                    text = if (expanded) "▴" else "▾",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                )
+            }
+            // Feedback #6.3: a bare title gives no idea what lives behind the fold, so the
+            // collapsed section says what it is for.
+            if (description != null && !expanded) {
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
         }
         AnimatedVisibility(
             visible = expanded,
