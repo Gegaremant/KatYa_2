@@ -100,17 +100,15 @@ KatYa/
 2. Откройте проект в **Android Studio** (или Fleet) и дождитесь загрузки Gradle-зависимостей.
 3. Соберите проект через терминал:
    ```bash
-   # Рабочая сборка (отладочный ключ, только для разработки):
-   ./gradlew assembleFossDebug
+   # Учётные данные лежат в .env.katya — он уже в .gitignore и специально
+   # остаётся на месте. Подгружаем его, не подставляя значения вручную:
+   set -a && . ./.env.katya && set +a
 
-   # Релизная сборка — та же задача, но с release-подписью.
-   # Без переменных ниже gradle подпишет APK отладочным ключом,
-   # и такой APK нельзя будет обновить поверх ранее установленного релиза.
-   export KEYSTORE_FILE=/path/to/katya-release.jks
-   export KEYSTORE_PASSWORD='...'
-   export KEY_ALIAS='...'
    ./gradlew assembleFossDebug
    ```
+   Без `KEYSTORE_FILE`/`KEYSTORE_PASSWORD`/`KEY_ALIAS` в окружении gradle подпишет
+   APK отладочным ключом, и такой APK нельзя будет обновить поверх ранее
+   установленного релиза — CI проверяет сертификат и падает на несовпадении.
    Готовый файл: `androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk`.
 4. Установите получившийся APK на устройство. Для использования `God Mode` убедитесь, что на устройстве установлены Root-права (Magisk/KernelSU). Если прав нет, используйте `Sandbox`.
 
@@ -193,16 +191,14 @@ KatYa/
 2. Open the project in **Android Studio** (or Fleet) and wait for the Gradle dependencies to sync.
 3. Build the project via terminal:
    ```bash
-   # Working build (debug key, for development only):
-   ./gradlew assembleFossDebug
+   # Credentials live in .env.katya — it is gitignored and stays there on purpose.
+   # Load it instead of pasting values by hand:
+   set -a && . ./.env.katya && set +a
 
-   # Release build — same task, signed with the release key.
-   # Without these variables gradle signs with the debug key, and such an APK
-   # cannot be installed over a previously installed release.
-   export KEYSTORE_FILE=/path/to/katya-release.jks
-   export KEYSTORE_PASSWORD='...'
-   export KEY_ALIAS='...'
    ./gradlew assembleFossDebug
    ```
+   Without `KEYSTORE_FILE`/`KEYSTORE_PASSWORD`/`KEY_ALIAS` in the environment gradle
+   signs with the debug key, and such an APK cannot be installed over a previously
+   installed release — CI verifies the certificate and fails on mismatch.
    Output: `androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk`.
 4. Install the resulting APK on your device. To use `God Mode`, make sure your device has Root access (Magisk/KernelSU). If you don't have Root, you can still use the `Sandbox` mode.

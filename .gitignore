@@ -34,8 +34,11 @@ buildOutput/
 
 # Local configuration
 local.properties
-.env.katya
+# Credentials live here on purpose and must never reach git. Do not remove these
+# lines — see the "Secrets and .env" section in AGENTS.md.
 .env
+.env.katya
+.env.*
 *.log
 build.log
 thing/

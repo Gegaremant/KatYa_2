@@ -1,24 +1,44 @@
 # AGENTS.md for KatYa
 
+## Secrets and `.env` (do not get this wrong)
+
+The point of the rule: **no hardcoded credentials in code.** Every login, password,
+token and key belongs in `.env`, read at runtime — never written into a source file.
+
+- **`.env.katya` stays where it is. It is supposed to be there.** It is the only place
+  the credentials live; nobody will remember them otherwise. **Do not delete it, do not
+  "clean it up", do not move it, do not suggest relocating it.** Ever.
+- **It stays out of git.** `.env`, `.env.katya` and `.env.*` are already in
+  `.gitignore`. Before the first push in *any* new repo, check that they are listed —
+  and if they are not, add them before committing anything else.
+- If a secret was ever committed, revoke the token on GitHub (Developer settings →
+  Tokens) and issue a new one. Do not keep using it.
+- CI gets its copy from GitHub Secrets (`KATYA_KEYSTORE_BASE64`, `KATYA_KEYSTORE_PASSWORD`,
+  `KATYA_KEY_ALIAS`). The local file and the repo secrets do not conflict: the first is
+  for this machine, the second is for builds.
+- Never paste a secret's value into a command line in chat, and never print file
+  contents to the log or output.
+
 ## Installation & Build
 
 ### Basic Setup
 ```bash
-# The one shippable task. It is release-*signed* only when the keystore env
-# vars are set — otherwise gradle silently signs with the debug key and the
-# result cannot be installed over an existing release:
-export KEYSTORE_FILE=/path/to/katya-release.jks
-export KEYSTORE_PASSWORD='...'
-export KEY_ALIAS='...'
+# Credentials come from .env.katya — see the section above; it is already gitignored.
+# Load it, do not inline the values:
+set -a && . ./.env.katya && set +a
 ./gradlew assembleFossDebug
 
-# Debug-key build (development only):
-# ./gradlew assembleFossDebug  with the vars unset
-
+# Debug-key build (development only) — unset the KEYSTORE_* vars first, otherwise
+# gradle signs with the release key and the APK is not reproducible for you.
 # For product-specific builds:
 ./gradlew assemblePlayStoreDebug  # Google Play store version
 ./gradlew assembleFossDebug       # FOSS version
 ```
+
+Release builds are made by CI (`.github/workflows/release.yml`): push a `v*` tag and it
+builds, verifies the signing certificate against the expected SHA-256, runs the unit
+tests and publishes the APK. A local `assembleFossDebug` is a debug-signed build and
+will *not* install over an existing release.
 
 ### Gradle Dependencies
 The project uses a centralized version catalog (`gradle/libs.versions.toml`) for dependency management. To update dependencies:
