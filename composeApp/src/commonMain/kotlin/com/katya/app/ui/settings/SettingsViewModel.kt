@@ -251,6 +251,7 @@ class SettingsViewModel(
         onToggleVless = ::onToggleVless,
         onChangeVlessUri = ::onChangeVlessUri,
         onStartDeepSeekAuth = ::onStartDeepSeekAuth,
+        onChangeDeepSeekDraft = ::onChangeDeepSeekDraft,
         onDeepSeekAuthStatus = ::onDeepSeekAuthStatus,
         onStopDeepSeekAuth = ::onStopDeepSeekAuth,
         onDeepSeekAuthSucceeded = ::onDeepSeekAuthSucceeded,
@@ -862,6 +863,23 @@ class SettingsViewModel(
         }
     }
 
+    /**
+     * Feedback #5: keeps a half-typed DeepSeek login alive.
+     *
+     * The draft used to live in the card, in `rememberSaveable`, which lost it on every tab
+     * switch and could even serve it a log line from another surface sharing the slot. It
+     * lives here now, keyed by the instance it is for.
+     */
+    private fun onChangeDeepSeekDraft(instanceId: String, draft: DeepSeekLoginDraft) {
+        _state.update { state ->
+            state.copy(
+                dsLoginDrafts = state.dsLoginDrafts.toMutableMap().apply {
+                    if (draft == DeepSeekLoginDraft()) remove(instanceId) else put(instanceId, draft)
+                }.toImmutableMap(),
+            )
+        }
+    }
+
     private fun onStartDeepSeekAuth(instanceId: String, email: String, password: String) {
         _state.update {
             it.copy(
@@ -885,6 +903,11 @@ class SettingsViewModel(
                 dsAuthInstanceId = "",
                 dsAuthEmail = "",
                 dsAuthPassword = "",
+                // The sign-in is done, so the typed login and its password go away with
+                // it — they are not meant to sit in memory until the next restart.
+                dsLoginDrafts = it.dsLoginDrafts.toMutableMap()
+                    .apply { remove(it.dsAuthInstanceId) }
+                    .toImmutableMap(),
             )
         }
     }

@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -561,110 +562,14 @@ private fun QuickActionsSection(
     onUpdateQuickAction: (com.katya.app.data.QuickAction) -> Unit,
     onDeleteQuickAction: (String) -> Unit,
 ) {
-    var showAddDialog by remember { mutableStateOf(false) }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // Feedback #3: the heading used to sit left-aligned in a cramped row with a small
-        // "Добавить" beside it, and the examples were one blob of text with hard-coded
-        // newlines. Title centred, examples as their own rows, and the primary action as a
-        // full-width button underneath — it is the thing you actually come here to press.
-        Text(
-            text = "Быстрые действия",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp, start = 16.dp, end = 16.dp),
-            textAlign = TextAlign.Center,
-        )
-        Text(
-            text = "Кнопки над полем ввода чата — одним нажатием отправляют свой промпт.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-            textAlign = TextAlign.Center,
-        )
-        for (example in QUICK_ACTION_EXAMPLES) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Text(
-                    text = "•",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = example,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-        }
-        androidx.compose.material3.TextButton(
-            onClick = { showAddDialog = true },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        ) {
-            Text("Добавить", style = MaterialTheme.typography.titleMedium)
-        }
-
-        if (quickActions.isNotEmpty()) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (action in quickActions) {
-                    var isEditing by remember { mutableStateOf(false) }
-
-                    if (isEditing) {
-                        QuickActionEditor(
-                            initialAction = action,
-                            onSave = {
-                                onUpdateQuickAction(it)
-                                isEditing = false
-                            },
-                            onCancel = { isEditing = false },
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp)).padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(action.text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
-                                Text(action.prompt, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Row {
-                                androidx.compose.material3.IconButton(onClick = { isEditing = true }) {
-                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Редактировать")
-                                }
-                                androidx.compose.material3.IconButton(onClick = { onDeleteQuickAction(action.id) }) {
-                                    Icon(imageVector = androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Удалить")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showAddDialog) {
-        androidx.compose.ui.window.Dialog(onDismissRequest = { showAddDialog = false }) {
-            androidx.compose.material3.Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
-            ) {
-                Box(Modifier.padding(16.dp)) {
-                    QuickActionEditor(
-                        initialAction = com.katya.app.data.QuickAction(id = "", text = "", prompt = ""),
-                        onSave = {
-                            onAddQuickAction(it.copy(id = kotlin.uuid.Uuid.random().toString()))
-                            showAddDialog = false
-                        },
-                        onCancel = { showAddDialog = false },
-                    )
-                }
-            }
-        }
-    }
+    // Feedback #8: the body moved into QuickActionsIsland, so this is now just the
+    // island inside the card the General tab already lays out.
+    QuickActionsIsland(
+        quickActions = quickActions,
+        onAddQuickAction = onAddQuickAction,
+        onUpdateQuickAction = onUpdateQuickAction,
+        onDeleteQuickAction = onDeleteQuickAction,
+    )
 }
 
 @Composable
@@ -697,6 +602,129 @@ private fun QuickActionEditor(
                 onSave(initialAction.copy(text = text, prompt = prompt))
             }, enabled = text.isNotBlank() && prompt.isNotBlank()) {
                 Text("Сохранить")
+            }
+        }
+    }
+}
+
+/**
+ * Feedback #8: «Быстрые действия» is an island like everything else on this tab —
+ * its own spoiler, title flush left like the rest — instead of a full-width
+ * *Добавить* button stranded under two centred lines of text. The heading is the
+ * normal bold title, so the chevron matches the other islands.
+ */
+@Composable
+internal fun QuickActionsIsland(
+    quickActions: kotlinx.collections.immutable.ImmutableList<com.katya.app.data.QuickAction>,
+    onAddQuickAction: (com.katya.app.data.QuickAction) -> Unit,
+    onUpdateQuickAction: (com.katya.app.data.QuickAction) -> Unit,
+    onDeleteQuickAction: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(true) }
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    // Feedback #8: open by default — this is where the user comes to add a button, and
+    // a spoiler that starts closed hides the one action that screen exists for. Title
+    // flush left, like every other island on this tab.
+    SpoilerBlock(
+        title = "Быстрые действия",
+        expanded = expanded,
+        onToggle = { expanded = !expanded },
+        description = "Кнопки над полем ввода чата — одним нажатием отправляют свой промпт.",
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            for (example in QUICK_ACTION_EXAMPLES) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = example,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            // Feedback #8: an ordinary OutlinedButton, the same as «Добавить сервер»
+            // and «Добавить навык» — not a one-off full-width TextButton that shouts.
+            OutlinedButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier.fillMaxWidth().handCursor(),
+            ) {
+                Text("Добавить")
+            }
+
+            if (quickActions.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (action in quickActions) {
+                        var isEditing by remember { mutableStateOf(false) }
+
+                        if (isEditing) {
+                            QuickActionEditor(
+                                initialAction = action,
+                                onSave = {
+                                    onUpdateQuickAction(it)
+                                    isEditing = false
+                                },
+                                onCancel = { isEditing = false },
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(action.text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(action.prompt, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Row {
+                                    androidx.compose.material3.IconButton(onClick = { isEditing = true }) {
+                                        Icon(imageVector = androidx.compose.material.icons.Icons.Default.Edit, contentDescription = "Редактировать")
+                                    }
+                                    androidx.compose.material3.IconButton(onClick = { onDeleteQuickAction(action.id) }) {
+                                        Icon(imageVector = androidx.compose.material.icons.Icons.Default.Delete, contentDescription = "Удалить")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showAddDialog = false }) {
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Box(Modifier.padding(16.dp)) {
+                    QuickActionEditor(
+                        initialAction = com.katya.app.data.QuickAction(id = "", text = "", prompt = ""),
+                        onSave = {
+                            onAddQuickAction(it.copy(id = kotlin.uuid.Uuid.random().toString()))
+                            showAddDialog = false
+                        },
+                        onCancel = { showAddDialog = false },
+                    )
+                }
             }
         }
     }

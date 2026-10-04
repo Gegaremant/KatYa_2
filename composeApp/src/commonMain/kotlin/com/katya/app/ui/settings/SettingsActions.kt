@@ -66,6 +66,8 @@ data class SettingsActions(
     val onToggleVless: (Boolean) -> Unit,
     val onChangeVlessUri: (String) -> Unit,
     val onStartDeepSeekAuth: (String, String, String) -> Unit,
+    /** Feedback #5: the typed login, kept in the ViewModel so a tab switch cannot lose it. */
+    val onChangeDeepSeekDraft: (String, DeepSeekLoginDraft) -> Unit,
     val onDeepSeekAuthStatus: (String) -> Unit,
     val onStopDeepSeekAuth: () -> Unit,
     val onDeepSeekAuthSucceeded: (String) -> Unit,
@@ -174,6 +176,7 @@ data class SettingsActions(
             onToggleVless = {},
             onChangeVlessUri = {},
             onStartDeepSeekAuth = { _, _, _ -> },
+            onChangeDeepSeekDraft = { _, _ -> },
             onDeepSeekAuthStatus = {},
             onStopDeepSeekAuth = {},
             onDeepSeekAuthSucceeded = {},

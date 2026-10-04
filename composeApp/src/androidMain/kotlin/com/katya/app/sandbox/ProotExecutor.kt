@@ -164,32 +164,28 @@ class ProotExecutor(
     /**
      * How to actually invoke proot.
      *
-     * `libproot.so` is a shared object, and exec'ing one directly works only when the
-     * platform is happy to load it as a program — which is not what the standalone
-     * proot-distro does, and where the built-in sandbox visibly diverged from it. The
-     * vendored loader is the supported path: it loads the binary and, in the 32-bit
-     * variant, keeps 32-bit syscall interception working inside the rootfs.
+     * Straight exec of `libproot.so`, which is a normal PIE executable built for
+     * Android (`interpreter /system/bin/linker64`). Its dynamic deps are satisfied
+     * by `LD_LIBRARY_PATH` plus the `libtalloc.so.2` link made in [buildEnvVars].
      *
-     * The loader ships in the same native archive. If it is somehow absent we still fall
-     * back to the direct exec rather than losing the sandbox outright.
+     * The vendored `libproot-loader.so` is deliberately **not** put in front of it.
+     * That file is PRoot's freestanding tracee *interpreter*, not a launcher: its
+     * entry point is `_start(void *cursor)`, which expects a pointer to a load
+     * script in a register. PRoot hands it that script itself when it execs a
+     * program inside the rootfs, and falls back to extracting its own embedded
+     * copy. Exec'ing it as a program with proot's path as `argv[1]` therefore fed
+     * it a pointer it never produced — it dereferenced garbage and died with
+     * SIGSEGV before proot ran at all. The field log showed exactly that as
+     * `exit_code=139` (128 + SIGSEGV) on every single command, which is why the
+     * sandbox, the shell tools and DeepSeek were all broken at once.
+     *
+     * The loader still matters, and still ships in the archive: it is what keeps
+     * 32-bit programs working under a 64-bit process. It reaches PRoot through
+     * `PROOT_LOADER` / `PROOT_LOADER32`, which `get_loader_path()` reads — see
+     * [buildEnvVars].
      */
-    private fun prootLauncher(): Array<String> {
-        val dir = File(prootPath).parent.orEmpty()
-        val loader = File(dir, "libproot-loader.so")
-        return if (loader.isFile && loader.canExecute()) {
-            arrayOf(loader.absolutePath, prootPath)
-        } else {
-            AppLogger.w(
-                "ProotExecutor",
-                "libproot-loader.so не найден или не исполняемый — запускаю proot напрямую",
-            )
-            arrayOf(prootPath)
-        }
-    }
-
     private fun buildProcessArgs(command: String, workingDir: String): Array<String> {
-        val launcher = prootLauncher()
-        val prefix = launcher
+        val prefix = arrayOf(prootPath)
         return when (distro) {
             Distro.TERMUX -> arrayOf(
                 *prefix,
@@ -248,11 +244,25 @@ class ProotExecutor(
             }
         }
 
-        val loaderPath = File(prootPath).parent.orEmpty() + "/libproot-loader.so"
-        // The 32-bit loader is what keeps 32-bit binaries inside the rootfs working on a
-        // 64-bit process. Ship it in the same archive, and point the env at it when present.
-        val loader32 = File(prootPath).parent.orEmpty() + "/libproot-loader32.so"
-        val loader32Env = if (File(loader32).isFile) "PROOT_LOADER32=$loader32" else null
+        val nativeDir = File(prootPath).parent.orEmpty()
+        // PROOT_LOADER points PRoot at the tracee interpreter to use instead of the
+        // copy it would extract from its own binary (`get_loader_path()` in
+        // execve/enter.c reads these two variables first). Not passing the path as
+        // argv[0] is deliberate — see [buildProcessArgs].
+        val loader = File(nativeDir, "libproot-loader.so")
+        val loaderEnv = if (loader.isFile && loader.canExecute()) "PROOT_LOADER=${loader.absolutePath}" else null
+        // The 32-bit loader is what keeps 32-bit binaries inside the rootfs working on
+        // a 64-bit process, so it is exported the same way.
+        val loader32 = File(nativeDir, "libproot-loader32.so")
+        val loader32Env = if (loader32.isFile && loader32.canExecute()) "PROOT_LOADER32=${loader32.absolutePath}" else null
+        if (loaderEnv == null || loader32Env == null) {
+            AppLogger.w(
+                "ProotExecutor",
+                "Загрузчик proot не найден или не исполняемый " +
+                    "(loader=${loaderEnv != null}, loader32=${loader32Env != null}) — " +
+                    "32-битные программы внутри песочницы могут не запуститься",
+            )
+        }
         val baseEnv = when (distro) {
             Distro.TERMUX -> arrayOf(
                 "PREFIX=/data/data/com.termux/files/usr",
@@ -263,7 +273,6 @@ class ProotExecutor(
                 "TERM=xterm-256color",
                 "LANG=C.UTF-8",
                 "PROOT_TMP_DIR=$tmpPath",
-                "PROOT_LOADER=$loaderPath",
             )
 
             Distro.DEBIAN -> arrayOf(
@@ -276,11 +285,10 @@ class ProotExecutor(
                 "LC_ALL=C.UTF-8",
                 "DEBIAN_FRONTEND=noninteractive",
                 "PROOT_TMP_DIR=$tmpPath",
-                "PROOT_LOADER=$loaderPath",
             )
         }
-        val withLoader32 = loader32Env?.let { baseEnv + it } ?: baseEnv
-        return withLoader32 + extraEnv.map { (k, v) -> "$k=$v" }.toTypedArray()
+        val loaders = listOfNotNull(loaderEnv, loader32Env)
+        return baseEnv + loaders + extraEnv.map { (k, v) -> "$k=$v" }.toTypedArray()
     }
 
     private fun readBounded(reader: BufferedReader): String {

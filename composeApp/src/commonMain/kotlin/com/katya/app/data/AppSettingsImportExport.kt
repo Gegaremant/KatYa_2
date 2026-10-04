@@ -293,9 +293,19 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.SERVICES in sections) {
         try {
-            settings.putString(KEY_CONFIGURED_SERVICES, json["configured_services"]?.toString() ?: "")
-            settings.putString(KEY_CURRENT_SERVICE_ID, json["current_service_id"]?.jsonPrimitive?.content ?: Service.Free.id)
-            settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
+            // Feedback #1: an absent key used to be written as "", which *erased* the
+            // service list when importing a file that predates the key. Absent means
+            // "this file says nothing about it", not "empty" — only Replace clears it.
+            // A `configured_services` stored as a real array (legacy layout) is
+            // re-serialised, which is exactly the string the legacy exporter wrote.
+            json["configured_services"]?.let { element ->
+                settings.putString(
+                    KEY_CONFIGURED_SERVICES,
+                    if (element is JsonPrimitive) element.content else element.toString(),
+                )
+            } ?: run { if (replace) settings.remove(KEY_CONFIGURED_SERVICES) }
+            json["current_service_id"]?.jsonPrimitive?.content?.let { settings.putString(KEY_CURRENT_SERVICE_ID, it) }
+            json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setFreeFallbackEnabled(it) }
 
             json["monitor_overlay_mode"]?.jsonPrimitive?.content?.let {
                 try {
@@ -332,7 +342,7 @@ private fun AppSettings.importLegacyFromJson(
             errors++
         }
     } else if (replace) {
-        settings.putString(KEY_CONFIGURED_SERVICES, "")
+        settings.remove(KEY_CONFIGURED_SERVICES)
         settings.putString(KEY_CURRENT_SERVICE_ID, Service.Free.id)
         settings.putBoolean(KEY_FREE_FALLBACK_ENABLED, true)
         oldInstances.forEach { removeInstanceSettings(it.instanceId) }
@@ -340,7 +350,7 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.SOUL in sections) {
         try {
-            setSoulText(json["soul_text"]?.jsonPrimitive?.content ?: "")
+            json["soul_text"]?.jsonPrimitive?.content?.let { setSoulText(it) } ?: run { if (replace) setSoulText("") }
         } catch (_: Exception) {
             errors++
         }
@@ -350,9 +360,13 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.MEMORY in sections) {
         try {
-            setMemoryEnabled(json["memory_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
+            json["memory_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setMemoryEnabled(it) }
             val memoriesElement = json["agent_memories"]
-            setMemoriesJson(if (memoriesElement != null) sanitizeMemories(memoriesElement) else "")
+            if (memoriesElement != null) {
+                setMemoriesJson(sanitizeMemories(memoriesElement))
+            } else if (replace) {
+                setMemoriesJson("")
+            }
         } catch (_: Exception) {
             errors++
         }
@@ -363,9 +377,13 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.SCHEDULING in sections) {
         try {
-            setSchedulingEnabled(json["scheduling_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: false)
+            json["scheduling_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setSchedulingEnabled(it) }
             val tasksElement = json["scheduled_tasks"]
-            setScheduledTasksJson(if (tasksElement != null) sanitizeScheduledTasks(tasksElement) else "")
+            if (tasksElement != null) {
+                setScheduledTasksJson(sanitizeScheduledTasks(tasksElement))
+            } else if (replace) {
+                setScheduledTasksJson("")
+            }
         } catch (_: Exception) {
             errors++
         }
@@ -376,9 +394,11 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.HEARTBEAT in sections) {
         try {
-            setHeartbeatConfigJson(json["heartbeat_config"]?.toString() ?: "")
-            setHeartbeatPrompt(json["heartbeat_prompt"]?.jsonPrimitive?.content ?: "")
-            setHeartbeatLogJson(json["heartbeat_log"]?.toString() ?: "")
+            // Feedback #1: absent means "the file says nothing", so an old backup no
+            // longer blanks out a heartbeat the user configured themselves.
+            json["heartbeat_config"]?.let { setHeartbeatConfigJson(it.toString()) } ?: run { if (replace) setHeartbeatConfigJson("") }
+            json["heartbeat_prompt"]?.jsonPrimitive?.content?.let { setHeartbeatPrompt(it) } ?: run { if (replace) setHeartbeatPrompt("") }
+            json["heartbeat_log"]?.let { setHeartbeatLogJson(it.toString()) } ?: run { if (replace) setHeartbeatLogJson("") }
         } catch (_: Exception) {
             errors++
         }
@@ -390,7 +410,7 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.EMAIL in sections) {
         try {
-            setEmailEnabled(json["email_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: true)
+            json["email_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setEmailEnabled(it) }
             val importedAccountsJson = json["email_accounts"]?.toString() ?: ""
             if (replace) {
                 setEmailAccountsJson(importedAccountsJson)
@@ -430,7 +450,7 @@ private fun AppSettings.importLegacyFromJson(
             json["email_sync_states"]?.jsonObject?.forEach { (accountId, sync) ->
                 setEmailSyncStateJson(accountId, sync.toString())
             }
-            setEmailPollIntervalMinutes(json["email_poll_interval"]?.jsonPrimitive?.content?.toInt() ?: 15)
+            json["email_poll_interval"]?.jsonPrimitive?.content?.toInt()?.let { setEmailPollIntervalMinutes(it) }
         } catch (_: Exception) {
             errors++
         }
@@ -456,10 +476,10 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.SPLINTERLANDS in sections) {
         try {
-            setSplinterlandsEnabled(json["splinterlands_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: false)
-            setSplinterlandsAccountJson(json["splinterlands_account"]?.toString() ?: "")
-            setSplinterlandsInstanceIdsJson(json["splinterlands_instance_ids"]?.toString() ?: "")
-            setSplinterlandsBattleLogJson(json["splinterlands_battle_log"]?.toString() ?: "")
+            json["splinterlands_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setSplinterlandsEnabled(it) }
+            json["splinterlands_account"]?.let { setSplinterlandsAccountJson(it.toString()) }
+            json["splinterlands_instance_ids"]?.let { setSplinterlandsInstanceIdsJson(it.toString()) }
+            json["splinterlands_battle_log"]?.let { setSplinterlandsBattleLogJson(it.toString()) }
         } catch (_: Exception) {
             errors++
         }
@@ -489,12 +509,30 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.MCP in sections) {
         try {
-            setMcpServersJson(json["mcp_servers"]?.toString() ?: "")
+            json["mcp_servers"]?.let { setMcpServersJson(it.toString()) } ?: run { if (replace) setMcpServersJson("") }
         } catch (_: Exception) {
             errors++
         }
     } else if (replace) {
         setMcpServersJson("")
+    }
+
+    // Feedback #1: `configured_services` was written as `settings.putString(..., "")`
+    // when the key was missing, which *erased* the service list on every import of a
+    // file that predates the key. Absent means "this file says nothing", not "empty".
+    if (ImportSection.SERVICES in sections) {
+        try {
+            json["configured_services"]?.let { element ->
+                settings.putString(KEY_CONFIGURED_SERVICES, if (element is JsonPrimitive) element.content else element.toString())
+            } ?: run { if (replace) settings.remove(KEY_CONFIGURED_SERVICES) }
+            json["current_service_id"]?.jsonPrimitive?.content?.let { settings.putString(KEY_CURRENT_SERVICE_ID, it) }
+            json["free_fallback_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setFreeFallbackEnabled(it) }
+        } catch (_: Exception) {
+            errors++
+        }
+    } else if (replace) {
+        settings.remove(KEY_CONFIGURED_SERVICES)
+        setFreeFallbackEnabled(true)
     }
 
     if (ImportSection.CONVERSATIONS in sections) {
@@ -504,7 +542,7 @@ private fun AppSettings.importLegacyFromJson(
                 val conversations = sanitizeConversations(element)
                 val wrapped = SharedJson.encodeToString(ConversationsData(conversations = conversations))
                 setConversationsJson(wrapped)
-            } else {
+            } else if (replace) {
                 setConversationsJson("")
             }
         } catch (_: Exception) {
@@ -516,13 +554,16 @@ private fun AppSettings.importLegacyFromJson(
 
     if (ImportSection.SERVERS in sections) {
         try {
-            setServerIp(json["server_ip"]?.jsonPrimitive?.content ?: "")
-            setServerPort(json["server_port"]?.jsonPrimitive?.content?.toIntOrNull() ?: 22)
-            setServerUser(json["server_user"]?.jsonPrimitive?.content ?: "")
-            setServerPassword(json["server_password"]?.jsonPrimitive?.content ?: "")
-            setTunnelPersistentReconnectEnabled(json["tunnel_persistent_reconnect"]?.jsonPrimitive?.content?.toBoolean() ?: false)
-            setVlessEnabled(json["vless_enabled"]?.jsonPrimitive?.content?.toBoolean() ?: false)
-            setVlessUri(json["vless_uri"]?.jsonPrimitive?.content ?: "")
+            // Feedback #1: same rule as the services list — a key the file does not
+            // carry must not be turned into an empty value. An old backup that simply
+            // predates `vless_uri` used to wipe the tunnel the user had configured.
+            json["server_ip"]?.let { setServerIp(legacyText(it)) }
+            json["server_port"]?.let { legacyText(it).toIntOrNull()?.let { port -> setServerPort(port) } }
+            json["server_user"]?.let { setServerUser(legacyText(it)) }
+            json["server_password"]?.let { setServerPassword(legacyText(it)) }
+            json["tunnel_persistent_reconnect"]?.let { setTunnelPersistentReconnectEnabled(legacyBool(it)) }
+            json["vless_enabled"]?.let { setVlessEnabled(legacyBool(it)) }
+            json["vless_uri"]?.let { setVlessUri(legacyText(it)) }
             json["vless_proxy_profiles"]?.jsonPrimitive?.content?.let { setVlessProxyProfilesJson(it) }
             json["active_vless_proxy_id"]?.jsonPrimitive?.content?.let { setActiveVlessProxyId(it) }
             json["active_connection_mode"]?.jsonPrimitive?.content?.let { setActiveConnectionMode(it) }
@@ -545,6 +586,24 @@ private fun AppSettings.importLegacyFromJson(
     }
 
     return errors
+}
+
+/**
+ * Reads a scalar out of a backup field of any shape.
+ *
+ * Feedback #1: the legacy exporter wrote some settings as real JSON structures and
+ * some as strings, so a reader that assumes `.jsonPrimitive` throws on perfectly
+ * valid older files. These two helpers accept both and never throw.
+ */
+private fun legacyText(element: JsonElement): String = when (element) {
+    is JsonPrimitive -> element.content
+    else -> element.toString()
+}
+
+/** A boolean field of a legacy backup. Anything unparseable reads as `false`. */
+private fun legacyBool(element: JsonElement): Boolean = when (element) {
+    is JsonPrimitive -> element.content.toBooleanStrictOrNull() ?: false
+    else -> false
 }
 
 private fun sanitizeScheduledTasks(element: JsonElement): String {

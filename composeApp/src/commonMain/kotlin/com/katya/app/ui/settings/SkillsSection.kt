@@ -94,7 +94,6 @@ internal fun SkillsSection(
         expanded = skillsExpanded,
         onToggle = { skillsExpanded = !skillsExpanded },
         description = stringResource(Res.string.settings_skills_description),
-        asSwitch = true,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             // Feedback 27.09 #8: "кнопочку добавить навык надо не вниз, а в самый верх,

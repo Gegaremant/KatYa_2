@@ -141,6 +141,17 @@ internal fun TopBar(
         if (showConnectionStatus && connectionStatus != null) {
             StatusRow(text = connectionStatus, isOnline = isNetworkConnected)
         }
+        // Feedback #6: a stalled request has to be visible as such. The status row above
+        // reports the model's reachability; this reports that we are waiting on it, and
+        // says so plainly instead of a pulse that reads as "working" even when nothing is
+        // coming back. Only rendered when the status banner is on — otherwise the user
+        // asked not to see status.
+        if (showConnectionStatus && isThinking) {
+            StatusRow(
+                text = if (isNetworkConnected) "Жду ответа модели…" else "Модель не отвечает — запрос не уйдёт",
+                isOnline = if (isNetworkConnected) null else false,
+            )
+        }
     }
 }
 

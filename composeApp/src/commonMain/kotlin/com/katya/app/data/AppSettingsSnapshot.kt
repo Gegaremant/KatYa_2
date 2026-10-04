@@ -2,6 +2,7 @@ package com.katya.app.data
 
 import com.russhwolf.settings.Settings
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -145,7 +146,35 @@ private class Spec(
     fun default(): JsonElement = read(AppSettings(DefaultsOnlySettings()))
 }
 
-private fun text(element: JsonElement): String = element.jsonPrimitive.content
+/**
+ * The scalar a spec's writer expects, whatever shape the backup stored it in.
+ *
+ * Feedback #1: pre-3.1.3-fix backups hold several settings as real JSON structures —
+ * `configured_services` as an array, `mcp_servers` as an array of objects, instance
+ * lists likewise — where the current format keeps them as one JSON string. Taking
+ * `.jsonPrimitive` on those threw, so the entire import failed with "Ошибка импорта"
+ * and the user's older backups were rejected. Re-serialising the structure reproduces
+ * exactly the string the legacy exporter wrote (`Json.parseToJsonElement(stored)`), so
+ * the value round-trips.
+ */
+private fun text(element: JsonElement): String = when (element) {
+    is JsonPrimitive -> element.content
+    else -> element.toString()
+}
+
+/**
+ * The value as a scalar, for comparing and displaying it.
+ *
+ * Feedback #2: a legacy backup stores some settings as real JSON structures while the
+ * current format keeps them as one string. `JsonPrimitive(string) != JsonArray`, so an
+ * unchanged setting still compared as a change — the round trip of a real backup reported
+ * 5 phantom differences on byte-identical values. Re-serialising the structure yields
+ * exactly the string the legacy exporter wrote, so both sides compare equal.
+ */
+private fun comparableValue(element: JsonElement): JsonPrimitive = when (element) {
+    is JsonPrimitive -> element
+    else -> JsonPrimitive(element.toString())
+}
 
 // The read helpers take their AppSettings as a receiver, so every row of the
 // table below reads as the plain getter it wraps; writes keep an explicit
@@ -168,7 +197,10 @@ private fun boolSpec(
     section,
     { JsonPrimitive(it.read()) },
     { app, value ->
-        val flag = value.jsonPrimitive.booleanOrNull
+        // boolOrNull only answers for a JsonPrimitive; a structure means the file does
+        // not describe this setting in a shape we can read, so it is skipped rather
+        // than throwing (feedback #1).
+        val flag = (value as? JsonPrimitive)?.booleanOrNull
         if (flag != null) write(app, flag)
     },
 )
@@ -178,21 +210,21 @@ private fun intSpec(
     section: ImportSection,
     read: AppSettings.() -> Int,
     write: (AppSettings, Int) -> Unit,
-) = Spec(key, section, { JsonPrimitive(it.read()) }, { app, value -> value.jsonPrimitive.intOrNull?.let { write(app, it) } })
+) = Spec(key, section, { JsonPrimitive(it.read()) }, { app, value -> (value as? JsonPrimitive)?.intOrNull?.let { write(app, it) } })
 
 private fun longSpec(
     key: String,
     section: ImportSection,
     read: AppSettings.() -> Long,
     write: (AppSettings, Long) -> Unit,
-) = Spec(key, section, { JsonPrimitive(it.read()) }, { app, value -> value.jsonPrimitive.longOrNull?.let { write(app, it) } })
+) = Spec(key, section, { JsonPrimitive(it.read()) }, { app, value -> (value as? JsonPrimitive)?.longOrNull?.let { write(app, it) } })
 
 private fun floatSpec(
     key: String,
     section: ImportSection,
     read: AppSettings.() -> Float,
     write: (AppSettings, Float) -> Unit,
-) = Spec(key, section, { JsonPrimitive(it.read()) }, { app, value -> value.jsonPrimitive.floatOrNull?.let { write(app, it) } })
+) = Spec(key, section, { JsonPrimitive(it.read()) }, { app, value -> (value as? JsonPrimitive)?.floatOrNull?.let { write(app, it) } })
 
 private fun enumSpec(
     key: String,
@@ -209,6 +241,15 @@ private fun enumSpec(
         if (name in values) write(app, name)
     },
 )
+
+/**
+ * Sections that actually have something to restore.
+ *
+ * Feedback #1: a legacy backup simply has no `app_settings`, so every section used to
+ * be listed as available with an empty diff — which read as "nothing to import" and,
+ * with the crash above, as "import is broken". Detection is per section on the keys
+ * the file really carries, so the dialog lists what can be restored and not more.
+ */
 
 /**
  * Every setting that belongs in a backup. Keep this list exhaustive: when a new
@@ -463,7 +504,15 @@ private fun JsonPrimitive.isNotBlankJson(): Boolean = content.isNotBlank()
 
 /** Formats a value for the diff list, hiding the content of secrets. */
 private fun displayValue(value: JsonElement, secret: Boolean): String {
-    val raw = value.jsonPrimitive.content
+    // Feedback #1: a legacy backup carries some settings as a JSON array or object
+    // where the current format stores them as a string. `jsonPrimitive` threw on those
+    // ("Element class JsonArray is not a JsonPrimitive") and took the whole preview
+    // down with it, so a pre-3.1.3-fix file could not be opened at all. Render the
+    // structure instead of assuming a scalar.
+    val raw = when (value) {
+        is JsonPrimitive -> value.content
+        else -> value.toString()
+    }
     if (!secret) return raw.ifBlank { "—" }
     return if (raw.isBlank()) "—" else "••••••••"
 }
@@ -473,11 +522,21 @@ private fun displayValue(value: JsonElement, secret: Boolean): String {
  *
  * Merge only takes non-defaults (that is the whole point of "Дополнить" on a
  * fresh install); Replace takes anything that differs from what is here now.
+ *
+ * Feedback #2: a value that is already exactly what we have is never a change, in
+ * either mode. Re-importing your own backup used to light up every single row —
+ * `incoming != default` was true for all of them because the backup was written from
+ * a *configured* install — so the dialog said "импортировать всё" about a file that
+ * was byte-for-byte what was already stored. `forceApply` keys (tool toggles, instance
+ * keys) carry "the key exists", which is itself the decision, so they keep writing.
  */
-private fun shouldApply(spec: Spec, incoming: JsonElement, current: JsonElement, mode: ImportMode): Boolean = when {
-    spec.forceApply -> true
-    mode == ImportMode.Merge -> incoming != spec.default()
-    else -> incoming != current
+private fun shouldApply(spec: Spec, incoming: JsonElement, current: JsonElement, mode: ImportMode): Boolean {
+    if (spec.forceApply) return incoming != current
+    if (incoming == current) return false
+    return when (mode) {
+        ImportMode.Merge -> incoming != spec.default()
+        ImportMode.Replace -> true
+    }
 }
 
 /** Every spec that takes part in a diff or an import for this backup. */
@@ -496,7 +555,10 @@ fun AppSettings.previewSnapshot(
     val specs = allSpecs(flat.keys, imported)
     val diff = specs.mapNotNull { spec ->
         if (spec.section !in sections) return@mapNotNull null
-        val incoming = flat[spec.key] ?: return@mapNotNull null
+        val rawIncoming = flat[spec.key] ?: return@mapNotNull null
+        // Normalised so a structure-shaped legacy value compares against the string the
+        // getter returns (feedback #2).
+        val incoming = comparableValue(rawIncoming)
         val current = spec.read(this)
         SettingDiff(
             key = spec.key,
@@ -538,7 +600,10 @@ fun AppSettings.applySnapshot(
 
     for (spec in specs) {
         if (spec.section !in sections) continue
-        val incoming = flat[spec.key]
+        val rawIncoming = flat[spec.key]
+        // Same normalisation as the preview, so what the diff showed and what gets
+        // written are the same value (feedback #2).
+        val incoming = rawIncoming?.let { comparableValue(it) }
         val apply = when {
             incoming != null -> shouldApply(spec, incoming, spec.read(this), mode)
             // Replace resets what the backup says nothing about — that is what

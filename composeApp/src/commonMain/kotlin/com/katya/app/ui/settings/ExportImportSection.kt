@@ -300,12 +300,25 @@ internal fun ImportPreviewDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(4.dp))
-                        for (row in changedRows) {
+                        // Feedback #2: importing your own export lists every setting it
+                        // carries. With no real differences that read as "you must import
+                        // all of this" — and that is what the summary line now says out
+                        // loud, so the dialog has to say the opposite instead: the file
+                        // matches what is already stored.
+                        if (changedRows.isEmpty()) {
                             Text(
-                                text = "${row.key}: ${row.current} → ${row.incoming}",
+                                text = "Файл совпадает с текущими настройками — ничего менять не нужно",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                        } else {
+                            for (row in changedRows) {
+                                Text(
+                                    text = "${row.key}: ${row.current} → ${row.incoming}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
                         }
                     }
                 }

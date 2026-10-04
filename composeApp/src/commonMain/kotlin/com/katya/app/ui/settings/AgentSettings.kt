@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -80,6 +81,7 @@ import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.default_soul
 import katya.composeapp.generated.resources.execution_log_status_fail
 import katya.composeapp.generated.resources.execution_log_status_ok
+import katya.composeapp.generated.resources.ic_arrow_drop_down
 import katya.composeapp.generated.resources.settings_heartbeat_recent
 import katya.composeapp.generated.resources.settings_memories
 import katya.composeapp.generated.resources.settings_memories_all_title
@@ -118,6 +120,7 @@ import kotlinx.datetime.offsetAt
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.vectorResource
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -1598,15 +1601,15 @@ private fun AudioEnginesCard(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        // Feedback #1: hearing, speaking and the sandbox each get their own island that
-        // collapses on its own toggle, instead of one tall "Слух и речь" block. The two
-        // halves were already separate surfaces below, so this only wraps them.
+        // Feedback #2/#3: the island is named after what it does ("Распознавание
+        // речи" / "Синтез речи"), not after the metaphor ("Слух" / "Речь"), and the
+        // heading inside says what the block below is — "Способ".
         var hearingExpanded by remember { mutableStateOf(true) }
         SpoilerBlock(
-            title = "Слух",
+            title = "Распознавание речи",
             expanded = hearingExpanded,
             onToggle = { hearingExpanded = !hearingExpanded },
-            description = "Распознавание речи: микрофон, движок, локальные и облачные модели.",
+            description = "Микрофон, движок, локальные и облачные модели.",
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -1614,7 +1617,9 @@ private fun AudioEnginesCard(
                     .padding(12.dp),
             ) {
                 ToggleableHeadline(
-                    title = "Включить распознавание речи",
+                    // Feedback #2: "Включить" is implied by the switch sitting next to
+                    // it; the title is the setting's name, matching every other island.
+                    title = "Распознавание речи",
                     description = "Агент будет слушать вас и переводить речь в текст (состояние синхронизировано с кнопкой микрофона)",
                     checked = isVoiceRecognitionEnabled,
                     onCheckedChange = onToggleVoiceRecognition,
@@ -1624,7 +1629,9 @@ private fun AudioEnginesCard(
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         val headingColor = com.katya.app.ui.adaptiveTextColor()
                         Text(
-                            text = "Распознавание речи (Слух)",
+                            // Feedback #2: the heading names what the radio list below
+                            // picks, not the island it sits in.
+                            text = "Способ",
                             style = MaterialTheme.typography.titleSmall,
                             color = headingColor,
                             modifier = Modifier.padding(bottom = 8.dp),
@@ -1734,12 +1741,25 @@ private fun AudioEnginesCard(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
+                        // Feedback #2: the label states what the position *means*, and
+                        // both ends of the slider mean something — the right-hand end is
+                        // "send it myself", not "wait five seconds". bodySmall is the
+                        // size the rest of this card uses for its captions.
                         val delayTextColor = com.katya.app.ui.adaptiveTextColor()
-                        Text("Пауза для отправки при диктовке: $sendDelayMs мс", style = MaterialTheme.typography.labelMedium, color = delayTextColor)
+                        val isManual = sendDelayMs >= com.katya.app.data.AppSettings.SEND_DELAY_MANUAL
+                        Text(
+                            text = if (isManual) {
+                                "Отправка вручную"
+                            } else {
+                                "Автоматически отправлять через $sendDelayMs мс тишины"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = delayTextColor,
+                        )
                         androidx.compose.material3.Slider(
                             value = sendDelayMs.toFloat(),
                             onValueChange = { onChangeSendDelayMs(it.toLong()) },
-                            valueRange = 0f..5000f,
+                            valueRange = 0f..com.katya.app.data.AppSettings.SEND_DELAY_MAX.toFloat(),
                             steps = 50,
                         )
                     }
@@ -1749,10 +1769,11 @@ private fun AudioEnginesCard(
 
         var speechExpanded by remember { mutableStateOf(true) }
         SpoilerBlock(
-            title = "Речь",
+            // Feedback #3: same as the island above — named after the function.
+            title = "Синтез речи",
             expanded = speechExpanded,
             onToggle = { speechExpanded = !speechExpanded },
-            description = "Синтез речи: движок, скорость, тональность, облачные и локальные голоса.",
+            description = "Движок, скорость, тональность, облачные и локальные голоса.",
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth()
@@ -1760,7 +1781,7 @@ private fun AudioEnginesCard(
                     .padding(12.dp),
             ) {
                 ToggleableHeadline(
-                    title = "Включить синтез речи",
+                    title = "Синтез речи",
                     description = "Агент будет озвучивать свои ответы (состояние синхронизировано с кнопкой динамика)",
                     checked = isVoiceResponseEnabled,
                     onCheckedChange = onToggleVoiceResponse,
@@ -1770,7 +1791,7 @@ private fun AudioEnginesCard(
                     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         val headingColor = com.katya.app.ui.adaptiveTextColor()
                         Text(
-                            text = "Синтез речи (Голос)",
+                            text = "Способ",
                             style = MaterialTheme.typography.titleSmall,
                             color = headingColor,
                             modifier = Modifier.padding(bottom = 8.dp),
@@ -1854,55 +1875,52 @@ internal fun SpoilerBlock(
     modifier: Modifier = Modifier,
     description: String? = null,
     centerTitle: Boolean = false,
-    // Feedback 27.09 #6: on the Tools tab the three sections should carry the same
-    // semicircle switch as the sound toggle elsewhere, instead of a bare ▾ triangle.
-    asSwitch: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     Column(modifier = modifier) {
-        if (asSwitch) {
-            ToggleableHeadline(
-                title = title,
-                description = description.orEmpty(),
-                checked = expanded,
-                onCheckedChange = { onToggle() },
+        // Feedback #7: the two triangle glyphs (▾/▴) were the "tiny chevron" — at
+        // labelMedium inside a text run they render at a fraction of the size of the real
+        // vector chevron the app uses elsewhere (the theme picker). Now it is that same
+        // vector, the same size, and it rotates. The on/off switch went with it: on a
+        // collapsible section it implied the *content* could be disabled, which is not
+        // what the tap does — every island on this screen now collapses the same way.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .handCursor()
+                .clickable(onClick = onToggle)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = if (centerTitle) {
+                    Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally)
+                } else {
+                    Modifier.weight(1f)
+                },
+                textAlign = if (centerTitle) TextAlign.Center else TextAlign.Start,
             )
-        } else {
-            Row(
+            Icon(
+                imageVector = vectorResource(Res.drawable.ic_arrow_drop_down),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .handCursor()
-                    .clickable(onClick = onToggle)
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = if (centerTitle) {
-                        Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally)
-                    } else {
-                        Modifier.weight(1f)
-                    },
-                    textAlign = if (centerTitle) TextAlign.Center else TextAlign.Start,
-                )
-                Text(
-                    text = if (expanded) "▴" else "▾",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                )
-            }
-            // Feedback #6.3: a bare title gives no idea what lives behind the fold, so the
-            // collapsed section says what it is for.
-            if (description != null && !expanded) {
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(bottom = 4.dp),
-                )
-            }
+                    .size(24.dp)
+                    .graphicsLayer { rotationZ = if (expanded) 180f else 0f },
+            )
+        }
+        // Feedback #6.3: a bare title gives no idea what lives behind the fold, so the
+        // collapsed section says what it is for.
+        if (description != null && !expanded) {
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.padding(bottom = 4.dp),
+            )
         }
         AnimatedVisibility(
             visible = expanded,
@@ -1939,10 +1957,14 @@ private fun CloudApiSpoiler(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
-            Text(
-                text = if (expanded) "▴" else "▾",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            // Feedback #7: same normal-size vector chevron as every other island.
+            Icon(
+                imageVector = vectorResource(Res.drawable.ic_arrow_drop_down),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer { rotationZ = if (expanded) 180f else 0f },
             )
         }
         AnimatedVisibility(
@@ -2339,14 +2361,13 @@ internal fun VoiceAndSandboxSection(
             onDownloadVosk = actions.onDownloadVosk,
         )
 
-        // Feedback #1: the sandbox is the third island, collapsing on its own toggle like
-        // Слух and Речь do.
+        // Feedback #4: the sandbox is the third island, same treatment as the two above.
         var sandboxExpanded by remember { mutableStateOf(false) }
         SpoilerBlock(
-            title = "Песочница",
+            title = "Песочница Linux",
             expanded = sandboxExpanded,
             onToggle = { sandboxExpanded = !sandboxExpanded },
-            description = "Дистрибутив Linux для запуска команд, локальных сервисов и туннелей.",
+            description = "Дистрибутив для запуска команд, локальных сервисов и туннелей.",
         ) {
             SandboxDistroCard(
                 distro = uiState.distro,

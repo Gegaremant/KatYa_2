@@ -6,6 +6,7 @@ import com.katya.app.tools.AppLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -103,7 +104,8 @@ class JschTunnelService : SshTunnelService {
                             }
                         }
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        // printStackTrace() wrote to stderr, which never reached the app
+                        // log or the user — the whole loop was invisible on the phone.
                         retryCount++
                         if (retryCount < maxRetries && isActive) {
                             AppLogger.e("SshTunnel", "SSH Error: ${e.message}. Attempting reconnect ($retryCount/$maxRetries)")
@@ -122,7 +124,6 @@ class JschTunnelService : SshTunnelService {
                     stopTunnel()
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
                 AppLogger.e("SshTunnel", "SSH Critical Error: ${e.message}")
                 _tunnelState.value = TunnelState(isRunning = false, error = e.message ?: "Failed to establish tunnel")
                 stopTunnel()
@@ -130,14 +131,31 @@ class JschTunnelService : SshTunnelService {
         }
     }
 
+    /**
+     * Feedback #4: switching the tunnel off has to actually stop it.
+     *
+     * This used to disconnect the SSH session and nothing else, so the reconnect
+     * loop kept going: with `persistentReconnect` on, `maxRetries` is
+     * `Int.MAX_VALUE`, and the loop reconnected within seconds of every stop. The
+     * field log showed it plainly — "Attempting reconnect (17973/2147483647)".
+     * Cancelling the job is what ends the loop; the session close is just tidiness.
+     *
+     * `cancelAndJoin` rather than `cancel` so the caller knows the loop is really
+     * finished before anything reports "stopped" or starts a new tunnel.
+     */
     override suspend fun stopTunnel() {
+        val job = tunnelJob
+        tunnelJob = null
+        if (job != null) {
+            job.cancelAndJoin()
+        }
         withContext(Dispatchers.IO) {
             try {
                 session?.disconnect()
                 session = null
                 _tunnelState.value = TunnelState(isRunning = false, message = "Tunnel stopped")
             } catch (e: Exception) {
-                e.printStackTrace()
+                AppLogger.e("SshTunnel", "Ошибка при остановке туннеля: ${e.message}")
             }
         }
     }

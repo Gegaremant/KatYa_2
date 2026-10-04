@@ -144,6 +144,13 @@ data class SettingsUiState(
     val dsAuthPassword: String = "",
     val dsAuthStatus: String = "",
     val dsAuthRunning: Boolean = false,
+    /**
+     * Feedback #5: half-typed DeepSeek logins, keyed by the instance they belong to.
+     *
+     * Held here rather than in the card so switching tabs cannot clear them, and so
+     * nothing else on the settings screen can share their slot.
+     */
+    val dsLoginDrafts: ImmutableMap<String, DeepSeekLoginDraft> = persistentMapOf(),
     val isFreeFallbackEnabled: Boolean = true,
     val uiScale: Float = 1.0f,
     val showUiScale: Boolean = false,

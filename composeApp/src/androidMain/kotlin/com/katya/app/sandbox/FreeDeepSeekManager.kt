@@ -32,6 +32,9 @@ sealed class DeepSeekProxyState {
  */
 private const val FREE_DEEPSEEK_PORT = 9655
 
+/** 128 + SIGSEGV(11): the shell never ran, the container itself crashed. */
+private const val SIGNAL_SEGV = 139
+
 class FreeDeepSeekManager(
     private val dataRepository: DataRepository,
     private val linuxSandboxManager: LinuxSandboxManager,
@@ -166,6 +169,18 @@ class FreeDeepSeekManager(
                 val verifyResult = executor.execute("cat $repoPath/deepseek-auth.json", timeoutSeconds = 90L)
                 val verifyExit = verifyResult["exit_code"]
                 val verifyOk = verifyExit == 0
+                // Feedback #5: 139 is not "no session" — it is 128 + SIGSEGV, i.e. proot
+                // died before running `cat` at all. The old code treated every non-zero
+                // code as "the file is not visible", pushed the same bytes through the
+                // same broken proot, failed again, and surfaced "не удалось передать
+                // сессию" — which sent the user looking at their login instead of at the
+                // sandbox. Name the real cause instead.
+                if (verifyExit == SIGNAL_SEGV) {
+                    val reason = "Песочница падает с segfault (proot не запускается) — сборка компонентов не завершена"
+                    AppLogger.e("FreeDeepSeekManager", reason)
+                    _state.value = DeepSeekProxyState.Error(reason)
+                    return@launch
+                }
                 AppLogger.d(
                     "FreeDeepSeekManager",
                     "Auth file inside proot: exit_code=$verifyExit, ok=$verifyOk, " +

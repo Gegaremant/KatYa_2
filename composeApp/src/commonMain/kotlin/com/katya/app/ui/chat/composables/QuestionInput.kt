@@ -157,8 +157,11 @@ fun QuestionInput(
     val handleSttResult: (String) -> Unit = { result ->
         val text = result.trim()
         if (text.isNotEmpty()) {
+            // Feedback #2: both ends of the slider mean something — 0 sends at once,
+            // the right-hand end never sends by itself. Only the middle is a wait.
             val delayMs = appSettings?.getSendDelayMs() ?: 0L
-            if (delayMs > 0) {
+            val autoSend = appSettings?.isAutoSendDelay() == true
+            if (autoSend) {
                 onTextStateChange(TextFieldValue(text, TextRange(text.length)))
                 autoSendJob?.cancel()
                 autoSendJob = coroutineScope.launch {

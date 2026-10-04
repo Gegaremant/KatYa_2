@@ -256,7 +256,6 @@ import katya.composeapp.generated.resources.settings_theme_description
 import katya.composeapp.generated.resources.settings_theme_light
 import katya.composeapp.generated.resources.settings_theme_oled
 import katya.composeapp.generated.resources.settings_theme_system
-import katya.composeapp.generated.resources.settings_tools_description
 import katya.composeapp.generated.resources.settings_tools_none_available
 import katya.composeapp.generated.resources.settings_ui_scale
 import katya.composeapp.generated.resources.settings_version

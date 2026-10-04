@@ -29,6 +29,11 @@ fun MonitorOverlay(
     isProcessing: Boolean,
     systemStatus: String?,
     modifier: Modifier = Modifier,
+    /**
+     * Feedback #6: the top bar's verdict on the model, reused here so the two agree.
+     * `null` or a live connection means there is nothing extra to say.
+     */
+    isModelUnreachable: Boolean = false,
 ) {
     if (mode == MonitorOverlayMode.OFF) return
 
@@ -45,7 +50,17 @@ fun MonitorOverlay(
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f))
             .padding(4.dp),
     ) {
-        val katyaStatus = systemStatus ?: if (isProcessing) "Думаю..." else "Ожидание"
+        // Feedback #6: "Думаю…" claimed the model was working, so a request stuck on a
+        // dead gateway looked identical to a healthy one. When the top bar is
+        // already reporting the model's real reachability, that is the truth to show
+        // here; a bare activity indicator carries no information the user can act on.
+        val modelUnreachable = isModelUnreachable
+        val katyaStatus = when {
+            systemStatus != null -> systemStatus
+            modelUnreachable -> "Модель не отвечает"
+            isProcessing -> "Думаю..."
+            else -> "Ожидание"
+        }
 
         val vlessStatusText = if (vlessConnected) "VLESS: подключён" else "VLESS: не подключён"
 

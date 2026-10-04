@@ -198,7 +198,7 @@
     <string name="settings_import_mode_replace">Заменить</string>
     <string name="settings_import_mode_replace_description">Файл станет твоей конфигурацией. Значения, которых в нём нет, вернутся к заводским.</string>
     <string name="settings_import_diff_title">Что изменится</string>
-    <string name="settings_import_diff_summary">Изменится %1$d, совпадёт %2$d</string>
+    <string name="settings_import_diff_summary">Изменится: %1$d, уже совпадает: %2$d</string>
     <string name="settings_import_diff_empty">Различий нет — импорт ничего не поменяет.</string>
     <string name="settings_import_diff_unchanged">без изменений</string>
     <string name="settings_import_confirm">Импортировать</string>

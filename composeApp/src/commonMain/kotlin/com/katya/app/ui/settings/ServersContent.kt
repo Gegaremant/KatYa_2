@@ -12,8 +12,6 @@ import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -25,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
@@ -38,11 +37,14 @@ import com.katya.app.data.VlessProxyProfile
 import com.katya.app.db.DownloadableComponent
 import com.katya.app.tools.AppLogger
 import com.katya.app.ui.KaiOutlinedTextField
+import katya.composeapp.generated.resources.Res
+import katya.composeapp.generated.resources.ic_arrow_drop_down
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import org.jetbrains.compose.resources.vectorResource
 import org.koin.compose.koinInject
 
 @Composable
@@ -93,7 +95,20 @@ fun ServersContent(
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
         // VLESS Proxies
         SettingsCard {
-            val vlessChecked = connectionMode == "VLESS"
+            // Feedback #3: this was `connectionMode == "VLESS"`, while the manager that actually
+            // runs the tunnel asks `isVlessEnabled()` — which is also true when only the
+            // `vless_enabled` flag is set. A backup written before `active_connection_mode`
+            // existed carries that flag alone, so after an import the tunnel came up
+            // while this card read "Отключен" — and because the whole editor sits inside
+            // `AnimatedVisibility(visible = vlessChecked)`, the configuration that was
+            // really running could not be seen or edited. One source of truth: the same
+            // getter the tunnel uses decides what the switch shows.
+            // Local mirror of the flag, because `isVlessEnabled()` reads the settings store
+            // directly and cannot drive recomposition on its own. Seeded from that same
+            // getter and written whenever the switch is touched, so the card can never
+            // contradict the tunnel.
+            val storedVlessEnabled = appSettings.isVlessEnabled()
+            var vlessChecked by remember(storedVlessEnabled) { mutableStateOf(storedVlessEnabled) }
             val vlessConnected by appSettings.isVlessConnectedFlow.collectAsState()
 
             // Состояние списка поднимаем из-под AnimatedVisibility, чтобы индикатор ниже
@@ -262,18 +277,28 @@ fun ServersContent(
                             // gate on vless_enabled — the connection mode alone leaves the
                             // tunnel permanently "disabled" in their eyes.
                             appSettings.setVlessEnabled(true)
+                            vlessChecked = true
+                            // Restart the daemon so the VLESS proxy manager actually starts
+                            // the tunnel. Without this the flag was set but nothing ever
+                            // listened on 127.0.0.1:10809.
+                            scope.launch {
+                                val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
+                                daemon.start()
+                            }
                         } else {
                             connectionMode = "NONE"
                             appSettings.setActiveConnectionMode("NONE")
                             appSettings.setVlessEnabled(false)
-                        }
-                        // Restart the daemon so the VLESS proxy manager actually starts (or,
-                        // when toggled off, stops) the tunnel. Without this the flag was set
-                        // but no process ever listened on 127.0.0.1:10809 — requests routed
-                        // into a dead port and VLESS "не подключался".
-                        scope.launch {
-                            val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
-                            daemon.start()
+                            vlessChecked = false
+                            // Feedback #4: turning the switch off has to stop the tunnel, and
+                            // `daemon.start()` only ever starts things. The manager's `start()`
+                            // reads the flag and stops the transport, but on the daemon
+                            // thread — so the card said "Отключен" while xray went on serving
+                            // 10808/10809. Stop the service instead.
+                            scope.launch {
+                                val daemon = org.koin.java.KoinJavaComponent.getKoin().get<com.katya.app.DaemonController>()
+                                daemon.stop()
+                            }
                         }
                     },
                 )
@@ -401,6 +426,7 @@ fun ServersContent(
 
                                                 appSettings.setActiveConnectionMode("VLESS")
                                                 appSettings.setVlessEnabled(true)
+                                                vlessChecked = true
                                                 appSettings.setVlessUri(editUri)
                                                 daemon.start()
 
@@ -463,17 +489,25 @@ fun ServersContent(
         // Local Servers
         SettingsCard {
             val localChecked = connectionMode == "LOCAL"
+            // Feedback #4: resolved here, in composition, so switching the toggle off can
+            // actually stop the tunnel.
+            val localTunnelService = koinInject<com.katya.app.tunnel.SshTunnelService>()
             ToggleableHeadline(
                 title = "Локальные серверы (SSH)",
                 description = "Подключение к домашнему серверу",
                 checked = localChecked,
                 onCheckedChange = { isChecked ->
+                    // Feedback #4: the switch has to stop the tunnel, not just forget the
+                    // mode. `stopTunnel()` used to disconnect the SSH session and leave
+                    // the reconnect loop running, so with persistent reconnect on it came
+                    // straight back — "выключатель не выключает туннель по факту".
                     if (isChecked) {
                         connectionMode = "LOCAL"
                         appSettings.setActiveConnectionMode("LOCAL")
                     } else {
                         connectionMode = "NONE"
                         appSettings.setActiveConnectionMode("NONE")
+                        scope.launch { localTunnelService.stopTunnel() }
                     }
                 },
             )
@@ -901,10 +935,13 @@ internal fun AlternativeLinksCard() {
                 modifier = Modifier.weight(1f),
                 color = MaterialTheme.colorScheme.onSurface,
             )
+            // Feedback #7: one chevron everywhere — the app's own vector, rotated, so this
+            // island matches the rest instead of swapping two glyph icons.
             Icon(
-                imageVector = if (altExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                imageVector = vectorResource(Res.drawable.ic_arrow_drop_down),
                 contentDescription = if (altExpanded) "Свернуть" else "Развернуть",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.graphicsLayer { rotationZ = if (altExpanded) 180f else 0f },
             )
         }
 

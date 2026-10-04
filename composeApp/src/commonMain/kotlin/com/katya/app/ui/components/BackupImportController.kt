@@ -94,6 +94,9 @@ internal fun rememberBackupImportController(
                     val json = payload?.configJson ?: bytes.decodeToString()
                     val jsonObject = SharedJson.parseToJsonElement(json).jsonObject
                     val previews = preparePreview(json, ImportSection.entries.toSet())
+                    // A legacy file has no snapshot, so the preview only speaks for the
+                    // sections whose keys it really carries. Listing all of them made an
+                    // old backup look restorable and then restored nothing.
                     val sectionDetails = if (previews.merge.hasSnapshot) {
                         // A full snapshot can speak for every section, even the ones
                         // that are empty — a missing conversation list means "none",
@@ -102,8 +105,22 @@ internal fun rememberBackupImportController(
                     } else {
                         detectImportSections(jsonObject)
                     }
-                    AppLogger.i("BackupImport", "Backup read: snapshot=${previews.merge.hasSnapshot}, files=${payload?.hasRestorableFiles == true}")
-                    pending = PendingBackupImport(json, payload, previews, sectionDetails)
+                    val restorable = previews.merge.diff.map { it.section }.toSet()
+                    val offered = sectionDetails.filterKeys { it in restorable }
+                    val skipped = sectionDetails.keys - offered
+                    if (skipped.isNotEmpty()) {
+                        AppLogger.i(
+                            "BackupImport",
+                            "В файле нет данных для разделов: ${skipped.joinToString { it.toString().lowercase() }}",
+                        )
+                    }
+                    AppLogger.i(
+                        "BackupImport",
+                        "Backup read: snapshot=${previews.merge.hasSnapshot}, " +
+                            "rows=${previews.merge.diff.size}, changed=${previews.merge.changedCount}, " +
+                            "sections=${offered.keys.joinToString { it.toString().lowercase() }}, files=${payload?.hasRestorableFiles == true}",
+                    )
+                    pending = PendingBackupImport(json, payload, previews, offered)
                 }.onFailure { error ->
                     AppLogger.e("BackupImport", "Failed to read backup: ${error.message}")
                     result = ImportResult.Failure

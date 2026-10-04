@@ -98,6 +98,35 @@ class LinuxSandboxManager(
         }
     }
 
+    /**
+     * Proves the sandbox can actually run something.
+     *
+     * [checkExistingInstallation] only inspects the filesystem, so it reported "Ready" for a
+     * sandbox whose proot segfaults on every invocation — which is what the field log showed:
+     * `exit_code=139` (128 + SIGSEGV) on every single command. The components were "installed"
+     * by the same check, so nothing ever warned the user.
+     *
+     * One real command settles it. It is the cheapest possible probe (no network, no
+     * packages) and it exercises the whole launch path: loader env, `LD_LIBRARY_PATH`,
+     * talloc, the bind mounts and the shell inside the rootfs.
+     */
+    private fun verifyProotRuns(executor: ProotExecutor): Boolean {
+        val probe = executor.execute("echo KATYA_PROOT_OK", timeoutSeconds = 45L)
+        val out = probe["stdout"]?.toString().orEmpty()
+        val ok = probe["exit_code"] == 0 && out.contains("KATYA_PROOT_OK")
+        if (ok) return true
+        val code = probe["exit_code"]
+        val stderr = probe["stderr"]?.toString()?.take(200).orEmpty()
+        // 139 is 128 + SIGSEGV: the binary crashed before running anything at all.
+        val reason = if (code == 139) {
+            "proot падает с segfault, песочница не запускается"
+        } else {
+            "proot не отвечает (код $code): ${stderr.ifBlank { probe["error"]?.toString().orEmpty() }}"
+        }
+        AppLogger.e("LinuxSandbox", "Песочница нерабочая — $reason")
+        return false
+    }
+
     /** Публичный вызов после установки rootfs/нативных компонентов — обновляет состояние. */
     fun recheckInstallation() {
         checkExistingInstallation()
@@ -125,8 +154,21 @@ class LinuxSandboxManager(
             // xray was running) left proot.so on disk without the exec bit, and the app
             // happily reported the component as installed. The sandbox then failed at the
             // first exec with a bare "Permission denied" and the user had no idea why.
-            if (File(prootPath).canExecute()) {
-                componentsRepository.markInstalled("native_${com.katya.app.components.currentAbi()}")
+            //
+            // canExecute() is not enough either — feedback #5: proot sat on disk,
+            // executable, and still died with SIGSEGV on every command, so the component
+            // was marked installed and the sandbox was announced as ready while every
+            // command through it failed. Run one real command before believing it.
+            if (File(prootPath).canExecute() && rootfs.isDirectory) {
+                val runs = runCatching { verifyProotRuns(createProotExecutor()) }.getOrDefault(false)
+                if (runs) {
+                    componentsRepository.markInstalled("native_${com.katya.app.components.currentAbi()}")
+                } else {
+                    AppLogger.action(
+                        "Песочница",
+                        "proot установлен, но не запускается — перекачай компонент заново",
+                    )
+                }
             } else {
                 AppLogger.action(
                     "Песочница",

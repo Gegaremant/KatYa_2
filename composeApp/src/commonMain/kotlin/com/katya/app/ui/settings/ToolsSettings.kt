@@ -38,7 +38,6 @@ import katya.composeapp.generated.resources.settings_bulk_all_installed
 import katya.composeapp.generated.resources.settings_bulk_done
 import katya.composeapp.generated.resources.settings_bulk_no_catalogue
 import katya.composeapp.generated.resources.settings_bulk_no_servers
-import katya.composeapp.generated.resources.settings_tools_description
 import katya.composeapp.generated.resources.settings_tools_none_available
 import katya.composeapp.generated.resources.settings_tools_title
 import kotlinx.collections.immutable.ImmutableList
@@ -124,16 +123,15 @@ internal fun ToolsContent(
                 title = stringResource(Res.string.settings_tools_title),
                 expanded = toolsExpanded,
                 onToggle = { toolsExpanded = !toolsExpanded },
+                // Feedback #7: the blurb lives in the spoiler's own header, the way the
+                // other islands describe themselves — and it says what the tools *are*,
+                // not how to switch them. Every tool is on by default; the label used to
+                // say that inline after «Инструменты», which is a note about defaults
+                // nobody needs once the list is open.
                 description = "Возможности, которыми Катя может пользоваться сама: файлы, процессы, SSH, команды.",
-                asSwitch = true,
             ) {
                 // Feedback 27.09 #9: this used to sit outside the spoiler, hanging on the
                 // page describing switches the user had not opened yet.
-                Text(
-                    text = stringResource(Res.string.settings_tools_description),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
                 Spacer(Modifier.height(12.dp))
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                     val columns = when {

@@ -302,6 +302,134 @@ class AppSettingsSnapshotTest {
         assertEquals(listOf(AppSettingsKeys.KEY_UI_SCALE), keys)
     }
 
+    // --- Re-importing your own backup (feedback #2) ---------------------------
+
+    @Test
+    fun `re-importing your own backup changes nothing in either mode`() {
+        // Feedback #2: the dialog claimed every row had to be imported when you picked
+        // the file you had just exported. "Дополнить" counted any non-default incoming
+        // value as a write, and a backup is by definition full of non-defaults — so a
+        // byte-identical round trip lit up the whole list.
+        val store = settingsWith(
+            AppSettingsKeys.KEY_UI_SCALE to 1.4f,
+            AppSettingsKeys.KEY_WAKE_WORD to "кот",
+            AppSettingsKeys.KEY_GOD_MODE_ENABLED to true,
+            AppSettingsKeys.KEY_SERVER_PASSWORD to "top-secret",
+        )
+        store.setToolEnabled("execute_command", false)
+
+        val document = store.exportToJson(listOf("execute_command"))
+        val sections = ImportSection.entries.toSet()
+
+        val merge = store.previewSnapshot(document, sections, ImportMode.Merge)
+        val replace = store.previewSnapshot(document, sections, ImportMode.Replace)
+
+        assertTrue(merge.diff.isNotEmpty(), "The file does carry these settings, so rows are shown")
+        assertEquals(0, merge.changedCount, "Дополнить of an identical backup has nothing to write")
+        assertEquals(0, replace.changedCount, "Заменить of an identical backup has nothing to write")
+    }
+
+    @Test
+    fun `a value that really differs is still reported`() {
+        // The counterpart of the test above: "no change" must mean "no change", not
+        // "the diff stopped working".
+        val store = settingsWith(AppSettingsKeys.KEY_UI_SCALE to 0.9f)
+        val backup = settingsWith(AppSettingsKeys.KEY_UI_SCALE to 1.4f)
+
+        val merge = store.previewSnapshot(backupOf(backup), ImportSection.entries.toSet(), ImportMode.Merge)
+
+        assertEquals(1, merge.changedCount)
+    }
+
+    // --- Legacy backups (feedback #1) -----------------------------------------
+
+    @Test
+    fun `a legacy backup with array-shaped settings previews without throwing`() {
+        // Feedback #1: pre-3.1.3-fix backups store `configured_services` as a real
+        // array where the current format keeps a string. displayValue() called
+        // .jsonPrimitive on it, which threw IllegalArgumentException and took the whole
+        // preview down — the user saw "ошибка импорта" and concluded older backups were
+        // no longer supported.
+        val target = settingsWith()
+        val legacy = JsonObject(
+            mapOf(
+                "version" to JsonPrimitive(1),
+                "configured_services" to kotlinx.serialization.json.Json.parseToJsonElement(
+                    """[{"instanceId":"openai-compatible","serviceId":"openai-compatible"}]""",
+                ),
+                "soul_text" to JsonPrimitive("Я Катя"),
+                "conversations" to kotlinx.serialization.json.Json.parseToJsonElement("[]"),
+            ),
+        )
+
+        val preview = target.previewSnapshot(legacy, ImportSection.entries.toSet(), ImportMode.Merge)
+
+        val services = preview.diff.firstOrNull { it.key == "configured_services" }
+        assertNotNull(services, "The service list is a setting and must appear as a row")
+        assertTrue(services.incoming.contains("openai-compatible"), "The array is shown, not dropped")
+    }
+
+    @Test
+    fun `a legacy backup is actually applied`() {
+        val target = settingsWith()
+        val legacy = JsonObject(
+            mapOf(
+                "version" to JsonPrimitive(1),
+                "soul_text" to JsonPrimitive("Я Катя из старого бэкапа"),
+                "server_ip" to JsonPrimitive("88.210.29.61"),
+                "server_port" to JsonPrimitive(34002),
+                "server_user" to JsonPrimitive("sokolovanv"),
+                "vless_uri" to JsonPrimitive("https://vpn-proxy.example/smart-vless/Katerina"),
+                "vless_enabled" to JsonPrimitive(true),
+                "tool_overrides" to kotlinx.serialization.json.Json.parseToJsonElement(
+                    """{"execute_command":false}""",
+                ),
+                "configured_services" to kotlinx.serialization.json.Json.parseToJsonElement(
+                    """[{"instanceId":"openai-compatible","serviceId":"openai-compatible"}]""",
+                ),
+                "instance_settings" to kotlinx.serialization.json.Json.parseToJsonElement(
+                    """[{"instanceId":"openai-compatible","api_key":"sk-legacy","model_id":"deepseek-default"}]""",
+                ),
+                "conversations" to kotlinx.serialization.json.Json.parseToJsonElement("[]"),
+            ),
+        )
+
+        val errors = target.importFromJson(legacy, listOf("execute_command"), ImportSection.entries.toSet(), replace = true)
+
+        assertEquals(0, errors)
+        assertEquals("Я Катя из старого бэкапа", target.getSoulText())
+        assertEquals("88.210.29.61", target.getServerIp())
+        assertEquals(34002, target.getServerPort())
+        assertEquals("https://vpn-proxy.example/smart-vless/Katerina", target.getVlessUri())
+        assertTrue(target.isVlessEnabled())
+        assertFalse(target.isToolEnabled("execute_command"), "A disabled tool in the file must stay disabled")
+        assertEquals(listOf("openai-compatible"), target.getConfiguredServiceInstances().map { it.instanceId })
+        assertEquals("sk-legacy", target.getInstanceApiKey("openai-compatible"))
+    }
+
+    @Test
+    fun `importing a legacy backup leaves settings the file never mentions`() {
+        // Feedback #1: absent used to be written as "", so importing an old backup
+        // silently wiped the things that file predates. "Дополнить" must only add.
+        val target = settingsWith(
+            AppSettingsKeys.KEY_UI_SCALE to 1.4f,
+            "vless_uri" to "https://vpn-proxy.example/live",
+        )
+        val legacy = JsonObject(
+            mapOf(
+                "version" to JsonPrimitive(1),
+                "soul_text" to JsonPrimitive("Я Катя из старого бэкапа"),
+                "conversations" to kotlinx.serialization.json.Json.parseToJsonElement("[]"),
+            ),
+        )
+
+        target.importFromJson(legacy, emptyList(), ImportSection.entries.toSet(), replace = false)
+
+        assertEquals("Я Катя из старого бэкапа", target.getSoulText())
+        assertEquals(1.4f, target.getUiScale(), "The file says nothing about the scale")
+        assertEquals("https://vpn-proxy.example/live", target.getVlessUri(), "The file predates vless_uri entirely")
+    }
+
     @Test
     fun `a legacy backup equal to the current install still reports no change`() {
         val target = settingsWith(AppSettingsKeys.KEY_UI_SCALE to 1.4f)

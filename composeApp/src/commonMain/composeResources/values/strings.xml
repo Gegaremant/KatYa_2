@@ -54,7 +54,7 @@
     <string name="heartbeat_banner_dismiss">Dismiss</string>
     <string name="settings_tools_description">Enable or disable AI tools that can perform actions on your behalf.</string>
     <string name="settings_tools_none_available">No tools available on this platform.</string>
-    <string name="settings_tools_title">Инструменты (все включены по умолчанию)</string>
+    <string name="settings_tools_title">Инструменты</string>
     <string name="settings_tab_general">General</string>
     <string name="settings_tab_agent">Agent</string>
     <string name="settings_tab_services">Services</string>
@@ -327,8 +327,8 @@
     <string name="settings_import_mode_replace">Replace</string>
     <string name="settings_import_mode_replace_description">The file becomes your configuration. Values it does not carry go back to the factory default.</string>
     <string name="settings_import_diff_title">What will change</string>
-    <string name="settings_import_diff_summary">%1$d will change, %2$d already match</string>
-    <string name="settings_import_diff_empty">No differences — this import would change nothing.</string>
+    <string name="settings_import_diff_summary">Изменится: %1$d, уже совпадает: %2$d</string>
+    <string name="settings_import_diff_empty">Различий нет — импорт ничего не изменит.</string>
     <string name="settings_import_diff_unchanged">no change</string>
     <string name="settings_import_confirm">Import</string>
     <string name="snackbar_undo">Undo</string>

@@ -21,6 +21,15 @@ class VlessProxyManager(
     private var proxyJob: Job? = null
     private var prootHandle: ProotHandle? = null
     private var rootProcess: Process? = null
+
+    /**
+     * The config the live xray was launched with.
+     *
+     * Kept so [stop] can kill the transport by its command line: `su -c` makes xray a
+     * grandchild, and a grandchild cannot be reached through the `su` handle. See
+     * [killXrayProcesses].
+     */
+    private var lastConfigFile: File? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private companion object {
@@ -117,12 +126,17 @@ class VlessProxyManager(
                 }
 
                 val finalUri = resolveFinalUri(uri)
-                appSettings.setSystemStatus("Настраиваю туннель VLESS...")
+                // Feedback #6: the main dialog's status line reads this, and it used to sit blank
+                // for the whole launch, so the top bar had nothing but a stale
+                // "Думаю…". Say what is actually happening, including the sandbox
+                // download, which can take minutes.
+                appSettings.setSystemStatus("Настраиваю туннель VLESS…")
                 appSettings.setVlessStatusReason("Запускаю xray…")
                 val configJson = VlessParser.generateXrayConfig(finalUri)
                 AppLogger.d("VlessProxyManager", "Generated config JSON length: ${configJson.length}")
                 val configFilePath = File(linuxSandboxManager.homePath, "xray_config.json")
                 configFilePath.writeText(configJson)
+                lastConfigFile = configFilePath
                 AppLogger.d("VlessProxyManager", "Config written to: ${configFilePath.absolutePath}")
 
                 launchConnectionLoop()
@@ -239,6 +253,10 @@ class VlessProxyManager(
                 "$SSL_CERT_DIR_ENV ${xrayNativeBinary.absolutePath} -c ${configFilePath.absolutePath}"
             AppLogger.d("VlessProxyManager", "Root command: $command")
             AppLogger.rootAction("Запуск xray от root: $command", "выполняется")
+            // exec'd without a trailing `&`: the shell stays as our direct child, so
+            // destroyForcibly() in stop() actually reaches xray. Backgrounding it
+            // would leave a shell that exits immediately, and the tunnel would then
+            // outlive the switch that was supposed to turn it off (feedback #4).
             rootProcess = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
             rootProcess?.waitFor()
         } else {
@@ -259,6 +277,42 @@ class VlessProxyManager(
         rootProcess = null
     }
 
+    /**
+     * Feedback #4: turning the switch off has to turn the tunnel off.
+     *
+     * `destroyForcibly()` on the `su` handle is not enough, and this was the reason the
+     * switch did nothing: `su -c` forks, so xray is a *grandchild*. Killing `su` leaves
+     * xray running, still holding 127.0.0.1:10808/10809 and still serving traffic —
+     * the card said "Отключен" while the tunnel was up.
+     *
+     * So the process is matched by its config path and killed by name, from root,
+     * which reaches the grandchild. The PID kill stays as the fast path for the
+     * non-root case where the process really is our direct child.
+     */
+    private fun killXrayProcesses(configFilePath: File?) {
+        rootProcess?.destroyForcibly()
+        rootProcess = null
+        val pattern = configFilePath?.absolutePath ?: "xray_config.json"
+        val isRooted = try {
+            Runtime.getRuntime().exec(arrayOf("su", "-c", "id")).waitFor() == 0
+        } catch (_: Exception) {
+            false
+        }
+        // `pkill -f` matches the full command line, which is where the config path sits.
+        val cmd = if (isRooted) {
+            arrayOf("su", "-c", "pkill -f $pattern")
+        } else {
+            arrayOf("pkill", "-f", pattern)
+        }
+        try {
+            // exit code 1 means "no process matched" — already stopped, not a failure.
+            val code = Runtime.getRuntime().exec(cmd).waitFor()
+            AppLogger.d("VlessProxyManager", "kill xray by config path: exit=$code")
+        } catch (e: Exception) {
+            AppLogger.e("VlessProxyManager", "Не удалось добить процесс xray: ${e.message}")
+        }
+    }
+
     fun stop() {
         AppLogger.d("VlessProxyManager", "Stopping VLESS proxy")
         proxyJob?.cancel()
@@ -267,8 +321,7 @@ class VlessProxyManager(
         prootHandle?.cancel()
         prootHandle = null
 
-        rootProcess?.destroyForcibly()
-        rootProcess = null
+        killXrayProcesses(lastConfigFile)
 
         appSettings.setVlessConnected(false)
     }

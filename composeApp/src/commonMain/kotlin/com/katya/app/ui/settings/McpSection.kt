@@ -96,7 +96,6 @@ internal fun McpServersSection(
         expanded = mcpExpanded,
         onToggle = { mcpExpanded = !mcpExpanded },
         description = stringResource(Res.string.settings_mcp_servers_description),
-        asSwitch = true,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Spacer(Modifier.height(4.dp))

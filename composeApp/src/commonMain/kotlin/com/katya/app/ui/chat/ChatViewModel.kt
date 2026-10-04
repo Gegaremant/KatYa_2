@@ -246,7 +246,11 @@ class ChatViewModel(
                 if (showDevice || showConnection) {
                     val (connectionText, networkConnected) = if (showConnection) {
                         buildConnectionStatus(
-                            selectedService = _state.value.availableServices.firstOrNull(),
+                            // The service that will actually answer, not merely the
+                            // first one in the list: a reachable first entry used to
+                            // report the whole app as alive while the active model was
+                            // the one that had gone.
+                            selectedService = activeServiceEntry(),
                             isLoading = _state.value.isLoading,
                         )
                     } else {
@@ -277,6 +281,15 @@ class ChatViewModel(
         }
     }
 
+    /**
+     * The entry the next message will be sent to.
+     *
+     * Prefer the one the user picked; fall back to the list head only when nothing is
+     * chosen. The status line has to describe *this* service — feedback #6 was a
+     * status that reported whatever happened to be first.
+     */
+    private fun activeServiceEntry(): ServiceEntry? = _state.value.availableServices.firstOrNull()
+
     private suspend fun buildDeviceStatusText(): String? {
         val provider = deviceInfoProvider ?: return null
         val status = provider.getDeviceStatus() ?: return null
@@ -291,29 +304,78 @@ class ChatViewModel(
         return parts.joinToString(" · ").ifEmpty { null }
     }
 
+    /**
+     * Feedback #6: what the main dialog's status line says.
+     *
+     * It used to answer "is the radio on", so a request that hung for a minute on a
+     * dead gateway still read «⚡ Активно» — and while the model was thinking it read
+     * «Думаю…», which looks exactly the same whether the round trip is healthy or
+     * stuck. The Settings → Services tab already probes the real endpoint and shows a
+     * lamp per instance; that verdict is what belongs here, so the two screens cannot
+     * disagree.
+     *
+     * Returns the text and whether the model is genuinely reachable. `null` means
+     * "no verdict yet" — a real check has not run, so nothing is claimed.
+     */
     private suspend fun buildConnectionStatus(
         selectedService: ServiceEntry?,
         isLoading: Boolean,
     ): Pair<String?, Boolean> {
-        if (!isLoading) return null to false
-
         val provider = networkStatusProvider ?: return null to false
-        val status = provider.getNetworkStatus() ?: return null to false
-        val apiText = selectedService?.serviceName?.let { "API: $it" } ?: "API: Auto"
+
+        // The health of the model itself is probed by the same call the Services tab
+        // uses, and is authoritative. While it is in flight say "проверяю", never
+        // "активно".
+        val reachability = probeModel(selectedService)
 
         val parts = buildList {
-            add("⚡ Активно")
-
-            val d = status.downloadKbps ?: 0f
-            val u = status.uploadKbps ?: 0f
-            if (d > 0.1f || u > 0.1f) {
-                if (d >= 0f) add("↓ ${formatSpeed(d)}")
-                if (u >= 0f) add("↑ ${formatSpeed(u)}")
+            when (reachability) {
+                // A dead model is the whole message — no speeds and no service name to
+                // dress a broken round trip up as a working connection.
+                Reachability.Dead -> add(reachability.label)
+                Reachability.Checking -> add(if (isLoading) reachability.label else "Модель не проверена")
+                Reachability.Alive -> add(reachability.label)
             }
 
-            add(apiText)
+            provider.getNetworkStatus()?.let { status ->
+                val d = status.downloadKbps ?: 0f
+                val u = status.uploadKbps ?: 0f
+                if (d > 0.1f || u > 0.1f) {
+                    if (d >= 0f) add("↓ ${formatSpeed(d)}")
+                    if (u >= 0f) add("↑ ${formatSpeed(u)}")
+                }
+            }
+
+            selectedService?.serviceName?.let { add(it) }
         }
-        return parts.joinToString(" · ") to true
+        return parts.joinToString(" · ") to (reachability == Reachability.Alive)
+    }
+
+    /** What a live probe of the selected endpoint found. */
+    private enum class Reachability(val label: String) {
+        Alive("Модель на связи"),
+        Checking("Проверяю модель…"),
+        Dead("Модель не отвечает"),
+    }
+
+    /**
+     * Asks the repository the same question the Services tab asks.
+     *
+     * Returns [Reachability.Checking] rather than a guess when the check cannot run
+     * (no network provider, on-device model, the built-in Free service, which needs no
+     * endpoint) — an unverifiable model is never reported as down, and never as
+     * "активно" either.
+     */
+    private suspend fun probeModel(selectedService: ServiceEntry?): Reachability {
+        val service = selectedService?.serviceId?.let { Service.fromId(it) } ?: return Reachability.Checking
+        if (service.isOnDevice || service == Service.Free) return Reachability.Checking
+        if (networkStatusProvider == null) return Reachability.Checking
+        return try {
+            dataRepository.validateConnection(service, selectedService.instanceId)
+            Reachability.Alive
+        } catch (_: Exception) {
+            Reachability.Dead
+        }
     }
 
     private fun formatSpeed(kbps: Float): String = if (kbps >= 1024f) {

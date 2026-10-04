@@ -1,0 +1,1091 @@
+{
+ "configured_services": [
+  {
+   "instanceId": "openai-compatible_2",
+   "serviceId": "openai-compatible"
+  },
+  {
+   "instanceId": "opencode",
+   "serviceId": "opencode"
+  },
+  {
+   "instanceId": "aihubmix",
+   "serviceId": "aihubmix"
+  },
+  {
+   "instanceId": "openai-compatible_3",
+   "serviceId": "openai-compatible"
+  },
+  {
+   "instanceId": "openai-compatible",
+   "serviceId": "openai-compatible"
+  },
+  {
+   "instanceId": "freedeepseekproxy",
+   "serviceId": "freedeepseekproxy"
+  },
+  {
+   "instanceId": "litert",
+   "serviceId": "litert"
+  }
+ ],
+ "current_service_id": "openai-compatible",
+ "free_fallback_enabled": true,
+ "monitor_overlay_mode": "SHORT",
+ "instance_settings": [
+  {
+   "instanceId": "openai-compatible_2",
+   "api_key": "REDACTED",
+   "model_id": "deepseek-default",
+   "base_url": "https://api.example.invalid/v1"
+  },
+  {
+   "instanceId": "opencode",
+   "api_key": "REDACTED",
+   "model_id": "big-pickle"
+  },
+  {
+   "instanceId": "aihubmix"
+  },
+  {
+   "instanceId": "openai-compatible_3",
+   "api_key": "REDACTED",
+   "model_id": "turboderp/Qwen3.8-27B-exl3",
+   "base_url": "https://api.example.invalid/v1"
+  },
+  {
+   "instanceId": "openai-compatible",
+   "api_key": "REDACTED",
+   "model_id": "aratan/Ornith-1.5-35B-A3B-Uncensored-hack:Q4_K_M",
+   "base_url": "https://api.example.invalid/v1"
+  },
+  {
+   "instanceId": "freedeepseekproxy",
+   "api_key": "REDACTED",
+   "model_id": "deepseek-chat"
+  },
+  {
+   "instanceId": "litert"
+  }
+ ],
+ "soul_text": "REDACTED-FIXTURE-TEXT",
+ "memory_enabled": true,
+ "agent_memories": [
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783528327019,
+   "updatedAt": 1783528327019
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783528581714,
+   "updatedAt": 1783528581714
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783537678342,
+   "updatedAt": 1783537678342
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783604728730,
+   "updatedAt": 1783604728730
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783605037420,
+   "updatedAt": 1783605037420
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783609791694,
+   "updatedAt": 1783623429914
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783624937263,
+   "updatedAt": 1783624937263,
+   "category": "LEARNING",
+   "source": "observation"
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1783755372203,
+   "updatedAt": 1783755372203
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784103472523,
+   "updatedAt": 1784103472523,
+   "category": "LEARNING",
+   "source": "observation"
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784172593987,
+   "updatedAt": 1784172593987,
+   "category": "PREFERENCE",
+   "source": "user_correction"
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784173470467,
+   "updatedAt": 1784638548236,
+   "source": "user_correction"
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784219666677,
+   "updatedAt": 1784219666677
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784406674545,
+   "updatedAt": 1784406674545
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784542191497,
+   "updatedAt": 1784542191497
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784546476923,
+   "updatedAt": 1784546476923
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784546481214,
+   "updatedAt": 1784546481214
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784637230822,
+   "updatedAt": 1784637230822
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784692933460,
+   "updatedAt": 1784692933460,
+   "category": "LEARNING",
+   "source": "user_correction"
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784875775800,
+   "updatedAt": 1784875893043,
+   "category": "PREFERENCE",
+   "source": "user_correction"
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784877013022,
+   "updatedAt": 1784877013022
+  },
+  {
+   "key": "REDACTED",
+   "content": "REDACTED-FIXTURE-TEXT",
+   "createdAt": 1784877472585,
+   "updatedAt": 1784877472585
+  }
+ ],
+ "scheduling_enabled": true,
+ "scheduled_tasks": [
+  {
+   "id": "4f115518-9036-4402-b2c9-61bc2cf4a18d",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1786027784074,
+   "createdAtEpochMs": 1786027664079,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1786027828753,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "13092e62-086b-41bf-8dd2-cb8012720c5d",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1786174976318,
+   "createdAtEpochMs": 1786174856321,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1786175029329,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "1cd05495-da8d-4ceb-8ef7-b29ac5c2ef2f",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1786175100000,
+   "createdAtEpochMs": 1786175017468,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1786175155953,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "a68b0c2f-184e-4c24-8848-4032f583abb8",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1786178029799,
+   "createdAtEpochMs": 1786177909804,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1786178131784,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "34f04961-afe2-40eb-85e8-21af27105bf6",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1786179480000,
+   "createdAtEpochMs": 1786179303209,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1786179540917,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "0682745d-42fc-44c7-af11-4f127f5e5a01",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1787554800000,
+   "createdAtEpochMs": 1787543384525,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1787554838860,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "1c0eea36-1b44-4b03-8e6c-27f805d791ad",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1788411300000,
+   "createdAtEpochMs": 1788411115450,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1788411328635,
+     "success": true
+    }
+   ]
+  },
+  {
+   "id": "0c04381c-1cde-43de-aabf-513ece423a6e",
+   "description": "REDACTED-FIXTURE-TEXT",
+   "prompt": "REDACTED-FIXTURE-TEXT",
+   "scheduledAtEpochMs": 1790274119480,
+   "createdAtEpochMs": 1790273819487,
+   "status": "COMPLETED",
+   "lastResult": "REDACTED-FIXTURE-TEXT",
+   "recentExecutions": [
+    {
+     "timestampEpochMs": 1790274160911,
+     "success": true
+    }
+   ]
+  }
+ ],
+ "heartbeat_config": {
+  "activeHoursStart": 0,
+  "activeHoursEnd": 24,
+  "lastHeartbeatEpochMs": 1791039703088,
+  "heartbeatInstanceId": "openai-compatible_2"
+ },
+ "heartbeat_log": [
+  {
+   "timestampEpochMs": 1791039703091,
+   "success": true
+  },
+  {
+   "timestampEpochMs": 1791037902944,
+   "success": true
+  },
+  {
+   "timestampEpochMs": 1791036102988,
+   "success": true
+  },
+  {
+   "timestampEpochMs": 1791034302944,
+   "success": true
+  },
+  {
+   "timestampEpochMs": 1791032502530,
+   "success": true
+  }
+ ],
+ "email_enabled": true,
+ "email_poll_interval": 15,
+ "sms_enabled": true,
+ "sms_poll_interval": 15,
+ "sms_send_enabled": true,
+ "tool_overrides": {
+  "web_search": true,
+  "get_local_time": true,
+  "get_location_from_ip": true,
+  "open_url": true,
+  "fetch_url": true,
+  "server_monitor": true,
+  "execute_command": true,
+  "download_file": true,
+  "ssh_execute": true,
+  "sftp_transfer": true,
+  "search_root_apps_catalog": true,
+  "manage_calendar": true,
+  "analyze_app_guts": true,
+  "send_android_intent": true,
+  "memory_store": true,
+  "memory_forget": true,
+  "memory_learn": true,
+  "memory_reinforce": true,
+  "schedule_task": true,
+  "cancel_task": true,
+  "list_tasks": true,
+  "promote_learning": true,
+  "setup_email": true,
+  "check_email": true,
+  "read_email": true,
+  "reply_email": true,
+  "compose_email": true,
+  "search_email": true,
+  "check_sms": true,
+  "read_sms": true,
+  "search_sms": true,
+  "send_sms": true,
+  "reply_sms": true,
+  "send_notification": true,
+  "create_calendar_event": true,
+  "set_alarm": true,
+  "open_file": true,
+  "host_shell_command": true
+ },
+ "mcp_servers": [
+  {
+   "id": "open_meteo_weather",
+   "name": "Open-Meteo Weather",
+   "url": "https://mcp.open-mcp.org/api/server/open-weather@latest/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "context7",
+   "name": "Context7",
+   "url": "https://mcp.context7.com/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "jina_ai",
+   "name": "Jina AI",
+   "url": "https://mcp.jina.ai/v1",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "deepwiki",
+   "name": "DeepWiki",
+   "url": "https://mcp.deepwiki.com/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "find_a_domain",
+   "name": "Find-A-Domain",
+   "url": "https://api.findadomain.dev/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "context7_2",
+   "name": "Context7",
+   "url": "https://mcp.context7.com/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "coingecko",
+   "name": "CoinGecko",
+   "url": "https://mcp.api.coingecko.com/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "manifold_markets",
+   "name": "Manifold Markets",
+   "url": "https://api.manifold.markets/v0/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "fetch",
+   "name": "Fetch",
+   "url": "https://remote.mcpservers.org/fetch/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "deepwiki_2",
+   "name": "DeepWiki",
+   "url": "https://mcp.deepwiki.com/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "deepwiki_3",
+   "name": "DeepWiki",
+   "url": "https://mcp.deepwiki.com/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "sequential_thinking",
+   "name": "Sequential Thinking",
+   "url": "https://remote.mcpservers.org/sequentialthinking/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "find_a_domain_2",
+   "name": "Find-A-Domain",
+   "url": "https://api.findadomain.dev/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "find_a_domain_3",
+   "name": "Find-A-Domain",
+   "url": "https://api.findadomain.dev/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "subwayinfo_nyc",
+   "name": "SubwayInfo NYC",
+   "url": "https://subwayinfo.nyc/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "jina_ai_2",
+   "name": "Jina AI",
+   "url": "https://mcp.jina.ai/v1",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "open_meteo_weather_2",
+   "name": "Open-Meteo Weather",
+   "url": "https://mcp.open-mcp.org/api/server/open-weather@latest/mcp",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "github_mcp__local_termux_",
+   "name": "GitHub MCP (Local/Termux)",
+   "url": "npx -y @modelcontextprotocol/server-github",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "sqlite_mcp__local_termux_",
+   "name": "SQLite MCP (Local/Termux)",
+   "url": "npx -y @modelcontextprotocol/server-sqlite --db /data/data/com.termux/files/home/test.db",
+   "headers": {},
+   "isEnabled": true
+  },
+  {
+   "id": "filesystem_mcp__local_termux_",
+   "name": "Filesystem MCP (Local/Termux)",
+   "url": "npx -y @modelcontextprotocol/server-filesystem /sdcard",
+   "headers": {},
+   "isEnabled": true
+  }
+ ],
+ "conversations": [
+  {
+   "id": "168169b6-3570-445e-b68a-1cb535103a75",
+   "messages": [
+    {
+     "id": "3951bf1a-2fde-4a28-bc9f-37056b0b7d6d",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "37f4238b-0f39-4e6c-95ef-1299059095d6",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT",
+     "reasoningContent": "Андрей спрашивает: почему у него всё лежит (DNS, связь), что происходит в мире, это чей-то злой умысел или случайность (бабушка кабель перерубила). Он удивлён, что я всё равно работаю и просит рассказать новости из мира. Мне нужно найти актуальные новости о сбоях интернета/DNS, желательно за последние дни (конец сентября 2026, но мои знания до мая 2025, так что нужно искать в интернете). Поищу.Результаты поиска показывают несколько релевантных событий:\n- DDoS-атаки на публичные DNS-серверы (30 сентября 2026)\n- Сбои Google, Cloudflare (сентябрь 2026)\n- Массовый сбой DNS в России (14 сентября 2026), связывают с DNSSEC\n- Блокировка DoH/DoT в России с августа 2026\n- Обрывы кабелей (Ростелеком, США, Пакистан)\n- Отключение интернета в России 23 сентября 2026\n\nНужно открыть несколько источников для деталей.Соберу картину:\n- 10 сентября 2026: Cloudflare 8.5 часов с задержкой DNS-обновлений; Google сбой.\n- 14 сентября 2026: массовый сбой в зоне .RU, связывают с DNSSEC/подписью зоны.\n- 19 сентября 2026: Ростелеком — два обрыва ВОЛС на Дальнем Востоке, назвали диверсией.\n- 22 сентября 2026: США — перерезан оптоволоконный кабель, приостановлены рейсы.\n- С августа 2026: в России блокируют DoH/DoT (зашифрованный DNS от Google и Cloudflare).\n- 29-30 сентября 2026: DDoS-атаки на публичные DNS-серверы по всему миру.\n- 23 сентября 2026: отключения интернета в России.\n\nПользователь спрашивает, это специально или случайно. Нужно дать обзор. Также объяснить, почему я работаю, хотя у него всё лежит. Можно упомянуть, что я работаю через локальный шлюз/API, а не через публичный интернет.\n\nСтоит поискать ещё \"отключения интернета Россия 23 сентября 2026\" для полноты.Теперь у меня достаточно материала. Сформулирую ответ: объясню, что происходит (DDoS на DNS, блокировки DoH/DoT в России, обрывы кабелей, сбои крупных провайдеров), отвечу на вопрос \"это специально или случайно\" — комбинация. И почему я работаю: я локальная, не завишу от публичного DNS.\n\nТакже стоит упомянуть, что Андрей использует VPN/DoH, и его провайдер (Билайн) блокирует DoH/DoT, что объясняет его проблемы с DNS. Это релевантно, так как он говорил про \"DNS лежат везде\".\n\nОтвет должен быть в роли Кати, с юмором, но по делу."
+    },
+    {
+     "id": "57b07245-8af8-4d49-9269-a2529d712b5d",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "835f23c8-8c51-4e9c-b7ae-0c2d416813ca",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT",
+     "reasoningContent": "The user wants to know how to set up their own DoH DNS server. He's saying he doesn't want to but has to. Let me give him a practical, structured plan.\n\nHe's on a rooted Android, has a second node (4090 server, 203.0.113.10). The best path is AdGuard Home in Docker on the server.\n\nLet me think about what he needs. DNS is lying everywhere, DoH/DoT are being blocked. He needs his own DoH server that his devices can reach.\n\nKey considerations:\n1. He needs a server with a public IP — that's the 4090 node (203.0.113.10)\n2. AdGuard Home is the standard tool — DoH/DoT/DNSCrypt out of the box, web UI, filters\n3. Docker makes it easy\n4. But: if his ISP blocks DoH/DoT, he still can't reach it from his phone. So he needs either:\n   - A non-standard port for DoH (not 443)\n   - Or a tunnel (WireGuard, VLESS, etc.)\n   - Or use the server as a full resolver via VPN\n\nLet me structure this properly. I should give him:\n1. What we're building\n2. Prerequisites check\n3. The install (AdGuard Home via Docker)\n4. Client setup (phone)\n5. Fallback options if DoH is blocked\n\nLet me be practical and concise but complete. I should ask where to run it — the second node (Linux) is the right answer.\n\nAlso worth mentioning: if DoH gets blocked on standard ports, we can:\n- Run DoH on port=44444 or 2053 (less common, sometimes not blocked)\n- Run DoT on 853 (often blocked)\n- Use DNSCrypt on 443/8443 with a specific provider\n- Or set up a WireGuard tunnel and route DNS through it\n\nLet me write this properly, in Katya's voice — with humor but useful.\n\nActually — the key insight: if his ISP blocks DoH to known providers (Google, Cloudflare), running his OWN DoH server on his own IP on a non-standard port might actually work, because the blocker lists are based on known IPs/SNI. Let me suggest that.\n\nLet me draft the plan:\n\n**Вариант 1: AdGuard Home на 4090 (203.0.113.10)**\n- Docker compose\n- Web UI on 3000\n- DoH on 443 (or 8443 if 443 is blocked)\n- DoT on 853\n- Plain DNS on 53\n- Own upstream (Quad9, AdGuard DNS, etc.)\n\n**Но!** Если у него блокируют DoH до чужих серверов — свой сервер по своему IP может работать. Это ключевой момент.\n\n**Вариант 2: Если IP сервера тоже режут** — оборачиваем в VLESS/WireGuard и ходим через туннель.\n\nLet me write this out. I'll structure it as a plan with a checklist.\n\nI should also mention: he needs the server reachable from outside (no NAT). If the server is behind NAT — нужен port forwarding или туннель.\n\nLet me give a concrete docker-compose and step-by-step.\n\nFor the interface — I should use katya-ui for the choice.\n\nLet me write."
+    },
+    {
+     "id": "03e03651-727e-4233-bf77-bcd14b3ad6fe",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "7078c743-437c-4484-ba06-20cf308d2fce",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT",
+     "reasoningContent": "Пользователь хочет узнать, можно ли на MikroTik установить что-то «из коробки», чтобы оно заработало сразу. Нужно дать практичный ответ. Поищу информацию.Откроем результаты.Теперь у меня есть информация о встроенной поддержке DoH, о контейнерах и о AdGuard Home. Нужно ответить пользователю."
+    },
+    {
+     "id": "6afaf01b-8846-42d2-8550-b70a629f4de5",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "2515440f-cafb-48fb-a6ef-77449ae0ff09",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "f4095683-f997-47ec-8368-8e8785b6bda2",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "896de533-11d4-4ee1-8e9c-722c965fecbf",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "e72e0b2d-5c32-4a71-8c42-1307a0a357e7",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "6c359f2b-f4e2-4fd9-b791-ae2c4538f242",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "adf337d4-fbd4-49ec-83ee-7810a9b2491a",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "dd62e640-c472-4150-b79e-3cf14b153b62",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "e305ea4a-1dc5-41ca-a22f-2a3bf010e09a",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "e3f6e65b-ed4c-4383-9fe4-3ad29598fe75",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "5261c5d5-5c92-4dc3-b5b9-f3873d76a853",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "cff26f49-779c-46c3-9637-2e1474ccce52",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "d223935d-ee58-4eef-be06-c6f617d992d5",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "9a4eaca1-3efa-4ad5-b982-cacb76985032",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "b6cd065f-2beb-4e01-bac9-7c899f0685f8",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "fffb5b5b-0101-415c-8370-b536c8d62632",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "4051403a-0e7b-4df6-aa7a-df4eba0c0f29",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "ec781623-b798-4fed-a14e-ee5fca704aaa",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "839137d7-8a82-4ae1-ac4f-f378bc157086",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "079fa994-3790-4c60-895f-a6ab46ca59cf",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "5f76f0eb-5b89-4d5a-860e-191899df6ce0",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "08394a94-c51c-4ebb-b84c-4fc614204186",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "74010ba6-ed62-4245-84b4-c89d43d813bb",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "e4d01748-5a00-4635-8c81-8b2db2241700",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "088a2464-6e42-4293-b85e-dc4964327c10",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "20993765-841f-4e99-8b33-bac9bfd8871a",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "ae2ddc2a-08f2-4d78-90b0-f8a74c32ae96",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "35811b17-7659-4f3f-a938-3a164b52aea9",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "332662be-6c8e-47bd-a700-a242a76e2f5e",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "b4b8b7c6-c9a2-437b-ae60-ab06e5eb6298",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "a601c76a-bb65-4bf6-bb8c-621a8d0d5ad3",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "d8668809-64e6-4d55-848e-f0841d07c4b4",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "9d883b33-6f7a-46b6-bfd3-9ce40cae6824",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "ad9309c9-05c1-4715-9183-6c9865b5dd81",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "f2240d30-43da-41ee-a240-c2c04f8599c6",
+     "role": "tool",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "fc9a86ef-96c6-4ef4-a26f-298dcca87817",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "e82c35a1-dddc-49df-a9bc-9b9627542f84",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "98306b34-bb33-44ce-8868-1a0a7b697410",
+     "role": "user",
+     "content": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "id": "de04853e-01b3-48b6-81dd-bbbc7c6f7d18",
+     "role": "assistant",
+     "content": "REDACTED-FIXTURE-TEXT"
+    }
+   ],
+   "createdAt": 1785201940416,
+   "updatedAt": 1791003513599,
+   "title": "REDACTED-FIXTURE-TEXT",
+   "type": "heartbeat",
+   "shellTranscript": [
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "command",
+     "text": "REDACTED-FIXTURE-TEXT"
+    },
+    {
+     "type": "error",
+     "text": "REDACTED-FIXTURE-TEXT"
+    }
+   ]
+  }
+ ],
+ "server_ip": "203.0.113.10",
+ "server_port": 34002,
+ "server_user": "testuser",
+ "server_password": "REDACTED",
+ "tunnel_persistent_reconnect": true,
+ "vless_enabled": false,
+ "vless_uri": "https://vpn-proxy.invalid/smart-vless/testuser",
+ "version": 1
+}

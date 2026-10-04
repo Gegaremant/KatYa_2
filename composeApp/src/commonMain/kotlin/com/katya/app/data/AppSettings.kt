@@ -232,6 +232,15 @@ data class ServiceInstance(
 class AppSettings(internal val settings: Settings) {
     companion object {
         private const val KEY_LOG_FILE_PATH = "log_file_path"
+
+        /** Send the dictated text the instant it is recognised. */
+        const val SEND_DELAY_IMMEDIATE = 0L
+
+        /** The right-hand end of the slider: the user presses send themselves. */
+        const val SEND_DELAY_MANUAL = 5000L
+
+        /** The full range of the slider, so the UI and the chat agree on the ends. */
+        const val SEND_DELAY_MAX = SEND_DELAY_MANUAL
     }
 
     fun getLogFilePath(): String? = settings.getStringOrNull(KEY_LOG_FILE_PATH)
@@ -474,6 +483,19 @@ class AppSettings(internal val settings: Settings) {
 
     fun getSendDelayMs(): Long = settings.getLong("send_delay_ms", 1000L)
     fun setSendDelayMs(delay: Long) = settings.putLong("send_delay_ms", delay)
+
+    /**
+     * How long the dictated text waits in the field before it is sent by itself.
+     *
+     * Both ends of the slider mean something of their own, so the delay is read
+     * through [isAutoSendDelay] rather than compared with `> 0`:
+     *
+     * - [SEND_DELAY_IMMEDIATE] — send the moment the voice is recognised;
+     * - [SEND_DELAY_MANUAL] — the right-hand end of the slider: never send by
+     *   itself, the text stays in the field until the user presses send;
+     * - anything in between — wait that many milliseconds of silence first.
+     */
+    fun isAutoSendDelay(): Boolean = getSendDelayMs() in (SEND_DELAY_IMMEDIATE + 1) until SEND_DELAY_MANUAL
 
     // OpenAI-compatible cloud speech settings (STT = /audio/transcriptions, TTS = /audio/speech)
     fun getCloudSttUrl(): String = settings.getString("cloud_stt_url", DEFAULTS.CLOUD_STT_URL)

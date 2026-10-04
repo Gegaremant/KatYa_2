@@ -56,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -320,6 +321,9 @@ internal fun ServicesContent(uiState: SettingsUiState, actions: SettingsActions)
                     dsAuthStatus = uiState.dsAuthStatus,
                     dsAuthRunning = uiState.dsAuthRunning,
                     dsAuthIsThisInstance = uiState.dsAuthInstanceId == entry.instanceId,
+                    // Feedback #5: the ViewModel's copy, so a tab switch cannot clear it.
+                    dsLoginDraft = uiState.dsLoginDrafts[entry.instanceId] ?: DeepSeekLoginDraft(),
+                    onChangeDraft = actions.onChangeDeepSeekDraft,
                 )
             }
         }
@@ -502,6 +506,27 @@ private enum class ServiceFilter {
     FREE,
 }
 
+/**
+ * Feedback #5: a half-typed DeepSeek login, held per card instance in the ViewModel.
+ *
+ * The password lives here only while it is being typed; the signed-in session is what
+ * gets persisted (per instance, in `deepseek_session`).
+ *
+ * This deliberately is *not* `rememberSaveable` in the card. Neither a plain `remember`
+ * nor a `rememberSaveable` survives switching to another settings tab, because the whole
+ * tab leaves the composition — the field kept what was typed yet displayed nothing on
+ * return. And because the card is keyed by `instanceId`, that same saveable slot is
+ * reused by the app's other preview surfaces on this screen, which is how a log line
+ * ("[03.10 22-24] …") ended up as the value of the login field. The ViewModel owns the
+ * draft instead: it outlives every tab switch, and nothing else can write to it.
+ */
+@Immutable
+data class DeepSeekLoginDraft(
+    val email: String = "",
+    val password: String = "",
+    val passwordVisible: Boolean = false,
+)
+
 @Composable
 private fun ConfiguredServiceCardContent(
     entry: ConfiguredServiceEntry,
@@ -538,6 +563,8 @@ private fun ConfiguredServiceCardContent(
     dsAuthStatus: String = "",
     dsAuthRunning: Boolean = false,
     dsAuthIsThisInstance: Boolean = false,
+    dsLoginDraft: DeepSeekLoginDraft = DeepSeekLoginDraft(),
+    onChangeDraft: (String, DeepSeekLoginDraft) -> Unit = { _, _ -> },
 ) {
     // Clear a stale denied status when the user returns from granting the permission in
     // system settings; the recheck never re-prompts, so this is a no-op while still denied.
@@ -614,13 +641,17 @@ private fun ConfiguredServiceCardContent(
             }
         }
 
-        // Feedback (27.09 #5): collapsing the card used to wipe a half-typed DeepSeek
-        // login and password. The expanded body is inside `if (isExpanded)`, so it leaves
-        // the composition entirely on collapse and every `remember` inside it was thrown
-        // away. Hoisted above the branch — still per card, but it survives collapsing.
-        var dsEmail by rememberSaveable { mutableStateOf("") }
-        var dsPassword by rememberSaveable { mutableStateOf("") }
-        var dsPasswordVisible by rememberSaveable { mutableStateOf(false) }
+        // Feedback #5: the typed login comes from the ViewModel, keyed by this instance.
+        // See [DeepSeekLoginDraft] for why it cannot live here — a tab switch used to
+        // empty the fields, and one report had a log line turn up inside them.
+        val dsDraft = dsLoginDraft
+        val dsEmail = dsDraft.email
+        val dsPassword = dsDraft.password
+        val dsPasswordVisible = dsDraft.passwordVisible
+
+        fun updateDraft(transform: (DeepSeekLoginDraft) -> DeepSeekLoginDraft) {
+            onChangeDraft(entry.instanceId, transform(dsDraft))
+        }
 
         // Expanded content
         if (isExpanded) {
@@ -707,7 +738,7 @@ private fun ConfiguredServiceCardContent(
                         ) {
                             KaiOutlinedTextField(
                                 value = dsEmail,
-                                onValueChange = { dsEmail = it },
+                                onValueChange = { value -> updateDraft { it.copy(email = value) } },
                                 label = { Text("Email / телефон DeepSeek") },
                                 singleLine = true,
                                 enabled = !isAuthorizing,
@@ -715,7 +746,7 @@ private fun ConfiguredServiceCardContent(
                             )
                             KaiOutlinedTextField(
                                 value = dsPassword,
-                                onValueChange = { dsPassword = it },
+                                onValueChange = { value -> updateDraft { it.copy(password = value) } },
                                 label = { Text("Пароль") },
                                 singleLine = true,
                                 enabled = !isAuthorizing,
@@ -728,7 +759,7 @@ private fun ConfiguredServiceCardContent(
                                 // back to what was typed, so a mistyped password could
                                 // only be discovered by deleting the whole field.
                                 trailingIcon = {
-                                    IconButton(onClick = { dsPasswordVisible = !dsPasswordVisible }) {
+                                    IconButton(onClick = { updateDraft { it.copy(passwordVisible = !it.passwordVisible) } }) {
                                         Icon(
                                             imageVector = if (dsPasswordVisible) {
                                                 Icons.Default.VisibilityOff

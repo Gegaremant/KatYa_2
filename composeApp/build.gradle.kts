@@ -59,6 +59,9 @@ kotlin {
                 implementation(libs.turbine)
                 implementation(libs.multiplatform.settings.test)
             }
+            // Real backup files the import tests read. They are test data, not code:
+            // absent ones make the test skip rather than fail.
+            resources.srcDir("src/commonTest/resources")
         }
 
         val androidMain by getting {
