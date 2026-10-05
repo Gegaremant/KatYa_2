@@ -2,6 +2,13 @@ package com.katya.app.components
 
 import android.content.Context
 import android.util.Log
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 /**
@@ -113,13 +120,28 @@ object BundledComponents {
     }
 
     /**
-     * Зеркала для компонента: сперва адрес из настроек, затем известные запасные.
+     * Публичная ссылка на папку Яндекс.Диска с компонентами.
+     *
+     * Пустая строка — звёздочка не вставлена. Сама ссылка не секрет: это общий доступ
+     * на чтение. Но и вшивать её задолго до того, как папка существует, незачем —
+     * поэтому код умеет работать и без неё, просто не получает лишнего адреса.
+     *
+     * Смысл в том, что GitHub у части людей не открывается вообще, а это не зеркало
+     * GitHub, а отдельный хостинг: ссылки там живые годами и не зависят от того,
+     * заблокирован ли github.com.
+     */
+    private const val YANDEX_DISK_PUBLIC_KEY = ""
+
+    /**
+     * Источники, с которых можно забрать архив компонента, в порядке предпочтения.
      *
      * Запасные адреса — не секрет и не персональные данные: это публичные релизы
      * proot-distro и самого проекта. Пользователь может подменить основной адрес
      * сам, но когда до GitHub не доходит вообще, список в коде — это всё, что остаётся.
      */
-    fun mirrorCandidates(id: String, primary: String): List<String> {
+    fun mirrorCandidates(id: String, primary: String): List<MirrorSource> {
+        val sources = mutableListOf<MirrorSource>()
+        if (primary.isNotBlank()) sources += MirrorSource.Direct(primary)
         if (id.startsWith("debian_")) {
             val abi = id.removePrefix("debian_")
             val arch = when (abi) {
@@ -129,21 +151,70 @@ object BundledComponents {
                 else -> "aarch64"
             }
             val file = "debian-trixie-$arch-pd-v4.29.0.tar.xz"
-            return listOfNotNull(
-                primary,
+            sources += MirrorSource.Direct(
                 "https://ghproxy.net/https://github.com/termux/proot-distro/releases/download/v4.29.0/$file",
+            )
+            sources += MirrorSource.Direct(
                 "https://github.moeyy.xyz/https://github.com/termux/proot-distro/releases/download/v4.29.0/$file",
             )
+            sources += yandexSource("debian_$abi.tar.xz")
         }
         if (id.startsWith("native_")) {
             val abi = id.removePrefix("native_")
             val file = "native-$abi.zip"
-            return listOfNotNull(
-                primary,
+            sources += MirrorSource.Direct(
                 "https://ghproxy.net/https://github.com/Gegaremant/KatYa_2/releases/download/v3.1.3/$file",
+            )
+            sources += MirrorSource.Direct(
                 "https://github.moeyy.xyz/https://github.com/Gegaremant/KatYa_2/releases/download/v3.1.3/$file",
             )
+            sources += yandexSource("native_$abi.zip")
         }
-        return listOf(primary)
+        return sources
+    }
+
+    private fun yandexSource(fileName: String): List<MirrorSource> = if (YANDEX_DISK_PUBLIC_KEY.isBlank()) {
+        emptyList()
+    } else {
+        listOf(MirrorSource.YandexDisk(YANDEX_DISK_PUBLIC_KEY, fileName))
+    }
+}
+
+/**
+ * Откуда ещё можно взять архив компонента.
+ *
+ * Почему не просто список строк: у Яндекс.Диска нельзя скачать по публичной ссылке
+ * напрямую. Его API выдаёт временный прямой адрес, который живёт около часа, — значит
+ * резолвить надо в момент установки, иначе к следующей попытке ссылка уже протухла.
+ * Поэтому источник умеет сам превратиться в адрес, а не просто им быть.
+ */
+sealed interface MirrorSource {
+    /** Короткое имя источника для журнала — полный адрес там не нужен и только шумит. */
+    val label: String
+
+    /** Прямой адрес, готовый к загрузке прямо сейчас. */
+    suspend fun resolve(http: HttpClient): String
+
+    /** Обычный адрес — берём как есть. */
+    data class Direct(val url: String) : MirrorSource {
+        override val label: String get() = url.take(72)
+        override suspend fun resolve(http: HttpClient): String = url
+    }
+
+    /** Файл из публично открытой папки Яндекс.Диска. */
+    data class YandexDisk(val publicKey: String, val fileName: String) : MirrorSource {
+        override val label: String get() = "Яндекс.Диск/$fileName"
+
+        override suspend fun resolve(http: HttpClient): String {
+            val body =
+                http.get("https://cloud-api.yandex.net/v1/disk/public/resources/download") {
+                    parameter("public_key", publicKey)
+                    parameter("path", fileName)
+                }.bodyAsText()
+            return runCatching {
+                Json.parseToJsonElement(body).jsonObject["href"]?.jsonPrimitive?.content
+            }.getOrNull()
+                ?: error("Яндекс.Диск не отдал ссылку на $fileName")
+        }
     }
 }

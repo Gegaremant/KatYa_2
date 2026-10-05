@@ -166,15 +166,15 @@ class ComponentDownloaderService : Service() {
     private suspend fun fetchWithMirrors(component: DownloadableComponent, tempFile: File): Long {
         val candidates = BundledComponents.mirrorCandidates(component.id, component.url)
         var lastError: Exception? = null
-        for ((index, url) in candidates.withIndex()) {
+        for ((index, source) in candidates.withIndex()) {
             try {
-                return downloadOnce(component, url, tempFile)
+                return downloadOnce(component, source.resolve(http), tempFile)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 lastError = e
                 if (tempFile.exists()) tempFile.delete()
-                AppLogger.e("ComponentDownloader", "Адрес не сработал (${url.take(72)}…): ${e.message}")
+                AppLogger.e("ComponentDownloader", "Источник не сработал (${source.label}): ${e.message}")
                 if (index < candidates.lastIndex) {
                     repository.updateProgress(component.id, "downloading", 0L, 0L)
                 }
