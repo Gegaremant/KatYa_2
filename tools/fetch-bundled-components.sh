@@ -34,7 +34,8 @@ fetch() {
   fi
   echo "  качаю: $(basename "$out")"
   # -C - докачивает начатое, -f обрывается на HTTP-ошибке, чтобы не оставить битый файл.
-  curl -fL --retry 3 --retry-delay 3 -C - -o "$out.part" "$url"
+  # -# вместо таблицы: 137 МБ полноэкранного прогресса засоряют лог CI на сотни строк.
+  curl -fL --progress-bar --retry 3 --retry-delay 3 -C - -o "$out.part" "$url"
   mv "$out.part" "$out"
 }
 

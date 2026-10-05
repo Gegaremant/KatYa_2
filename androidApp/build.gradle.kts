@@ -78,6 +78,14 @@ android {
         }
     }
 
+    // Полезная нагрузка full-сборки — уже сжатые архивы. Deflate по ним даёт ровно
+    // 0% (проверено: 35409704 → 35419569), то есть упаковка 137 МБ впустую жжёт время,
+    // а на устройстве Android вынужден распаковывать поток на лету. Хранить как есть —
+    // тогда AssetManager отдаёт размер через openFd() без второго прохода по файлу.
+    androidResources {
+        noCompress("xz", "zip")
+    }
+
     signingConfigs {
         create("release") {
             val ksFile = System.getenv("KEYSTORE_FILE")
