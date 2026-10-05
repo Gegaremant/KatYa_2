@@ -31,7 +31,7 @@ android {
         manifestPlaceholders["appLabel"] = "KatYa ${libs.versions.appVersion.get()}"
     }
 
-    flavorDimensions += "distribution"
+    flavorDimensions += listOf("distribution", "bundle")
     productFlavors {
         create("playStore") {
             dimension = "distribution"
@@ -39,6 +39,33 @@ android {
         create("foss") {
             dimension = "distribution"
             isDefault = true
+        }
+
+        // Two distributions of the same app, differing only in what ships inside the APK.
+        //
+        // `full` carries everything it needs — the xray runtime with its geo databases, the
+        // Debian rootfs and the proot binaries — so the sandbox works on first launch with
+        // no network at all. That matters because GitHub was simply unreachable for some
+        // users: both downloads timed out and the sandbox could never start.
+        //
+        // `lite` carries none of it. It is roughly 60 MB smaller and every component is
+        // fetched on demand, which is the right trade on a metered connection.
+        //
+        // Bundled payloads live under `src/full/assets` and are not in git — they are
+        // fetched by `tools/prepare-full-bundle.sh`, the same script that builds the
+        // distributables.
+        create("full") {
+            dimension = "bundle"
+            isDefault = true
+        }
+        create("lite") {
+            dimension = "bundle"
+        }
+    }
+
+    sourceSets {
+        getByName("full") {
+            assets.srcDir("src/full/assets")
         }
     }
 
@@ -67,7 +94,7 @@ android {
     }
 
     buildTypes {
-        // Release APKs ship as `assembleFossDebug`. The stock debug keystore lives
+        // Release APKs ship as `assembleFossFullDebug` / `assembleFossLiteDebug`. The stock debug keystore lives
         // in ~/.android and is generated on first use, so every CI runner signs
         // with a fresh key — each release then has a different certificate and
         // Android refuses to install it over the previous version. Signing debug

@@ -65,3 +65,7 @@ scris/
 .vscode
 .tmp
 .native-check/
+
+# Полезная нагрузка full-сборки: rootfs и proot, ~140 МБ. В git им не место,
+# их кладёт tools/fetch-bundled-components.sh.
+androidApp/src/full/assets/katya-components/

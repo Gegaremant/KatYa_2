@@ -26,19 +26,40 @@ token and key belongs in `.env`, read at runtime — never written into a source
 # Credentials come from .env.katya — see the section above; it is already gitignored.
 # Load it, do not inline the values:
 set -a && . ./.env.katya && set +a
-./gradlew assembleFossDebug
+./gradlew assembleFossFullDebug
 
 # Debug-key build (development only) — unset the KEYSTORE_* vars first, otherwise
 # gradle signs with the release key and the APK is not reproducible for you.
 # For product-specific builds:
-./gradlew assemblePlayStoreDebug  # Google Play store version
-./gradlew assembleFossDebug       # FOSS version
+./gradlew assemblePlayStoreFullDebug  # Google Play store version
+./gradlew assembleFossFullDebug       # FOSS version
 ```
 
 Release builds are made by CI (`.github/workflows/release.yml`): push a `v*` tag and it
-builds, verifies the signing certificate against the expected SHA-256, runs the unit
-tests and publishes the APK. A local `assembleFossDebug` is a debug-signed build and
-will *not* install over an existing release.
+builds both bundles, verifies the signing certificate against the expected SHA-256, runs
+the unit tests and publishes the APKs. A local `assembleFossFullDebug` is a debug-signed
+build and will *not* install over an existing release.
+
+### Two bundles: `full` and `lite`
+
+Two flavor dimensions, so a variant name carries both: `distribution` (`foss`,
+`playStore`) and `bundle` (`full`, `lite`).
+
+- **`full`** carries the sandbox payloads inside the APK (`rootfs` + proot, ~130 MB), so
+  the sandbox comes up on a fresh install with no network at all.
+- **`lite`** carries none of them and fetches everything on demand, trying the URL from
+  the settings first and then known mirrors. Roughly 100 MB smaller.
+
+Those payloads are **not in git** — that is the point of `.gitignore`. Before building a
+`full` bundle locally, fetch them:
+
+```bash
+./tools/fetch-bundled-components.sh   # → androidApp/src/full/assets/katya-components/
+```
+
+`BundledComponents` (androidMain) is the seam: it checks `assets/katya-components/<id>.<ext>`
+before any network call and falls back to download-with-mirrors when the file is absent.
+CI runs the same script, so both bundles come from the same archives a user would fetch.
 
 ### Gradle Dependencies
 The project uses a centralized version catalog (`gradle/libs.versions.toml`) for dependency management. To update dependencies:
@@ -75,7 +96,7 @@ The project uses a centralized version catalog (`gradle/libs.versions.toml`) for
    - Non-root: Install PRoot Debian terminal
 
 2. **Build & Deploy**:
-   - Build APK with `./gradlew assembleFossDebug` (see signing note above)
+   - Build APK with `./gradlew assembleFossFullDebug` (see signing note above)
    - Test on device via USB or Android Studio
    - For Sandbox mode: Ensure device supports Linux containerization
 

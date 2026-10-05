@@ -3,8 +3,8 @@
 # Single source of truth for the app version:
 #   appVersion      -> versionName, generated Version.appVersion (UI, User-Agent), label
 #   android-versionCode -> versionCode in the manifest / generated Version.versionCode
-appVersion = "3.1.9"
-android-versionCode = "3210"
+appVersion = "3.2.0"
+android-versionCode = "3211"
 agp = "9.2.1"
 android-compileSdk = "37"
 android-minSdk = "26"

@@ -52,11 +52,16 @@ jobs:
       - name: Format Code with Spotless
         run: ./gradlew spotlessApply --no-daemon --stacktrace
 
+      # `FossFull` / `FossLite` are the two bundles of the FOSS distribution — the
+      # variant name carries both flavor dimensions, so a bare `assembleFossDebug`
+      # no longer names anything. `Full` is the one worth gating on: it is the
+      # variant that actually ships, and its bundled payloads are absent here on
+      # purpose (they are not in git), which is exactly how a fresh checkout looks.
       - name: Build and Verify Code
-        run: ./gradlew :androidApp:assembleFossDebug --no-daemon --stacktrace
+        run: ./gradlew :androidApp:assembleFossFullDebug --no-daemon --stacktrace
 
       - name: Unit tests
         # The logic lives in the shared KMP module, so its tests run under the
-        # android host-test compilation. `:androidApp:testFossDebugUnitTest` on its
-        # own would pass with zero tests executed and prove nothing.
-        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:testFossDebugUnitTest --no-daemon --stacktrace
+        # android host-test compilation. `:androidApp:testFossFullDebugUnitTest` on
+        # its own would pass with zero tests executed and prove nothing.
+        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:testFossFullDebugUnitTest --no-daemon --stacktrace

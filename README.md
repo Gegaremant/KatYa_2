@@ -104,12 +104,12 @@ KatYa/
    # остаётся на месте. Подгружаем его, не подставляя значения вручную:
    set -a && . ./.env.katya && set +a
 
-   ./gradlew assembleFossDebug
+   ./gradlew assembleFossFullDebug
    ```
    Без `KEYSTORE_FILE`/`KEYSTORE_PASSWORD`/`KEY_ALIAS` в окружении gradle подпишет
    APK отладочным ключом, и такой APK нельзя будет обновить поверх ранее
    установленного релиза — CI проверяет сертификат и падает на несовпадении.
-   Готовый файл: `androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk`.
+   Готовый файл: `androidApp/build/outputs/apk/fossFull/debug/androidApp-foss-full-debug.apk`.
 4. Установите получившийся APK на устройство. Для использования `God Mode` убедитесь, что на устройстве установлены Root-права (Magisk/KernelSU). Если прав нет, используйте `Sandbox`.
 
 ---
@@ -195,10 +195,10 @@ KatYa/
    # Load it instead of pasting values by hand:
    set -a && . ./.env.katya && set +a
 
-   ./gradlew assembleFossDebug
+   ./gradlew assembleFossFullDebug
    ```
    Without `KEYSTORE_FILE`/`KEYSTORE_PASSWORD`/`KEY_ALIAS` in the environment gradle
    signs with the debug key, and such an APK cannot be installed over a previously
    installed release — CI verifies the certificate and fails on mismatch.
-   Output: `androidApp/build/outputs/apk/foss/debug/androidApp-foss-debug.apk`.
+   Output: `androidApp/build/outputs/apk/fossFull/debug/androidApp-foss-full-debug.apk`.
 4. Install the resulting APK on your device. To use `God Mode`, make sure your device has Root access (Magisk/KernelSU). If you don't have Root, you can still use the `Sandbox` mode.

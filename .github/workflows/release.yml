@@ -59,8 +59,15 @@ jobs:
             echo "KEY_ALIAS=${KEY_ALIAS}"
           } >> "${GITHUB_ENV}"
 
-      - name: Build APK
-        run: ./gradlew :androidApp:assembleFossDebug --no-daemon --stacktrace
+      # The `full` bundle carries the sandbox payloads (rootfs + proot, ~130 MB) inside
+      # the APK, which is the whole point of that build: the sandbox must come up on a
+      # fresh install with no network. They are deliberately not in git, so CI fetches
+      # the very same archives a user would download.
+      - name: Fetch bundled components for the full build
+        run: ./tools/fetch-bundled-components.sh
+
+      - name: Build APKs
+        run: ./gradlew :androidApp:assembleFossFullDebug :androidApp:assembleFossLiteDebug --no-daemon --stacktrace
 
       # Feedback #1: "обновление не накладывается, приходится переустанавливать" is
       # what Android reports when the new APK carries a different signing certificate
@@ -68,6 +75,8 @@ jobs:
       # can still be the wrong key, or Gradle can silently fall back to the debug key.
       # So check the certificate of the artifact we are about to publish against the
       # one every shipped release since 3.1.3-fix was signed with.
+      # Both bundles are checked: a release publishes two files and a user who installs
+      # the wrong one must still be able to update over it later.
       - name: Verify signing certificate
         env:
           EXPECTED_SHA256: "79:FF:04:D2:48:31:61:4C:A8:08:36:EF:B2:BE:3F:74:DA:7B:B7:8D:07:77:EE:B7:E8:1A:DF:70:72:B3:2C:70"
@@ -78,33 +87,35 @@ jobs:
             echo "::error::apksigner not found under ${ANDROID_HOME}/build-tools"
             exit 1
           fi
-          APK=$(find androidApp/build/outputs/apk -name '*.apk' -type f | head -1)
-          if [ -z "${APK}" ]; then
-            echo "::error::no APK produced by assembleFossDebug"
+          APKS=$(find androidApp/build/outputs/apk -name '*.apk' -type f | sort)
+          COUNT=$(printf '%s\n' "${APKS}" | grep -c . || true)
+          if [ "${COUNT}" -lt 2 ]; then
+            echo "::error::expected two APKs (full + lite), found ${COUNT}"
             exit 1
           fi
-          # apksigner prints "V2 Signer: certificate SHA-256 digest: <hex>" with no
-          # colons; the expected value is the colon-separated uppercase form.
-          RAW=$("${APKSIGNER}" verify --print-certs "${APK}" \
-            | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
-          if [ -z "${RAW}" ]; then
-            echo "::error::could not read a signing certificate from ${APK}"
-            exit 1
-          fi
-          ACTUAL=$(printf '%s' "${RAW}" | tr -d ' ' | tr '[:lower:]' '[:upper:]' \
-            | sed 's/.\{2\}/&:/g; s/:$//')
-          echo "APK: ${APK}"
-          echo "SHA-256: ${ACTUAL}"
-          if [ "${ACTUAL}" != "${EXPECTED_SHA256}" ]; then
-            echo "::error::Signing certificate mismatch — this APK cannot be installed over the previous release"
-            exit 1
-          fi
+          for APK in ${APKS}; do
+            # apksigner prints "V2 Signer: certificate SHA-256 digest: <hex>" with no
+            # colons; the expected value is the colon-separated uppercase form.
+            RAW=$("${APKSIGNER}" verify --print-certs "${APK}" \
+              | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+            if [ -z "${RAW}" ]; then
+              echo "::error::could not read a signing certificate from ${APK}"
+              exit 1
+            fi
+            ACTUAL=$(printf '%s' "${RAW}" | tr -d ' ' | tr '[:lower:]' '[:upper:]' \
+              | sed 's/.\{2\}/&:/g; s/:$//')
+            echo "${APK}: ${ACTUAL}"
+            if [ "${ACTUAL}" != "${EXPECTED_SHA256}" ]; then
+              echo "::error::Signing certificate mismatch in ${APK} — it cannot be installed over the previous release"
+              exit 1
+            fi
+          done
           echo "Signing certificate matches the shipped release."
 
       - name: Unit tests
         # A release that ships with failing logic tests is not a release. The tests
         # live in the shared KMP module, hence the host-test task.
-        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:testFossDebugUnitTest --no-daemon --stacktrace
+        run: ./gradlew :composeApp:testAndroidHostTest :androidApp:testFossFullDebugUnitTest :androidApp:testFossLiteDebugUnitTest --no-daemon --stacktrace
 
       - name: Determine Version and Tag
         run: |
@@ -122,17 +133,18 @@ jobs:
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
-      - name: Prepare APK Asset
+      - name: Prepare APK Assets
         run: |
-          APK_FILE=$(find androidApp/build/outputs/apk -name "*.apk" | head -n 1)
-          if [ -n "$APK_FILE" ]; then
-            cp "$APK_FILE" "Katya-${VERSION}.apk"
-            echo "Successfully prepared Katya-${VERSION}.apk from $APK_FILE"
-            ls -la Katya-${VERSION}.apk
-          else
-            echo "::error::No APK file found in androidApp/build/outputs/apk!"
+          set -euo pipefail
+          FULL=$(find androidApp/build/outputs/apk -path '*full*' -name '*.apk' | head -n 1)
+          LITE=$(find androidApp/build/outputs/apk -path '*lite*' -name '*.apk' | head -n 1)
+          if [ -z "$FULL" ] || [ -z "$LITE" ]; then
+            echo "::error::missing a variant — full='$FULL' lite='$LITE'"
             exit 1
           fi
+          cp "$FULL" "Katya-${VERSION}-full.apk"
+          cp "$LITE" "Katya-${VERSION}-lite.apk"
+          ls -la Katya-"${VERSION}"-full.apk Katya-"${VERSION}"-lite.apk
 
       - name: Extract Changelog
         run: |
@@ -154,6 +166,8 @@ jobs:
           tag_name: ${{ env.TAG_NAME }}
           name: Release ${{ env.TAG_NAME }}
           body_path: changelog.txt
-          files: Katya-${{ env.VERSION }}.apk
+          files: |
+            Katya-${{ env.VERSION }}-full.apk
+            Katya-${{ env.VERSION }}-lite.apk
           make_latest: true
           overwrite: true

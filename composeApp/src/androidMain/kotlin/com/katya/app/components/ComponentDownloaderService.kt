@@ -129,43 +129,23 @@ class ComponentDownloaderService : Service() {
         if (tempFile.exists()) tempFile.delete()
 
         repository.updateProgress(id, "downloading", 0L, 0L)
-        AppLogger.action("Скачиваю «${component.name}»", "начато")
-
-        val totalBytes = try {
-            http.prepareGet(component.url).execute { response ->
-                if (!response.status.isSuccess()) {
-                    throw IOException("HTTP ${response.status.value} от ${component.url}")
+        val type = ComponentType.from(component.componentType)
+        val size =
+            if (BundledComponents.has(this, id, type)) {
+                // Полная сборка: компонент уже внутри, сеть не участвует вообще.
+                AppLogger.action("Компонент «${component.name}»", "беру из сборки, без сети")
+                val total = BundledComponents.size(this, id, type)
+                repository.updateProgress(id, "downloading", 0L, total)
+                BundledComponents.copyOut(this, id, type, tempFile) { copied ->
+                    repository.updateProgress(id, "downloading", copied, total)
+                    notifyProgress(component, copied, total)
                 }
-                val total = response.contentLength() ?: -1L
-                repository.updateProgress(id, "downloading", 0L, total.coerceAtLeast(0L))
-                val channel = response.bodyAsChannel()
-                val buf = ByteArray(64 * 1024)
-                var downloaded = 0L
-                var lastNotify = 0L
-                FileOutputStream(tempFile).use { out ->
-                    while (!channel.isClosedForRead) {
-                        val n = channel.readAvailable(buf)
-                        if (n <= 0) break
-                        out.write(buf, 0, n)
-                        downloaded += n
-                        val now = System.currentTimeMillis()
-                        if (now - lastNotify > 250) {
-                            lastNotify = now
-                            repository.updateProgress(id, "downloading", downloaded, total)
-                            notifyProgress(component, downloaded, total)
-                        }
-                    }
-                }
-                downloaded
+            } else {
+                AppLogger.action("Скачиваю «${component.name}»", "начато")
+                fetchWithMirrors(component, tempFile)
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            if (tempFile.exists()) tempFile.delete()
-            throw e
-        }
 
-        AppLogger.action("Скачивание «${component.name}»", "OK (${formatBytes(totalBytes)})")
+        AppLogger.action("Компонент «${component.name}»", "получен (${formatBytes(size)})")
         installComponent(component, tempFile)
         tempFile.delete()
         repository.markInstalled(id)
@@ -173,6 +153,65 @@ class ComponentDownloaderService : Service() {
         // Both halves of the sandbox are on disk now — build it instead of leaving
         // the first feature that needs it to discover the sandbox is unusable.
         linuxSandboxManager.buildIfComponentsPresent()
+    }
+
+    /**
+     * Качает архив, пробуя адрес из настроек, а если он недоступен — запасные.
+     *
+     * Раньше был ровно один адрес, и полевая проверка это показала: `Socket timeout` на
+     * `release-assets.githubusercontent.com` — то есть компонент не ставился вообще,
+     * и песочница не вставала. Зеркала не решают отсутствие сети, но решают именно
+     * недоступность GitHub, а это самая частая причина.
+     */
+    private suspend fun fetchWithMirrors(component: DownloadableComponent, tempFile: File): Long {
+        val candidates = BundledComponents.mirrorCandidates(component.id, component.url)
+        var lastError: Exception? = null
+        for ((index, url) in candidates.withIndex()) {
+            try {
+                return downloadOnce(component, url, tempFile)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                lastError = e
+                if (tempFile.exists()) tempFile.delete()
+                AppLogger.e("ComponentDownloader", "Адрес не сработал (${url.take(72)}…): ${e.message}")
+                if (index < candidates.lastIndex) {
+                    repository.updateProgress(component.id, "downloading", 0L, 0L)
+                }
+            }
+        }
+        throw IOException("Не скачался компонент «${component.name}» ни с одного адреса", lastError)
+    }
+
+    private suspend fun downloadOnce(
+        component: DownloadableComponent,
+        url: String,
+        tempFile: File,
+    ): Long = http.prepareGet(url).execute { response ->
+        if (!response.status.isSuccess()) {
+            throw IOException("HTTP ${response.status.value} от $url")
+        }
+        val total = response.contentLength() ?: -1L
+        repository.updateProgress(component.id, "downloading", 0L, total.coerceAtLeast(0L))
+        val channel = response.bodyAsChannel()
+        val buf = ByteArray(64 * 1024)
+        var downloaded = 0L
+        var lastNotify = 0L
+        FileOutputStream(tempFile).use { out ->
+            while (!channel.isClosedForRead) {
+                val n = channel.readAvailable(buf)
+                if (n <= 0) break
+                out.write(buf, 0, n)
+                downloaded += n
+                val now = System.currentTimeMillis()
+                if (now - lastNotify > 250) {
+                    lastNotify = now
+                    repository.updateProgress(component.id, "downloading", downloaded, total)
+                    notifyProgress(component, downloaded, total)
+                }
+            }
+        }
+        downloaded
     }
 
     private fun installComponent(component: DownloadableComponent, archive: File) {
