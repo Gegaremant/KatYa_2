@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -55,7 +56,9 @@ import katya.composeapp.generated.resources.settings_export_import_title
 import katya.composeapp.generated.resources.settings_export_preview_title
 import katya.composeapp.generated.resources.settings_import
 import katya.composeapp.generated.resources.settings_import_confirm
+import katya.composeapp.generated.resources.settings_import_diff_details
 import katya.composeapp.generated.resources.settings_import_diff_empty
+import katya.composeapp.generated.resources.settings_import_diff_same
 import katya.composeapp.generated.resources.settings_import_diff_summary
 import katya.composeapp.generated.resources.settings_import_diff_title
 import katya.composeapp.generated.resources.settings_import_error
@@ -219,6 +222,9 @@ internal fun ImportPreviewDialog(
     }
     val changedRows = visibleDiff.filter { it.changed }
     val unchangedCount = visibleDiff.size - changedRows.size
+    // Feedback 05.10 #4: collapsed by default — the count is the answer, the list is
+    // for when someone actually wants to audit it.
+    var showDetails by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -300,6 +306,18 @@ internal fun ImportPreviewDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(Modifier.height(4.dp))
+                        // Feedback 05.10 #4: a wall of `key: value → value` lines read as a
+                        // debug dump, not as something a person decides on. The count is
+                        // the answer; the list is one tap away and stays collapsed.
+                        if (!showDetails && changedRows.isNotEmpty()) {
+                            TextButton(
+                                onClick = { showDetails = true },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+                                modifier = Modifier.handCursor(),
+                            ) {
+                                Text(stringResource(Res.string.settings_import_diff_details))
+                            }
+                        }
                         // Feedback #2: importing your own export lists every setting it
                         // carries. With no real differences that read as "you must import
                         // all of this" — and that is what the summary line now says out
@@ -307,11 +325,11 @@ internal fun ImportPreviewDialog(
                         // matches what is already stored.
                         if (changedRows.isEmpty()) {
                             Text(
-                                text = "Файл совпадает с текущими настройками — ничего менять не нужно",
+                                text = stringResource(Res.string.settings_import_diff_same),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                        } else {
+                        } else if (showDetails) {
                             for (row in changedRows) {
                                 Text(
                                     text = "${row.key}: ${row.current} → ${row.incoming}",

@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /**
  * Проверка на настоящем бэкапе пользователя (26-10-03_Katya_backup.zip).
  *
- * Файл положили рядом как `real_backup_config.json`; тест пропускает себя, если его
+ * Файл положили рядом как `legacy_backup_config.json`; тест пропускает себя, если его
  * нет, чтобы сборка не зависела от внешних данных.
  */
 class RealBackupImportTest {
@@ -24,7 +24,7 @@ class RealBackupImportTest {
 
     @Test
     fun `a real backup previews and imports without throwing`() {
-        val json = load("real_backup_config.json")
+        val json = load("legacy_backup_config.json")
         if (json == null) {
             println("real backup fixture not present — skipped")
             return
@@ -52,7 +52,7 @@ class RealBackupImportTest {
 
     @Test
     fun `importing the real backup twice changes nothing the second time`() {
-        val json = load("real_backup_config.json")
+        val json = load("legacy_backup_config.json")
         if (json == null) {
             println("real backup fixture not present — skipped")
             return

@@ -376,9 +376,9 @@ class AppSettingsSnapshotTest {
             mapOf(
                 "version" to JsonPrimitive(1),
                 "soul_text" to JsonPrimitive("Я Катя из старого бэкапа"),
-                "server_ip" to JsonPrimitive("88.210.29.61"),
-                "server_port" to JsonPrimitive(34002),
-                "server_user" to JsonPrimitive("sokolovanv"),
+                "server_ip" to JsonPrimitive("203.0.113.10"),
+                "server_port" to JsonPrimitive(22222),
+                "server_user" to JsonPrimitive("testuser"),
                 "vless_uri" to JsonPrimitive("https://vpn-proxy.example/smart-vless/Katerina"),
                 "vless_enabled" to JsonPrimitive(true),
                 "tool_overrides" to kotlinx.serialization.json.Json.parseToJsonElement(
@@ -398,8 +398,8 @@ class AppSettingsSnapshotTest {
 
         assertEquals(0, errors)
         assertEquals("Я Катя из старого бэкапа", target.getSoulText())
-        assertEquals("88.210.29.61", target.getServerIp())
-        assertEquals(34002, target.getServerPort())
+        assertEquals("203.0.113.10", target.getServerIp())
+        assertEquals(22222, target.getServerPort())
         assertEquals("https://vpn-proxy.example/smart-vless/Katerina", target.getVlessUri())
         assertTrue(target.isVlessEnabled())
         assertFalse(target.isToolEnabled("execute_command"), "A disabled tool in the file must stay disabled")

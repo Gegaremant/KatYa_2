@@ -93,6 +93,20 @@ fun ServersContent(
     }
 
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        // Feedback 05.10 #6: the two transports are mutually exclusive, but the switch that
+        // enforces it sits in a *different* card — so the flag has to belong to the screen.
+        // While it was local to the VLESS card, "turn on the home server, VLESS goes off"
+        // could not even be written.
+        val storedVlessEnabled = appSettings.isVlessEnabled()
+        var vlessChecked by remember(storedVlessEnabled) { mutableStateOf(storedVlessEnabled) }
+        val vlessStopper: () -> Unit = {
+            // The manager lives in androidMain, so the shared screen cannot name it.
+            // Stopping the daemon is the same operation the VLESS switch itself uses:
+            // DaemonService.onDestroy() stops the VLESS transport and DeepSeek, and it
+            // does not touch the SSH tunnel — which this very switch stops separately.
+            com.katya.app.createDaemonController().stop()
+        }
+
         // VLESS Proxies
         SettingsCard {
             // Feedback #3: this was `connectionMode == "VLESS"`, while the manager that actually
@@ -103,12 +117,9 @@ fun ServersContent(
             // `AnimatedVisibility(visible = vlessChecked)`, the configuration that was
             // really running could not be seen or edited. One source of truth: the same
             // getter the tunnel uses decides what the switch shows.
-            // Local mirror of the flag, because `isVlessEnabled()` reads the settings store
-            // directly and cannot drive recomposition on its own. Seeded from that same
-            // getter and written whenever the switch is touched, so the card can never
-            // contradict the tunnel.
-            val storedVlessEnabled = appSettings.isVlessEnabled()
-            var vlessChecked by remember(storedVlessEnabled) { mutableStateOf(storedVlessEnabled) }
+            // Local mirror of the flag (declared above, shared with the SSH card because the
+            // two transports exclude each other), because `isVlessEnabled()` reads the
+            // settings store directly and cannot drive recomposition on its own.
             val vlessConnected by appSettings.isVlessConnectedFlow.collectAsState()
 
             // Состояние списка поднимаем из-под AnimatedVisibility, чтобы индикатор ниже
@@ -523,6 +534,14 @@ fun ServersContent(
                     if (isChecked) {
                         connectionMode = "LOCAL"
                         appSettings.setActiveConnectionMode("LOCAL")
+                        // Feedback 05.10 #6: these two transports are mutually exclusive,
+                        // but the exclusion only ran one way — turning on the home server
+                        // left VLESS flagged and its tunnel up. Now exactly one is active.
+                        if (appSettings.isVlessEnabled()) {
+                            appSettings.setVlessEnabled(false)
+                            vlessChecked = false
+                            vlessStopper()
+                        }
                     } else {
                         connectionMode = "NONE"
                         appSettings.setActiveConnectionMode("NONE")

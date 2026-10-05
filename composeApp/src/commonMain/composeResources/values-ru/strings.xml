@@ -201,6 +201,8 @@
     <string name="settings_import_diff_summary">Изменится: %1$d, уже совпадает: %2$d</string>
     <string name="settings_import_diff_empty">Различий нет — импорт ничего не поменяет.</string>
     <string name="settings_import_diff_unchanged">без изменений</string>
+    <string name="settings_import_diff_details">Показать подробности</string>
+    <string name="settings_import_diff_same">Файл совпадает с текущими настройками — ничего менять не нужно</string>
     <string name="settings_import_confirm">Импортировать</string>
     <string name="settings_import_section_models">Оффлайн модели (Vosk)</string>
     <string name="settings_heartbeat_reset_confirm">Это сбросит запрос пульса до значения по умолчанию. Вы уверены?</string>
