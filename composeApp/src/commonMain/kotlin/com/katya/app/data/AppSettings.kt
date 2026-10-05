@@ -241,6 +241,15 @@ class AppSettings(internal val settings: Settings) {
 
         /** The full range of the slider, so the UI and the chat agree on the ends. */
         const val SEND_DELAY_MAX = SEND_DELAY_MANUAL
+
+        /**
+         * Id of the VLESS row that stands for the bare `vless_uri` value.
+         *
+         * Feedback 05.10: configurations restored from older backups live only in that
+         * field; without a row for it the card shows an empty list while the tunnel runs.
+         * See [getVlessProfiles].
+         */
+        const val ORPHAN_VLESS_PROFILE_ID = "vless_uri_field"
     }
 
     fun getLogFilePath(): String? = settings.getStringOrNull(KEY_LOG_FILE_PATH)
@@ -703,6 +712,30 @@ class AppSettings(internal val settings: Settings) {
     fun getVlessProxyProfilesJson(): String = settings.getString("vless_proxy_profiles", "[]")
     fun setVlessProxyProfilesJson(json: String) {
         settings.putString("vless_proxy_profiles", json)
+    }
+
+    /**
+     * The saved configurations, with the bare `vless_uri` folded in.
+     *
+     * Feedback 05.10: a backup taken before `vless_proxy_profiles` existed carries only
+     * `vless_uri`. The tunnel ran fine off that one value, but the card's list — the
+     * place where a configuration can be renamed or deleted — was built from the profile
+     * list alone and therefore stayed empty: a working configuration the user could
+     * neither see nor change. Older builds wrote the URI field alone, so this is the
+     * normal shape of a restored configuration, not an edge case.
+     *
+     * The orphan gets a stable id, so it behaves like any other row: it can be selected,
+     * renamed and deleted. It is *not* written back here — deleting it in the UI clears
+     * `vless_uri`, and this simply stops reporting it afterwards.
+     */
+    fun getVlessProfiles(): List<VlessProxyProfile> {
+        val stored = runCatching {
+            kotlinx.serialization.json.Json.decodeFromString<List<VlessProxyProfile>>(getVlessProxyProfilesJson())
+        }.getOrDefault(emptyList())
+        val uri = getVlessUri()
+        if (uri.isBlank() || stored.any { it.uri == uri }) return stored
+        val name = uri.substringAfter('#', "").ifBlank { "VLESS (${uri.take(24)}…)" }
+        return stored + VlessProxyProfile(id = ORPHAN_VLESS_PROFILE_ID, name = name, uri = uri)
     }
     fun getActiveVlessProxyId(): String = settings.getString("active_vless_proxy_id", "")
     fun setActiveVlessProxyId(id: String) {

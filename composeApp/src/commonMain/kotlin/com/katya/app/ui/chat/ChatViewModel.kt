@@ -294,8 +294,12 @@ class ChatViewModel(
         val provider = deviceInfoProvider ?: return null
         val status = provider.getDeviceStatus() ?: return null
         val parts = buildList {
+            // Feedback 05.10 #5: the provider needs two samples before it can say anything,
+            // so the first tick legitimately has no CPU figure — the row simply shows what
+            // it does know instead of a stale placeholder.
             status.cpuUsage?.let { add("CPU ${(it * 100).roundToInt()}%") }
             status.ramUsedPercent?.let { add("RAM ${(it * 100).roundToInt()}%") }
+            status.temperatureCelsius?.let { add("${it.roundToInt()}°C") }
             if (status.batteryPercent != null) {
                 val charging = if (status.isCharging == true) " (зарядка)" else ""
                 add("Батарея ${status.batteryPercent}%$charging")
@@ -346,7 +350,13 @@ class ChatViewModel(
                 }
             }
 
-            selectedService?.serviceName?.let { add(it) }
+            // Feedback 05.10 #4: this line said «подключено к "Название сервиса"», which is
+            // the same for every model behind it. The user picks a model in the input
+            // row, so name the model — the service name is the umbrella, not the thing
+            // actually answering.
+            selectedService?.let { entry ->
+                add(entry.modelId.ifBlank { entry.serviceName })
+            }
         }
         return parts.joinToString(" · ") to (reachability == Reachability.Alive)
     }

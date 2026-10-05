@@ -85,6 +85,15 @@ internal fun GeneralContent(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
+                    // Feedback 05.10 #7: the theme picker is the setting people change most often, so it
+                    // goes first — a screen whose first island is "Динамический интерфейс"
+                    // makes people scroll to find the obvious one.
+                    SettingsCard {
+                        ThemeModePicker(
+                            themeMode = uiState.themeMode,
+                            onChangeThemeMode = actions.onChangeThemeMode,
+                        )
+                    }
                     if (uiState.showDaemonToggle) {
                         SettingsCard {
                             Row(modifier = Modifier.fillMaxWidth().clickable { com.katya.app.openAssistantSettings() }.padding(16.dp)) {
@@ -126,12 +135,6 @@ internal fun GeneralContent(
                         )
                     }
                     SettingsCard {
-                        ThemeModePicker(
-                            themeMode = uiState.themeMode,
-                            onChangeThemeMode = actions.onChangeThemeMode,
-                        )
-                    }
-                    SettingsCard {
                         QuickActionsSection(
                             quickActions = uiState.quickActions,
                             onAddQuickAction = actions.onAddQuickAction,
@@ -164,6 +167,13 @@ internal fun GeneralContent(
             }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Feedback 05.10 #7: theme first — same order as the wide layout above.
+                SettingsCard {
+                    ThemeModePicker(
+                        themeMode = uiState.themeMode,
+                        onChangeThemeMode = actions.onChangeThemeMode,
+                    )
+                }
                 if (uiState.showDaemonToggle) {
                     SettingsCard {
                         DaemonModeToggle(
@@ -206,12 +216,6 @@ internal fun GeneralContent(
                         voskDownloadProgress = uiState.voskDownloadProgress,
                         isVoskReady = uiState.isVoskReady,
                         onDownloadVosk = actions.onDownloadVosk,
-                    )
-                }
-                SettingsCard {
-                    ThemeModePicker(
-                        themeMode = uiState.themeMode,
-                        onChangeThemeMode = actions.onChangeThemeMode,
                     )
                 }
                 SettingsCard {

@@ -233,15 +233,31 @@ class ProotExecutor(
     }
 
     private fun buildEnvVars(extraEnv: Map<String, String>): Array<String> {
-        // Ensure libtalloc.so.2 exists in tmpPath
-        val tallocOrig = File(libDir, "libtalloc.so")
-        val tallocLink = File(tmpPath, "libtalloc.so.2")
-        if (tallocOrig.exists() && !tallocLink.exists()) {
-            try {
-                android.system.Os.symlink(tallocOrig.absolutePath, tallocLink.absolutePath)
-            } catch (e: Exception) {
-                tallocOrig.copyTo(tallocLink, overwrite = true)
-            }
+        // PROOT_TMP_DIR and the talloc link both need the directory to exist; on a
+        // fresh install `tmp/` is not there yet and Os.symlink then fails with ENOENT.
+        File(tmpPath).mkdirs()
+
+        // Feedback 05.10: `libproot.so` needs SONAME `libtalloc.so.2`, and the linker
+        // refuses to start it without that exact filename. The archive ships
+        // `libtalloc.so`, and it lives next to the binary — *not* in `libDir`, which is
+        // the sandbox root populated only by one of the install paths. Looking there
+        // meant `tallocOrig` never existed, no link was made, and every exec died with
+        // `CANNOT LINK EXECUTABLE ... library "libtalloc.so.2" not found`.
+        //
+        // Put the name where the linker looks first (the binary's own directory), and
+        // into the temp dir as well, so PROOT_TMP_DIR and LD_LIBRARY_PATH agree.
+        val binaryDir = File(prootPath).parentFile
+        val tallocDirs = ArrayList<File>(2)
+        binaryDir?.let { tallocDirs.add(it) }
+        tallocDirs.add(File(tmpPath))
+        for (dir in tallocDirs) {
+            val link = File(dir, "libtalloc.so.2")
+            if (link.exists()) continue
+            val source = File(dir, "libtalloc.so").takeIf { it.exists() }
+                ?: File(libDir, "libtalloc.so").takeIf { it.exists() }
+                ?: continue
+            runCatching { android.system.Os.symlink(source.absolutePath, link.absolutePath) }
+                .recoverCatching { source.copyTo(link, overwrite = true) }
         }
 
         val nativeDir = File(prootPath).parent.orEmpty()

@@ -22,7 +22,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +44,7 @@ import katya.composeapp.generated.resources.ic_volume_up
 import katya.composeapp.generated.resources.new_chat_content_description
 import katya.composeapp.generated.resources.settings_content_description
 import katya.composeapp.generated.resources.toggle_speech_output_content_description
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 
@@ -66,6 +69,7 @@ internal fun TopBar(
     navigationTabBar: (@Composable () -> Unit)? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        val waitSeconds = rememberWaitSeconds(isThinking)
         if (navigationTabBar != null) {
             Box(
                 modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 64.dp),
@@ -139,20 +143,42 @@ internal fun TopBar(
             StatusRow(text = deviceStatus)
         }
         if (showConnectionStatus && connectionStatus != null) {
-            StatusRow(text = connectionStatus, isOnline = isNetworkConnected)
-        }
-        // Feedback #6: a stalled request has to be visible as such. The status row above
-        // reports the model's reachability; this reports that we are waiting on it, and
-        // says so plainly instead of a pulse that reads as "working" even when nothing is
-        // coming back. Only rendered when the status banner is on — otherwise the user
-        // asked not to see status.
-        if (showConnectionStatus && isThinking) {
+            // Feedback 05.10 #6: waiting is part of the same line, not a second one —
+            // "Подключено к <модель> · ожидание ответа 12 с". A separate row read as two
+            // unrelated facts, and the timer makes it visible that the process is really
+            // running instead of hanging.
             StatusRow(
-                text = if (isNetworkConnected) "Жду ответа модели…" else "Модель не отвечает — запрос не уйдёт",
-                isOnline = if (isNetworkConnected) null else false,
+                text = if (isThinking) {
+                    val wait = if (isNetworkConnected) {
+                        "ожидание ответа $waitSeconds с"
+                    } else {
+                        "модель не отвечает — запрос завис $waitSeconds с"
+                    }
+                    "$connectionStatus · $wait"
+                } else {
+                    connectionStatus
+                },
+                isOnline = isNetworkConnected,
             )
         }
     }
+}
+
+/** Seconds spent waiting for the current reply, counting up from zero. */
+@Composable
+private fun rememberWaitSeconds(isThinking: Boolean): State<Int> {
+    val seconds = remember { mutableIntStateOf(0) }
+    LaunchedEffect(isThinking) {
+        if (!isThinking) {
+            seconds.intValue = 0
+            return@LaunchedEffect
+        }
+        while (isThinking) {
+            delay(1000)
+            seconds.intValue += 1
+        }
+    }
+    return seconds
 }
 
 @Composable

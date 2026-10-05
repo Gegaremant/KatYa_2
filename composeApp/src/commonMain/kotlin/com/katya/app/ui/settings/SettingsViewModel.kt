@@ -896,6 +896,15 @@ class SettingsViewModel(
         _state.update { it.copy(dsAuthStatus = status) }
     }
 
+    /**
+     * The sign-in dialog was dismissed — or the attempt failed.
+     *
+     * Feedback 05.10: this used to clear the typed login and password as well, and it
+     * runs on *every* dismissal — so a failed sign-in wiped the fields and the user
+     * had to type the whole thing again, with no clue why. The draft is now dropped
+     * only on an actual success ([onDeepSeekAuthSucceeded]); a cancelled or failed
+     * attempt leaves it in place, which is what "don't clear the fields" means.
+     */
     private fun onStopDeepSeekAuth() {
         _state.update {
             it.copy(
@@ -903,17 +912,25 @@ class SettingsViewModel(
                 dsAuthInstanceId = "",
                 dsAuthEmail = "",
                 dsAuthPassword = "",
-                // The sign-in is done, so the typed login and its password go away with
-                // it — they are not meant to sit in memory until the next restart.
-                dsLoginDrafts = it.dsLoginDrafts.toMutableMap()
-                    .apply { remove(it.dsAuthInstanceId) }
-                    .toImmutableMap(),
+                dsAuthStatus = if (it.dsAuthStatus.startsWith("⏱️") || it.dsAuthStatus.startsWith("⚠️")) {
+                    it.dsAuthStatus
+                } else {
+                    ""
+                },
             )
         }
     }
 
     private fun onDeepSeekAuthSucceeded(instanceId: String) {
         onStopDeepSeekAuth()
+        // The session is saved, so the typed credentials have served their purpose.
+        _state.update {
+            it.copy(
+                dsLoginDrafts = it.dsLoginDrafts.toMutableMap()
+                    .apply { remove(instanceId) }
+                    .toImmutableMap(),
+            )
+        }
         // Restart the sandbox proxy so it serves the session we just saved instead
         // of the one it loaded at boot.
         daemonController.switchFreeDeepSeekInstance(instanceId)

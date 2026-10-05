@@ -114,17 +114,13 @@ fun ServersContent(
             // Состояние списка поднимаем из-под AnimatedVisibility, чтобы индикатор ниже
             // видел актуальные прокси (и после добавления нового — тоже).
             val proxiesStr = appSettings.getVlessProxyProfilesJson()
-            // Keyed on the stored JSON, same reason as connectionMode above. This list used
-            // to be captured once, which is why an import left the proxy running (the daemon
-            // re-reads storage) while the card showed an empty, unmanageable placeholder.
-            var proxies by remember(proxiesStr) {
-                mutableStateOf(
-                    try {
-                        Json.decodeFromString<List<VlessProxyProfile>>(proxiesStr)
-                    } catch (e: Exception) {
-                        emptyList()
-                    },
-                )
+            val vlessUriValue = appSettings.getVlessUri()
+            // Keyed on the stored JSON and the URI, same reason as connectionMode above.
+            // Feedback 05.10: a restored configuration can exist only as the bare
+            // `vless_uri` — `getVlessProfiles()` folds that into the list so the running
+            // config is visible and editable instead of an empty, unmanageable card.
+            var proxies by remember(proxiesStr, vlessUriValue) {
+                mutableStateOf(appSettings.getVlessProfiles())
             }
             val storedActiveProxyId = appSettings.getActiveVlessProxyId()
             var activeProxyId by remember(storedActiveProxyId) { mutableStateOf(storedActiveProxyId) }
@@ -326,7 +322,12 @@ fun ServersContent(
                         proxies.forEach { proxy ->
                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                                 RadioButton(
-                                    selected = (activeProxyId == proxy.id),
+                                    // Feedback 05.10: a restored configuration has no id in
+                                    // `active_vless_proxy_id` — it is whichever URI is live.
+                                    // Without this the row the tunnel actually runs on looked
+                                    // unselected, so it read as "nothing is configured".
+                                    selected = (activeProxyId == proxy.id) ||
+                                        (activeProxyId.isBlank() && proxy.uri == vlessUriValue),
                                     onClick = {
                                         activeProxyId = proxy.id
                                         appSettings.setActiveVlessProxyId(proxy.id)
@@ -351,8 +352,20 @@ fun ServersContent(
                                     )
                                 }
                                 IconButton(onClick = {
+                                    // Feedback 05.10: the orphan row is not in the stored
+                                    // list, so filtering it and saving would resurrect it on
+                                    // the next read — deleting it has to clear the field the
+                                    // row stands for.
+                                    val isOrphan = proxy.id == com.katya.app.data.AppSettings.ORPHAN_VLESS_PROFILE_ID
                                     proxies = proxies.filter { it.id != proxy.id }
-                                    appSettings.setVlessProxyProfilesJson(Json.encodeToString(proxies))
+                                    appSettings.setVlessProxyProfilesJson(
+                                        Json.encodeToString(proxies.filter { it.id != com.katya.app.data.AppSettings.ORPHAN_VLESS_PROFILE_ID }),
+                                    )
+                                    if (isOrphan) {
+                                        appSettings.setVlessUri("")
+                                        activeProxyId = ""
+                                        appSettings.setActiveVlessProxyId("")
+                                    }
                                 }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Удалить", tint = MaterialTheme.colorScheme.error)
                                 }
@@ -452,7 +465,13 @@ fun ServersContent(
                                                 } else {
                                                     proxies.map { if (it.id == targetEditId) it.copy(id = id, name = finalName, uri = editUri) else it }
                                                 }
-                                                appSettings.setVlessProxyProfilesJson(kotlinx.serialization.json.Json.encodeToString(proxies))
+                                                appSettings.setVlessProxyProfilesJson(
+                                                    // The orphan row must not be written back —
+                                                    // saving it would duplicate the live URI.
+                                                    kotlinx.serialization.json.Json.encodeToString(
+                                                        proxies.filter { it.id != com.katya.app.data.AppSettings.ORPHAN_VLESS_PROFILE_ID },
+                                                    ),
+                                                )
                                                 appSettings.setActiveVlessProxyId(id)
 
                                                 if (connected) {

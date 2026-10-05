@@ -127,6 +127,7 @@ class SkillManager(
             "bypass-proxy" to "Обход блокировок и прокси",
             "code-server" to "Code-Server",
             "create-skill" to "Создание навыка",
+            "self-modification" to "Доработка себя (манифест и доступы)",
             "github-integration" to "Git и GitHub",
             "hardware-control" to "Управление железом (Termux)",
             "joplin-webdav" to "Синхронизация Joplin (WebDAV)",
@@ -144,6 +145,8 @@ class SkillManager(
          */
         private val BUILT_IN_SKILL_IDS = listOf(
             "create-skill",
+            // Feedback 05.10 #8: Катя должна знать, как дорабатывает себя сама.
+            "self-modification",
             "hardware-control",
             "android-filesystem",
             "network-storage",
@@ -152,6 +155,9 @@ class SkillManager(
             "code-server",
             "android-app-api",
             "model-discovery",
+            // Feedback 05.10: joplin-webdav had a display name here but was never listed,
+            // so the skill silently never loaded.
+            "joplin-webdav",
         )
     }
 }

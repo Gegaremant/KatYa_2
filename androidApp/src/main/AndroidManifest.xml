@@ -22,6 +22,10 @@
    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+   <!-- Feedback 05.10 #9: Катя просит контроль над захватом звука и переключением
+        микрофона Bluetooth-гарнитуры. RECORD_AUDIO уже был, а вот менять профиль
+        маршрутизации без MODIFY_AUDIO_SETTINGS нельзя — гарнитура не переключается. -->
+   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
    <uses-permission android:name="android.permission.TRANSMIT_IR"/>
    <uses-permission android:name="android.permission.WAKE_LOCK"/>
    

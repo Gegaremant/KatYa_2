@@ -194,6 +194,37 @@ class LinuxSandboxManager(
         if (repaired > 0) {
             AppLogger.action("Песочница", "восстановил права на $repaired нативных файлов")
         }
+        installTallocBesideProot()
+    }
+
+    /**
+     * `libproot.so` is linked against SONAME `libtalloc.so.2`, while the archive ships
+     * `libtalloc.so`. The dynamic linker resolves that name through `LD_LIBRARY_PATH`
+     * alone, so something must actually be *called* `libtalloc.so.2` next to it.
+     *
+     * Feedback 05.10: `copyLibtalloc()` did that in `sandboxDir`, but only from
+     * `setupInternal()` — and the rootfs is normally installed by the component
+     * downloader, which never runs that path. So every exec failed with
+     * `CANNOT LINK EXECUTABLE ... library "libtalloc.so.2" not found`, which the
+     * linker means *before* proot gets to execute a single instruction.
+     *
+     * Doing it next to the binary itself is the one place guaranteed to work: that
+     * directory exists as soon as the component is installed, and it is already on
+     * `LD_LIBRARY_PATH`. Idempotent and cheap, so it runs before every exec.
+     */
+    private fun installTallocBesideProot() {
+        val dir = File(nativeLibDir)
+        if (!dir.isDirectory) return
+        val link = File(dir, "libtalloc.so.2")
+        if (link.exists()) return
+        val source = File(dir, "libtalloc.so")
+        if (!source.exists()) return
+        val created = runCatching { android.system.Os.symlink(source.absolutePath, link.absolutePath) }
+            .recoverCatching { source.copyTo(link, overwrite = true) }
+            .isSuccess
+        if (created) {
+            AppLogger.d("LinuxSandbox", "libtalloc.so.2 положен рядом с proot — динамический линкер найдёт его")
+        }
     }
 
     /**
