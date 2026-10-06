@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -25,7 +26,12 @@ class ComponentsRepository(
 
     /** Живой список компонентов (порядок по имени) — основа UI-списка. */
     val components: StateFlow<List<DownloadableComponent>> =
-        (queries?.selectAllComponents()?.asFlow()?.mapToList(Dispatchers.Default) ?: emptyFlow())
+        (queries?.selectAllComponents()?.asFlow()?.mapToList(Dispatchers.Default) ?: emptyFlow<List<DownloadableComponent>>())
+            // The seed marker is bookkeeping, not something to install: it exists only so
+            // `seedIfNeeded()` knows it already ran. It lived in the same table, so the
+            // "Альтернативные ссылки" list offered it as a component named "seed-marker"
+            // with an empty URL — and asked the user to fill that URL in.
+            .map { list -> list.filterNot { it.id == SEED_MARKER_ID } }
             .stateIn(scope, SharingStarted.Eagerly, emptyList())
 
     /** Мягкий маркер того, что seed уже выполнен (ид не совпадает с реальным компонентом). */

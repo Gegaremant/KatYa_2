@@ -32,6 +32,22 @@ object BundledComponents {
     private const val ASSET_DIR = "katya-components"
     private const val TAG = "BundledComponents"
 
+    /**
+     * Контекст для чтения assets.
+     *
+     * `assets` живут только у [android.content.Context], а спрашивать про встроенные
+     * файлы приходится из общего UI, где контекста нет. Поэтому Koin-модуль на Android
+     * отдаёт его сюда один раз при старте, и всё остальное уже не знает про контекст.
+     */
+    @Volatile
+    private var appContext: Context? = null
+
+    fun attachContext(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    internal fun contextOrNull(): Context? = appContext
+
     /** Расширение архива для типа компонента — то же, что приходит по сети. */
     fun archiveSuffix(type: ComponentType): String = when (type) {
         ComponentType.ROOTFS -> ".tar.xz"
@@ -120,17 +136,19 @@ object BundledComponents {
     }
 
     /**
-     * Публичная ссылка на папку Яндекс.Диска с компонентами.
+     * Публичная ссылка на папку с компонентами на Яндекс.Диске.
      *
-     * Пустая строка — звёздочка не вставлена. Сама ссылка не секрет: это общий доступ
-     * на чтение. Но и вшивать её задолго до того, как папка существует, незачем —
-     * поэтому код умеет работать и без неё, просто не получает лишнего адреса.
+     * Не секрет: это общий доступ на чтение. Нужен потому, что переходники вроде
+     * ghproxy чинят только недоступность github.com, а нужен ещё случай «сети до
+     * GitHub нет вообще» — здесь это отдельный хостинг.
      *
-     * Смысл в том, что GitHub у части людей не открывается вообще, а это не зеркало
-     * GitHub, а отдельный хостинг: ссылки там живые годами и не зависят от того,
-     * заблокирован ли github.com.
+     * Пустая строка означает «зеркала нет»: код тогда просто не добавляет лишнего
+     * адреса и работает ровно как без него.
      */
-    private const val YANDEX_DISK_PUBLIC_KEY = ""
+    private const val YANDEX_DISK_PUBLIC_KEY = "https://disk.yandex.ru/d/PNWd3f13Ak_kIQ"
+
+    /** Папка с компонентами внутри публичной ссылки — она не в корне. */
+    private const val YANDEX_DISK_DIR = "components"
 
     /**
      * Источники, с которых можно забрать архив компонента, в порядке предпочтения.
@@ -176,7 +194,7 @@ object BundledComponents {
     private fun yandexSource(fileName: String): List<MirrorSource> = if (YANDEX_DISK_PUBLIC_KEY.isBlank()) {
         emptyList()
     } else {
-        listOf(MirrorSource.YandexDisk(YANDEX_DISK_PUBLIC_KEY, fileName))
+        listOf(MirrorSource.YandexDisk(YANDEX_DISK_PUBLIC_KEY, YANDEX_DISK_DIR, fileName))
     }
 }
 
@@ -202,14 +220,17 @@ sealed interface MirrorSource {
     }
 
     /** Файл из публично открытой папки Яндекс.Диска. */
-    data class YandexDisk(val publicKey: String, val fileName: String) : MirrorSource {
+    data class YandexDisk(val publicKey: String, val dir: String, val fileName: String) : MirrorSource {
         override val label: String get() = "Яндекс.Диск/$fileName"
 
         override suspend fun resolve(http: HttpClient): String {
+            // Именно с ведущим слэшем. Проверено на живой ссылке: `components/x.zip`
+            // отдаёт 404 «Ресурс не найден», `/components/x.zip` — 200 с ссылкой.
+            // Такая разница неочевидна и стоила одного вызова в никуда.
             val body =
                 http.get("https://cloud-api.yandex.net/v1/disk/public/resources/download") {
                     parameter("public_key", publicKey)
-                    parameter("path", fileName)
+                    parameter("path", "/$dir/$fileName")
                 }.bodyAsText()
             return runCatching {
                 Json.parseToJsonElement(body).jsonObject["href"]?.jsonPrimitive?.content

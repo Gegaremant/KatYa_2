@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -336,7 +337,24 @@ private fun FirstRunComponentsDialog() {
         }
     }
 
-    if (missing.isNotEmpty() && !appSettings.isComponentsPromptSkipped()) {
+    // Feedback 06.10 #2: the `full` bundle carries these files inside the APK, so asking
+    // "докачать?" about them was nonsense — the full build is *supposed* to come up with
+    // no network at all, and it only came up if the user noticed the dialog and agreed.
+    // So bundled components install themselves, silently, once, at first composition.
+    // Everything still missing afterwards (a `lite` install) goes through the dialog.
+    val bundled = com.katya.app.components.bundledComponentIds()
+    var bundledHandled by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(bundled, components) {
+        if (bundled.isEmpty() || bundledHandled) return@LaunchedEffect
+        val todo = components.filter { it.id in bundled && it.status != "installed" }
+        if (todo.isEmpty()) return@LaunchedEffect
+        bundledHandled = true
+        todo.forEach { launcher.startDownload(it.id) }
+    }
+
+    val downloadable = remember(missing, bundled) { missing.filter { it.id !in bundled } }
+
+    if (downloadable.isNotEmpty() && !appSettings.isComponentsPromptSkipped()) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = {
                 dismissed = true
@@ -346,10 +364,9 @@ private fun FirstRunComponentsDialog() {
             text = {
                 androidx.compose.foundation.layout.Column {
                     androidx.compose.material3.Text(
-                        "Катя больше не таскает лишнее в APK — " +
-                            "Debian, Proot и остальное качается по запросу:",
+                        "Эти компоненты Катя качает по запросу:",
                     )
-                    missing.forEach { c ->
+                    downloadable.forEach { c ->
                         androidx.compose.material3.Text(
                             "• ${c.name}",
                             modifier = androidx.compose.ui.Modifier.padding(start = 8.dp, top = 4.dp),
@@ -359,7 +376,7 @@ private fun FirstRunComponentsDialog() {
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
-                    missing.forEach { launcher.startDownload(it.id) }
+                    downloadable.forEach { launcher.startDownload(it.id) }
                     dismissed = true
                 }) { androidx.compose.material3.Text("Скачать в фоне") }
             },

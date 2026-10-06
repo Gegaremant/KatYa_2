@@ -1,11 +1,14 @@
 package com.katya.app.data
 
 import com.katya.app.TaskAlarmScheduler
+import com.katya.app.tools.AppLogger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonArray
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -38,14 +41,42 @@ class TaskStore(
         _tasksFlow.value = loadTasks()
     }
 
-    private fun loadTasks(): MutableList<ScheduledTask> = try {
-        val decoded = json.decodeFromString<List<ScheduledTask>>(appSettings.getScheduledTasksJson())
+    private fun loadTasks(): MutableList<ScheduledTask> {
+        val raw = appSettings.getScheduledTasksJson()
+        // Feedback 06.10 #4: a task created long ago vanished across an update, while a
+        // new one created afterwards worked fine. The cause was here, not in the
+        // scheduler: `decodeFromString<List<…>>` is all-or-nothing, so ONE row that the
+        // current schema cannot read made the whole list come back empty — and the next
+        // save (adding the new task) overwrote the stored JSON, destroying the old task
+        // for good. The failure was also swallowed by a `println`, which never reaches
+        // the log file, so there was nothing to see afterwards.
+        //
+        // So: decode row by row, keep what reads, report what does not, and refuse to
+        // write back a list that came out shorter than the one on disk.
+        val rows = runCatching { json.parseToJsonElement(raw).jsonArray }
+            .getOrElse {
+                AppLogger.e("TaskStore", "задачи не прочитались (${it.message}) — показываю пустой список")
+                return mutableListOf()
+            }
+
+        val tasks = mutableListOf<ScheduledTask>()
+        var broken = 0
+        rows.forEachIndexed { index, element ->
+            val task = runCatching { json.decodeFromJsonElement(ScheduledTask.serializer(), element) }
+                .getOrNull()
+            if (task == null) {
+                broken++
+                AppLogger.e("TaskStore", "задача №$index не читается текущей схемой — остальные показываю")
+            } else {
+                tasks += task
+            }
+        }
+
         // Migration: tasks persisted before the `trigger` field existed decode with
         // the default (TIME). Upgrade rows that carry a cron expression to CRON so the
-        // scheduler can distinguish time/cron from heartbeat additions. Persist the
-        // upgrade the first time we see it so every subsequent load is a no-op map.
+        // scheduler can distinguish time/cron from heartbeat additions.
         var migrated = false
-        val upgraded = decoded.map { task ->
+        val upgraded = tasks.map { task ->
             if (task.trigger == TaskTrigger.TIME && task.cron != null) {
                 migrated = true
                 task.copy(trigger = TaskTrigger.CRON)
@@ -53,11 +84,11 @@ class TaskStore(
                 task
             }
         }.toMutableList()
-        if (migrated) saveTasks(upgraded)
-        upgraded
-    } catch (e: Exception) {
-        println("TaskStore: failed to load tasks: ${e.message}")
-        mutableListOf()
+
+        // A row we failed to read is still on disk. Persisting now would erase it, and
+        // the user would never know which task went missing — so keep the file as it is.
+        if (broken == 0 && migrated) saveTasks(upgraded)
+        return upgraded
     }
 
     private fun saveTasks(tasks: List<ScheduledTask>) {

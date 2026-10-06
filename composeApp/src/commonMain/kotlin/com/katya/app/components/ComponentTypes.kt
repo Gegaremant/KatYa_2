@@ -31,6 +31,15 @@ data class ComponentSeed(
 /** Текущая аппаратная ABI устройства (arm64-v8a / armeabi-v7a / x86_64 / x86). */
 expect fun currentAbi(): String
 
+/**
+ * Идентификаторы компонентов, которые лежат внутри сборки — пусто в `lite` и вовсе
+ * на не-Android платформах.
+ *
+ * Нужно, чтобы приложение ставило вшитые компоненты само, без вопроса «доскачать?»:
+ * в `full` спрашивать про файлы, уже лежащие в APK, попросту не о чем.
+ */
+expect fun bundledComponentIds(): List<String>
+
 object ComponentDefaults {
     private fun archForAbi(abi: String): String = when (abi) {
         // В проот-дистрибутиве 32-битное arm именуется «arm» (armhf/armv7), а не «armhf».
