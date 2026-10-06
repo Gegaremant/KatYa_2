@@ -69,7 +69,7 @@ class ProotExecutor(
         val effectiveTimeout = timeoutSeconds.coerceIn(1, MAX_TIMEOUT_SECONDS)
 
         return try {
-            val process = Runtime.getRuntime().exec(
+            val process = launch(
                 buildProcessArgs(command, workingDir),
                 buildEnvVars(extraEnv),
                 File(rootfsPath).parentFile,
@@ -139,6 +139,29 @@ class ProotExecutor(
      *  turn a timeout into an exception that hides the timeout itself. */
     private fun drain(future: CompletableFuture<String>): String = runCatching { future.get(1, TimeUnit.SECONDS) }.getOrDefault("")
 
+    /**
+     * Запуск с подробным логом.
+     *
+     * `Runtime.exec` бросает `IOException: error=13, Permission denied`, когда ядро
+     * отказало в execve, и это происходит **до** того, как появится процесс, — то есть
+     * мимо ветки с exit code. Поэтому argv, окружение и рабочий каталог пишутся в журнал
+     * заранее: иначе в логе нет ничего, кроме «не отвечает (код -1)», и команда не
+     * воспроизводится руками в Termux для проверки.
+     */
+    private fun launch(argv: Array<String>, env: Array<String>, cwd: File?): Process {
+        NativeDiagnostics.logLaunch(argv, env, cwd)
+        return try {
+            Runtime.getRuntime().exec(argv, env, cwd)
+        } catch (e: Exception) {
+            AppLogger.e(
+                "ProotExecutor",
+                "запуск не состоялся: ${e.javaClass.simpleName}: ${e.message} " +
+                    "(argv[0]=${argv.firstOrNull()})",
+            )
+            throw e
+        }
+    }
+
     fun executeStreaming(
         command: String,
         workingDir: String = "/root",
@@ -146,7 +169,7 @@ class ProotExecutor(
         onStdout: (String) -> Unit,
         onStderr: (String) -> Unit,
     ): ProotHandle {
-        val process = Runtime.getRuntime().exec(
+        val process = launch(
             buildProcessArgs(command, workingDir),
             buildEnvVars(extraEnv),
             File(rootfsPath).parentFile,

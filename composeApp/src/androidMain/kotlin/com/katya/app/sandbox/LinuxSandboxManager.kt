@@ -116,14 +116,26 @@ class LinuxSandboxManager(
         val ok = probe["exit_code"] == 0 && out.contains("KATYA_PROOT_OK")
         if (ok) return true
         val code = probe["exit_code"]
-        val stderr = probe["stderr"]?.toString()?.take(200).orEmpty()
-        // 139 is 128 + SIGSEGV: the binary crashed before running anything at all.
+        val stderr = probe["stderr"]?.toString().orEmpty()
+        // Feedback 06.10: exit_code -1 means the process never started at all — that is
+        // `Runtime.exec` throwing, i.e. the kernel refused execve. Everything it can mean
+        // (no exec bit, SELinux, noexec mount, unreachable ELF interpreter) is separated in
+        // the dump below; the single line that used to be logged here could not tell them
+        // apart, which is why the report only ever said "Permission denied (error=13)".
         val reason = if (code == 139) {
             "proot падает с segfault, песочница не запускается"
+        } else if (code == -1) {
+            "процесс не стартовал: ${probe["error"]?.toString().orEmpty().ifBlank { stderr.take(200) }}"
         } else {
-            "proot не отвечает (код $code): ${stderr.ifBlank { probe["error"]?.toString().orEmpty() }}"
+            "proot не отвечает (код $code): ${stderr.take(200).ifBlank { probe["error"]?.toString().orEmpty() }}"
         }
         AppLogger.e("LinuxSandbox", "Песочница нерабочая — $reason")
+        if (stderr.isNotBlank()) {
+            // Логирую stderr целиком, а не первые 200 символов: обрезанный хвост
+            // обычно и есть ответ (например, «CANNOT LINK EXECUTABLE … not found»).
+            AppLogger.e("LinuxSandbox", "вывод proot: ${stderr.take(1200)}")
+        }
+        NativeDiagnostics.dump(context, "неудачный запуск: $reason")
         return false
     }
 
