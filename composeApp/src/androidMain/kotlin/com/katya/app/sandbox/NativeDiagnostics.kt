@@ -1,5 +1,6 @@
 package com.katya.app.sandbox
 
+import android.content.Context
 import android.os.Build
 import android.system.Os
 import com.katya.app.tools.AppLogger
@@ -28,6 +29,55 @@ import java.io.File
 object NativeDiagnostics {
 
     private const val TAG = "LinuxSandbox"
+
+    /**
+     * Контекст для дампа. Тот же приём, что и в BundledComponents: спрашивать права
+     * может только код, у которого есть Context, а падать может откуда угодно.
+     */
+    @Volatile
+    private var appContext: Context? = null
+
+    fun attach(context: Context) {
+        appContext = context.applicationContext
+    }
+
+    /**
+     * Разовая проверка «а может ли приложение вообще выполнить этот файл».
+     *
+     * Это единственный вопрос, который стоит задать при `error=13`, и на который журнал
+     * до сих пор не отвечал: `access(X_OK)` возвращает errno от самого ядра, без
+     * догадок про SELinux и `noexec`. Если здесь отказ — дело в правах или политике, и
+     * искать дальше нечего; если `X_OK` — файл исполняем, значит отказ приходит из
+     * чего-то другого.
+     */
+    fun dumpLaunchFailure(path: String, error: String) {
+        AppLogger.e(TAG, "запуск не состоялся: $error")
+        val file = File(path)
+        AppLogger.d(
+            TAG,
+            "проверка доступа к $path: существует=${file.exists()} " +
+                "canExecute=${file.canExecute()} родитель читаем=${file.parentFile?.canRead()}",
+        )
+        AppLogger.d(TAG, "access(X_OK) = ${accessResult(path)}")
+        AppLogger.d(TAG, "владелец и права: ${statMode(file)}")
+        AppLogger.d(TAG, "контекст SELinux файла: ${fileContext(file)}")
+        AppLogger.d(TAG, "домен процесса: ${procAttr("current")}")
+        AppLogger.d(TAG, "сегмент монтирования: ${mountSegmentFor(path) ?: "не нашлём"}")
+        AppLogger.d(TAG, "ELF-интерпретатор доступен: ${File("/system/bin/linker64").canRead()}")
+        appContext?.let { ctx ->
+            val abi = com.katya.app.components.currentAbi()
+            AppLogger.d(TAG, "содержимое katya-native/$abi:")
+            File(ctx.filesDir, "katya-native/$abi").listFiles()?.sortedBy { it.name }?.forEach { f ->
+                AppLogger.d(TAG, "  ${f.name} — ${f.length()} байт, ${statMode(f)}")
+            }
+        }
+    }
+
+    /** `access(path, X_OK)` с расшифровкой — прямой ответ ядра на «можно ли выполнить». */
+    private fun accessResult(path: String): String = runCatching {
+        Os.access(path, android.system.OsConstants.X_OK)
+        "X_OK — ядро разрешает выполнять"
+    }.getOrElse { "отказ: ${it.message}" }
 
     /** Пишет полную картину по нативной части. Вызывается при неудачном запуске. */
     fun dump(context: android.content.Context, reason: String) {

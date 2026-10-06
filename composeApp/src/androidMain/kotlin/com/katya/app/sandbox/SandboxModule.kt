@@ -19,5 +19,8 @@ val sandboxModule = module {
     // UI, где контекста нет. Отдаём его один раз при старте — дальше BundledComponents
     // сам знает, что смотреть. createdAtStart обязателен: определения Koin создаются
     // лениво, а контекст нужен до первого запроса из UI.
-    single(createdAtStart = true) { BundledComponents.attachContext(androidContext()) }
+    single(createdAtStart = true) {
+        BundledComponents.attachContext(androidContext())
+        NativeDiagnostics.attach(androidContext())
+    }
 }

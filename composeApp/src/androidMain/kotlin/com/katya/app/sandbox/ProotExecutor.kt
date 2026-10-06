@@ -153,10 +153,15 @@ class ProotExecutor(
         return try {
             Runtime.getRuntime().exec(argv, env, cwd)
         } catch (e: Exception) {
-            AppLogger.e(
-                "ProotExecutor",
-                "запуск не состоялся: ${e.javaClass.simpleName}: ${e.message} " +
-                    "(argv[0]=${argv.firstOrNull()})",
+            // Feedback 06.10: полный дамп стоял только в verifyProotRuns(), а до неё
+            // выполнение не доходит — сама песочница не поднимается, потому что бинарь
+            // не запускается. Из-за этого полевая проверка снова дала «error=13,
+            // Permission denied» без единого факта о правах, SELinux и монтировании.
+            // Теперь дамп идёт отсюда — из единственного места, через которое проходит
+            // каждый запуск, и срабатывает при первом же отказе ядра.
+            NativeDiagnostics.dumpLaunchFailure(
+                argv.firstOrNull().orEmpty(),
+                "${e.javaClass.simpleName}: ${e.message}",
             )
             throw e
         }
