@@ -753,7 +753,11 @@ class AppSettings(internal val settings: Settings) {
         settings.putBoolean("auto_recovery_enabled", enabled)
     }
 
-    fun isShowDeviceStateEnabled(): Boolean = settings.getBoolean("show_device_state_enabled", false)
+    // Feedback 07.10 #5: по умолчанию включено. Раньше дефолт был false, и строка с
+    // нагрузкой просто исчезала — в том числе при сбросе настроек при обновлении,
+    // который пользователь и так жаловался. Выключить можно переключателем в
+    // настройках, но по умолчанию информация о нагрузке показывается.
+    fun isShowDeviceStateEnabled(): Boolean = settings.getBoolean("show_device_state_enabled", true)
     fun setShowDeviceStateEnabled(enabled: Boolean) {
         settings.putBoolean("show_device_state_enabled", enabled)
     }

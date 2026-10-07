@@ -218,7 +218,16 @@ fun ServersContent(
                         else -> "Не доступен"
                     }
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Feedback 07.10 #1: длинный «Не доступен: Туннель не отвечает (попытка
+                    // 47)» вылезал за колонку и наезжал на выключатель — тот схлопывался
+                    // в вертикальную полоску. Причина в том, что у строки не было
+                    // ограничения по ширине: в Row переполнение уходит последнему ребёнку.
+                    // Поэтому fillMaxWidth + maxLines на каждом тексте: лишнее уходит в
+                    // многоточие, а не поверх переключателя.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         if (statusIcon != null) {
                             Icon(
                                 imageVector = statusIcon,
@@ -232,6 +241,9 @@ fun ServersContent(
                             text = statusText,
                             style = MaterialTheme.typography.bodySmall,
                             color = statusColor,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         // The probe no longer decides the status, but a disagreement is
                         // itself information: the tunnel answers while the local port does
@@ -242,6 +254,8 @@ fun ServersContent(
                                 text = "локальный порт не отвечает",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                             )
                         }
                         if (vlessChecked && hasAnyProxy) {
@@ -250,6 +264,7 @@ fun ServersContent(
                                 text = "проверка",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
                                 modifier = Modifier.clickable {
                                     scope.launch { runProbe() }
                                 },
@@ -259,6 +274,7 @@ fun ServersContent(
                                 text = if (isCheckingNow) "…" else "через $secondsLeft с",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                             )
                         }
                     }
@@ -523,7 +539,7 @@ fun ServersContent(
             // actually stop the tunnel.
             val localTunnelService = koinInject<com.katya.app.tunnel.SshTunnelService>()
             ToggleableHeadline(
-                title = "Локальные серверы (SSH)",
+                title = "Сервера",
                 description = "Подключение к домашнему серверу",
                 checked = localChecked,
                 onCheckedChange = { isChecked ->

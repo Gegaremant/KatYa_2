@@ -248,8 +248,12 @@ private fun StatusRow(text: String, isOnline: Boolean? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 2.dp)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            // Feedback 07.10 #5: here were two stacked `padding` modifiers — 16/2 плюс
+            // 12/6. В итоге отступ по бокам становился 28dp вместо 16, а по вертикали
+            // каждая строка съедала 8dp вместо 2: строки состояния разъезжались и
+            // «съедали» место, ради которого их и поднимали выше. Один отступ вместо
+            // двух — и строка снова компактная.
+            .padding(horizontal = 16.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (isOnline != null) {
