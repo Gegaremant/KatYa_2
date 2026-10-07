@@ -73,9 +73,47 @@ class LinuxSandboxManager(
 
     val tmpPath: String get() = File(sandboxDir, "tmp").absolutePath
 
-    // Proot/xray/talloc живут в filesDir/katya-native/{abi} — они НЕ вшиты в APK,
-    // а скачиваются через ComponentsRepository («Альтернативные ссылки»).
-    val nativeLibDir: String get() = File(context.filesDir, "katya-native/${com.katya.app.components.currentAbi()}").absolutePath
+    // Proot/xray/talloc живут в nativeLibraryDir — если библиотеки пришли из APK как
+    // jniLibs, — и в filesDir/katya-native/{abi}, если их скачивали.
+    //
+    // Feedback 07.10: при targetSdk 37 прямой execve бинарника из `app_data_file`
+    // Android не даёт, и отказ приходит как `error=13, Permission denied` — при том,
+    // что все проверки проходят: access(X_OK) разрешает, владелец совпадает с
+    // приложением, категории SELinux у файла и у процесса одинаковые, `noexec` на
+    // сегменте нет, linker64 доступен. Дословно из поля:
+    //   access(X_OK) = X_OK — ядро разрешает выполнять
+    //   uid=10217 gid=10217 mode=100711
+    //   app_data_file:s0:c217,c256,c512,c768  против  untrusted_app:s0:…c768
+    //   /data/user/0 [rw,nosuid,nodev,noatime]  — noexec нет
+    //
+    // Штатный обход — положить библиотеки в jniLibs: пакетный менеджер сам их
+    // распакует в nativeLibraryDir, и это каталог, где Android разрешает приложению
+    // запускать собственный нативный код. Поэтому сначала он, и только потом
+    // каталог со скачанными файлами — на случай сборки без них.
+    val abiDirName: String get() = com.katya.app.components.currentAbi()
+
+    /** Каталоги, где могут лежать нативные библиотеки, в порядке предпочтения. */
+    val nativeLibCandidates: List<File>
+        get() {
+            val downloaded = File(context.filesDir, "katya-native/$abiDirName")
+            val fromApk = runCatching { File(context.applicationInfo.nativeLibraryDir) }.getOrNull()
+            return listOfNotNull(fromApk, downloaded).distinct()
+        }
+
+    /** Первый каталог, в котором реально есть proot. */
+    val nativeLibDir: String
+        get() {
+            val candidates = nativeLibCandidates
+            return candidates.firstOrNull { File(it, "libproot.so").exists() }?.absolutePath
+                ?: candidates.firstOrNull()?.absolutePath.orEmpty()
+        }
+
+    /** Каталог со скачанными библиотеками — им же installer и VLESS пользуются. */
+    val downloadedNativeLibDir: String get() = File(context.filesDir, "katya-native/$abiDirName").absolutePath
+
+    /** Оба каталога в LD_LIBRARY_PATH: proot ищет talloc рядом с собой и по переменной. */
+    val nativeSearchPath: String get() = nativeLibCandidates.joinToString(":") { it.absolutePath }
+
     val prootPath: String get() = File(nativeLibDir, "libproot.so").absolutePath
 
     private val downloader = RootfsDownloader(HttpClient(OkHttp))
@@ -496,6 +534,10 @@ class LinuxSandboxManager(
             homePath = homePath,
             tmpPath = tmpPath,
             distro = d ?: currentDistro(),
+            // Feedback 07.10: talloc нужно искать во всех каталогах, где могут лежать
+            // нативные файлы, — иначе бинарь из nativeLibraryDir не найдёт свою
+            // зависимость и упадёт с CANNOT LINK EXECUTABLE.
+            extraLibDirs = nativeLibCandidates.map { it.absolutePath },
         )
     }
 

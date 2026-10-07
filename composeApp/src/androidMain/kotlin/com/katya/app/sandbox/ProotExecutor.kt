@@ -58,6 +58,8 @@ class ProotExecutor(
     private val homePath: String,
     private val tmpPath: String,
     private val distro: Distro = Distro.TERMUX,
+    /** Каталоги с нативными файлами, кроме каталога самого бинаря. */
+    private val extraLibDirs: List<String> = emptyList(),
 ) {
 
     fun execute(
@@ -275,9 +277,11 @@ class ProotExecutor(
         // Put the name where the linker looks first (the binary's own directory), and
         // into the temp dir as well, so PROOT_TMP_DIR and LD_LIBRARY_PATH agree.
         val binaryDir = File(prootPath).parentFile
-        val tallocDirs = ArrayList<File>(2)
+        val tallocDirs = LinkedHashSet<File>()
         binaryDir?.let { tallocDirs.add(it) }
         tallocDirs.add(File(tmpPath))
+        extraLibDirs.map { File(it) }.forEach { tallocDirs.add(it) }
+        tallocDirs.add(File(libDir))
         for (dir in tallocDirs) {
             val link = File(dir, "libtalloc.so.2")
             if (link.exists()) continue
@@ -288,17 +292,40 @@ class ProotExecutor(
                 .recoverCatching { source.copyTo(link, overwrite = true) }
         }
 
+        // Feedback 07.10: nativeLibraryDir может оказаться доступным только для чтения —
+        // тогда и симлинк, и копия выше молча не сработают, и бинарь упадёт с
+        // CANNOT LINK EXECUTABLE. Поэтому страховка: если `libtalloc.so.2` не появился
+        // нигде, кладём его в PROOT_TMP_DIR, который всегда доступен для записи и уже
+        // стоит первым в LD_LIBRARY_PATH.
+        if (tallocDirs.none { File(it, "libtalloc.so.2").exists() }) {
+            val source = tallocDirs.asSequence()
+                .map { File(it, "libtalloc.so") }
+                .plus(extraLibDirs.asSequence().map { File(it, "libtalloc.so") })
+                .plus(sequenceOf(File(libDir, "libtalloc.so")))
+                .firstOrNull { it.exists() }
+            val target = File(tmpPath, "libtalloc.so.2")
+            if (source != null && !target.exists()) {
+                runCatching { source.copyTo(target, overwrite = true) }
+                    .onFailure { AppLogger.e("ProotExecutor", "не смог положить talloc в $tmpPath: ${it.message}") }
+            }
+        }
+
         val nativeDir = File(prootPath).parent.orEmpty()
         // PROOT_LOADER points PRoot at the tracee interpreter to use instead of the
         // copy it would extract from its own binary (`get_loader_path()` in
         // execve/enter.c reads these two variables first). Not passing the path as
         // argv[0] is deliberate — see [buildProcessArgs].
-        val loader = File(nativeDir, "libproot-loader.so")
-        val loaderEnv = if (loader.isFile && loader.canExecute()) "PROOT_LOADER=${loader.absolutePath}" else null
+        // Feedback 07.10: загрузчик ищем рядом с бинарём, а если там его нет — в
+        // остальных каталогах с нативными файлами. Иначе переезд в nativeLibraryDir
+        // оставил бы proot без PROOT_LOADER, и 32-битные программы внутри песочницы
+        // перестали бы запускаться.
+        val searchDirs = (listOf(File(nativeDir)) + extraLibDirs.map { File(it) }).distinct()
+        val loader = searchDirs.firstNotNullOfOrNull { File(it, "libproot-loader.so").takeIf { f -> f.isFile && f.canExecute() } }
+        val loaderEnv = loader?.let { "PROOT_LOADER=${it.absolutePath}" }
         // The 32-bit loader is what keeps 32-bit binaries inside the rootfs working on
         // a 64-bit process, so it is exported the same way.
-        val loader32 = File(nativeDir, "libproot-loader32.so")
-        val loader32Env = if (loader32.isFile && loader32.canExecute()) "PROOT_LOADER32=${loader32.absolutePath}" else null
+        val loader32 = searchDirs.firstNotNullOfOrNull { File(it, "libproot-loader32.so").takeIf { f -> f.isFile && f.canExecute() } }
+        val loader32Env = loader32?.let { "PROOT_LOADER32=${it.absolutePath}" }
         if (loaderEnv == null || loader32Env == null) {
             AppLogger.w(
                 "ProotExecutor",
@@ -313,7 +340,7 @@ class ProotExecutor(
                 "HOME=/data/data/com.termux/files/home",
                 "PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/bin/applets",
                 "TMPDIR=/data/data/com.termux/files/usr/tmp",
-                "LD_LIBRARY_PATH=$tmpPath:$libDir:/data/data/com.termux/files/usr/lib",
+                "LD_LIBRARY_PATH=$tmpPath:$libDir:${extraLibDirs.joinToString(":")}:/data/data/com.termux/files/usr/lib",
                 "TERM=xterm-256color",
                 "LANG=C.UTF-8",
                 "PROOT_TMP_DIR=$tmpPath",
@@ -323,7 +350,7 @@ class ProotExecutor(
                 "HOME=/root",
                 "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
                 "TMPDIR=/tmp",
-                "LD_LIBRARY_PATH=$tmpPath:$libDir:/usr/lib",
+                "LD_LIBRARY_PATH=$tmpPath:$libDir:${extraLibDirs.joinToString(":")}:/usr/lib",
                 "TERM=xterm-256color",
                 "LANG=C.UTF-8",
                 "LC_ALL=C.UTF-8",
