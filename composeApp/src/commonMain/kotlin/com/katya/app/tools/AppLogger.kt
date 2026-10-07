@@ -43,34 +43,34 @@ object AppLogger {
      */
     fun action(description: String, result: String) {
         if (!isEnabled) return
-        addLog("${fmtTime()}  $description — $result", _logs, logFilePath)
+        addLog("${fmtTime()}  ${SecretRedactor.redact(description)} — ${SecretRedactor.redact(result)}", _logs, logFilePath)
     }
 
     /** Запись в journal root-событий (отдельный поток + файл). */
     fun rootAction(description: String, result: String) {
         if (!isEnabled) return
-        val line = "${fmtTime()}  ROOT: $description — $result"
+        val line = "${fmtTime()}  ROOT: ${SecretRedactor.redact(description)} — ${SecretRedactor.redact(result)}"
         addLog(line, _rootLogs, rootLogFilePath)
     }
 
     fun d(tag: String, message: String) {
         if (!isEnabled) return
-        addLog("[${fmtTime()}] D/$tag: $message", _logs, logFilePath)
+        addLog("[${fmtTime()}] D/$tag: ${SecretRedactor.redact(message)}", _logs, logFilePath)
     }
 
     fun i(tag: String, message: String) {
         if (!isEnabled) return
-        addLog("[${fmtTime()}] I/$tag: $message", _logs, logFilePath)
+        addLog("[${fmtTime()}] I/$tag: ${SecretRedactor.redact(message)}", _logs, logFilePath)
     }
 
     fun e(tag: String, message: String) {
         if (!isEnabled) return
-        addLog("[${fmtTime()}] E/$tag: $message", _logs, logFilePath)
+        addLog("[${fmtTime()}] E/$tag: ${SecretRedactor.redact(message)}", _logs, logFilePath)
     }
 
     fun w(tag: String, message: String) {
         if (!isEnabled) return
-        addLog("[${fmtTime()}] W/$tag: $message", _logs, logFilePath)
+        addLog("[${fmtTime()}] W/$tag: ${SecretRedactor.redact(message)}", _logs, logFilePath)
     }
 
     fun clear() {

@@ -148,7 +148,10 @@ object NativeDiagnostics {
 
     /** Тот самый argv, которым запускается proot, — чтобы его можно было повторить руками. */
     fun logLaunch(argv: Array<String>, env: Array<String>, cwd: File?) {
-        AppLogger.d(TAG, "запуск: ${argv.joinToString(" ")}")
+        // Feedback 07.10: команда может нести авторизацию внутрь песочницы (так пишется
+        // файл сессии DeepSeek), и она попадала в лог целиком — вместе с ds_session_id и
+        // aws_session_token. Лог уезжает на разбор, значит уезжал и секрет.
+        AppLogger.d(TAG, "запуск: ${com.katya.app.tools.SecretRedactor.redact(argv.joinToString(" "))}")
         AppLogger.d(TAG, "cwd: ${cwd?.absolutePath}")
         AppLogger.d(
             TAG,
