@@ -35,6 +35,29 @@ private const val FREE_DEEPSEEK_PORT = 9655
 /** 128 + SIGSEGV(11): the shell never ran, the container itself crashed. */
 private const val SIGNAL_SEGV = 139
 
+/**
+ * Строка, по которой видно, что прокси слушает порт.
+ *
+ * Feedback 08.10: проверка искала `running on` / `listening` / `started`, а
+ * ForgetMeAI/FreeDeepseekAPI печатает `[DS-API] Server on http://127.0.0.1:9655
+ * (multi-agent sessions enabled)`. Ни одного из трёх слов там нет — есть `Server on`.
+ * Состояние `Running` не наступало никогда, поэтому UI показывал «подключается»
+ * часами, а следующий `start()` прокси снова перезапускал. За полтора часа работы в
+ * журнале не появилось ни одной строки `DeepSeekOut`, и причина была ровно в этом
+ * одном сравнении.
+ *
+ * Старые варианты оставлены: печать сервера менялась между версиями, и ловить нужно
+ * и новую формулировку, и старую.
+ */
+private fun isServerReadyLine(line: String): Boolean {
+    val lower = line.lowercase()
+    return lower.contains("server on") ||
+        lower.contains("running on") ||
+        lower.contains("listening on") ||
+        lower.contains("listening at") ||
+        (lower.contains("listening") && lower.contains(":"))
+}
+
 class FreeDeepSeekManager(
     private val dataRepository: DataRepository,
     private val linuxSandboxManager: LinuxSandboxManager,
@@ -57,6 +80,16 @@ class FreeDeepSeekManager(
     private var proxyJob: Job? = null
     private var prootHandle: ProotHandle? = null
     private val scope = CoroutineScope(Dispatchers.IO)
+
+    /**
+     * Последняя строка вывода сервера.
+     *
+     * Feedback 08.10: при падении `npm start` в журнале не оставалось ничего — ни кода
+     * выхода, ни вывода. Пользователь видел «DeepSeek не подключается» и не мог отличить
+     * «сервер не стартовал» от «стартовал и сразу умер». Хвост вывода — это ровно та
+     * деталь, которой не хватало.
+     */
+    private val lastOutputLine = MutableStateFlow<String?>(null)
 
     fun start(force: Boolean = false, instanceId: String? = null) {
         // A job can be "active" while its coroutine is in its dying breath
@@ -220,13 +253,46 @@ class FreeDeepSeekManager(
                     command = "cd $repoPath && ${proxyEnv}NON_INTERACTIVE=1 PORT=$FREE_DEEPSEEK_PORT HOST=127.0.0.1 npm start",
                     onStdout = {
                         AppLogger.d("DeepSeekOut", it)
-                        if (it.contains("running on") || it.contains("listening") || it.contains("started")) {
+                        lastOutputLine.value = it
+                        if (isServerReadyLine(it)) {
+                            AppLogger.d("FreeDeepSeekManager", "Шлюз поднят: $it")
                             _state.value = DeepSeekProxyState.Running
                         }
+                        // Feedback 08.10: `NON_INTERACTIVE=1` без живого auth-файла уводит
+                        // сервер в `loadDeepSeekConfig({fatal: true})` и он молча выходит.
+                        // Раньше это выглядело как «прокси не подключается» без единой
+                        // причины, поэтому причина называется прямо здесь.
+                        if (it.contains("FATAL") || it.contains("Could not load any auth config")) {
+                            _state.value = DeepSeekProxyState.Error(
+                                "Шлюз DeepSeek не смог прочитать файл авторизации — войди заново через кнопку DeepSeek",
+                            )
+                        }
                     },
-                    onStderr = { Log.e("DeepSeekErr", it) },
+                    onStderr = { line ->
+                        AppLogger.e("DeepSeekErr", line)
+                        // Тот же случай: без auth-файла сервер падает в stderr, а не в stdout.
+                        if (line.contains("FATAL") || line.contains("auth config")) {
+                            _state.value = DeepSeekProxyState.Error(
+                                "Шлюз DeepSeek не смог прочитать файл авторизации — войди заново через кнопку DeepSeek",
+                            )
+                        }
+                    },
                 )
-                prootHandle?.awaitExit()
+                // Feedback 08.10: код выхода писался nowhere. Причина, по которой сервер
+                // умер, оставалась только в stderr, а тот уходил в `Log.e` мимо журнала
+                // приложения — в выгрузке не было ни слова о провале. Теперь видно и код,
+                // и stderr, и хвост вывода.
+                val exitCode = prootHandle?.awaitExit() ?: -1
+                AppLogger.d(
+                    "FreeDeepSeekManager",
+                    "Шлюз DeepSeek завершился: exit_code=$exitCode, последняя строка=\"${lastOutputLine.value}\"",
+                )
+                if (exitCode == SIGNAL_SEGV) {
+                    _state.value = DeepSeekProxyState.Error(
+                        "Песочница падает с segfault (proot не запускается) — сборка компонентов не завершена",
+                    )
+                    return@launch
+                }
                 _state.value = DeepSeekProxyState.Stopped
             } catch (e: Exception) {
                 Log.e("FreeDeepSeekManager", "Error running DeepSeek proxy", e)

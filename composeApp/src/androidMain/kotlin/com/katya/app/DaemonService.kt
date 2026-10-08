@@ -46,11 +46,34 @@ class DaemonService : Service() {
         wakeLock = powerManager.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Katya::DaemonWakeLock")
         wakeLock?.acquire()
 
-        // Setup MediaSession for watch integration
+        // MediaSession для кнопок плеера на часах и гарнитуре.
+        //
+        // Feedback 08.10 п.4: сессия создавалась всегда, а переключатель «Управление с
+        // часов / гарнитуры» смотрел только на SCO-микрофон в SttController. То есть
+        // кнопки плеера работали при любом положении переключателя, а надпись обещала
+        // именно их — расхождение было не в описании, а в поведении.
+        //
+        // Теперь флаг решает здесь тоже. Саму сессию не убираем: без неё Android не
+        // отдаёт медиакнопки приложению вообще, и включение переключателя не дало бы
+        // эффекта до перезапуска демона. Вместо этого при выключенном флаге обработчик
+        // отпускает кнопки — они уходят системе, как будто сессии нет.
         mediaSession = android.media.session.MediaSession(this, "KatyaWatchSession").apply {
             setFlags(android.media.session.MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or android.media.session.MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
             setCallback(object : android.media.session.MediaSession.Callback() {
+                /**
+                 * Кнопки плеера работают только когда «Управление с часов / гарнитуры»
+                 * включено. Флаг читается на каждое нажатие, а не один раз при
+                 * создании сессии: переключатель меняется на лету, а демон при этом
+                 * живёт.
+                 */
+                private fun watchEnabled(): Boolean {
+                    val repo: com.katya.app.data.DataRepository =
+                        org.koin.java.KoinJavaComponent.getKoin().get()
+                    return repo.isWatchIntegrationEnabled()
+                }
+
                 override fun onPlay() {
+                    if (!watchEnabled()) return
                     // Start STT when play is pressed
                     if (!sttController.isListening.value) {
                         sttController.startListening { result ->
@@ -64,16 +87,19 @@ class DaemonService : Service() {
                     }
                 }
                 override fun onSkipToNext() {
+                    if (!watchEnabled()) return
                     // Fast submit (Next)
                     if (sttController.isListening.value) {
                         sttController.stopListening()
                     }
                 }
                 override fun onSkipToPrevious() {
+                    if (!watchEnabled()) return
                     // Cancel/Stop
                     sttController.stopListening()
                 }
                 override fun onPause() {
+                    if (!watchEnabled()) return
                     onSkipToPrevious()
                 }
             })

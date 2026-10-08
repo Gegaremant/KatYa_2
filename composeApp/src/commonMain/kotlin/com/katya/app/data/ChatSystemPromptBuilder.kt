@@ -98,6 +98,24 @@ internal const val DEFAULT_TOOL_USE_SECTION =
  * model's tendency to ask multiple clarifying questions and to give up after the first
  * failed attempt. Constant rather than soul-embedded so soul customization can't drop it.
  */
+
+/**
+ * Язык размышлений.
+ *
+ * Feedback 08.10: размышления показываются пользователю (переключатель «Показ и
+ * озвучка размышлений») и озвучиваются голосовым движком, но модель писала их так,
+ * как её вели — чаще всего по-английски. Пользователь слушает и читает по-русски,
+ * поэтому язык размышлений задан явно.
+ *
+ * Отдельная константа, а не строка в soul, по той же причине, что и остальные
+ * секции: пользователь правит soul, и это правило не должно из-за этого молча
+ * исчезнуть.
+ */
+internal const val DEFAULT_REASONING_LANGUAGE_SECTION =
+    "## Язык размышлений\n" +
+        "Размышления (thinking/reasoning) пиши на русском языке — их читает и " +
+        "слушает пользователь. Ответ тоже на русском, если он не на английском по делу."
+
 internal const val DEFAULT_ACTING_SECTION =
     "## When to Act\n" +
         "Take the most reasonable interpretation and proceed. " +
@@ -266,6 +284,10 @@ internal fun buildChatSystemPrompt(
     }
     if (isNotEmpty()) append("\n\n")
     append(DEFAULT_ACTING_SECTION)
+    // Feedback 08.10: размышления видны и озвучиваются, поэтому их язык задан явно —
+    // без этого правила модель писала их по-английски.
+    if (isNotEmpty()) append("\n\n")
+    append(DEFAULT_REASONING_LANGUAGE_SECTION)
     if (isNotEmpty()) append("\n\n")
     append(buildEnvironmentSection(isSandbox, isGodMode))
 

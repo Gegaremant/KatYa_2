@@ -107,8 +107,13 @@ internal fun TopBar(
                 }
             }
         } else {
+            // Feedback 08.10 п.1: здесь стояло `defaultMinSize(minHeight = 64.dp)`, из-за
+            // чего шапка занимала строку высотой с телефонную, а строка состояния
+            // устройства уезжала под неё. Пользователь видел большой отступ между
+            // иконками и строкой нагрузки и просил поднять состояние выше. Отступ
+            // убран: шапка садится по содержимому, иконки задают её высоту.
             Row(
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 64.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 LeadingButtons(
@@ -139,6 +144,9 @@ internal fun TopBar(
             }
         }
 
+        // Feedback 08.10 п.1: строки состояния идут сразу под шапкой, без зазора.
+        // Порядок — сначала телефон, потом канал: нагрузку видно постоянно, а статус
+        // модели меняется по ходу разговора, и наверху он читается первым.
         if (showDeviceStatus && deviceStatus != null) {
             StatusRow(text = deviceStatus)
         }
@@ -253,7 +261,10 @@ private fun StatusRow(text: String, isOnline: Boolean? = null) {
             // каждая строка съедала 8dp вместо 2: строки состояния разъезжались и
             // «съедали» место, ради которого их и поднимали выше. Один отступ вместо
             // двух — и строка снова компактная.
-            .padding(horizontal = 16.dp, vertical = 2.dp),
+            // Feedback 08.10 п.1: верхний отступ обнулён. Строки состояния должны
+            // примыкать к шапке, а не отстоять от неё на 4dp — на телефоне эти 4dp
+            // читались как отдельный зазор.
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (isOnline != null) {

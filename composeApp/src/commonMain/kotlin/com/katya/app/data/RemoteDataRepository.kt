@@ -668,7 +668,10 @@ class RemoteDataRepository(
                         id = executingId,
                         role = History.Role.TOOL_EXECUTING,
                         content = name,
-                        toolName = displayName,
+                        // Feedback 08.10 п.3: показывалась только подпись инструмента, и по
+                        // ней нельзя было понять, что именно Катя делает. Для командовых
+                        // инструментов добавляем саму команду — одной строкой, с обрезкой.
+                        toolName = displayName.withCommandFrom(name, arguments),
                     ),
                 )
             }
@@ -1360,7 +1363,7 @@ class RemoteDataRepository(
         // Add all TOOL_EXECUTING indicators first
         val executingIds = toolCalls.map { Uuid.random().toString() }
         for ((index, toolCall) in toolCalls.withIndex()) {
-            val (_, name, _) = toolCall
+            val (_, name, arguments) = toolCall
             val toolDisplayName = toolExecutor.getToolDisplayName(name)
             chatHistory.update {
                 it.toMutableList().apply {
@@ -1369,7 +1372,9 @@ class RemoteDataRepository(
                             id = executingIds[index],
                             role = History.Role.TOOL_EXECUTING,
                             content = name,
-                            toolName = toolDisplayName,
+                            // Feedback 08.10 п.3: то же и для параллельных вызовов —
+                            // подписи без команды одинаковы у всех пакетных установок.
+                            toolName = toolDisplayName.withCommandFrom(name, arguments),
                         ),
                     )
                 }
@@ -2040,6 +2045,8 @@ Your task is to restore the connection to the main server.
     override fun setDynamicUiEnabled(enabled: Boolean) = appSettings.setDynamicUiEnabled(enabled)
 
     override fun isVoiceResponseEnabled(): Boolean = appSettings.isVoiceResponseEnabled()
+
+    override fun isShowAndVoiceThoughtsEnabled(): Boolean = appSettings.isShowAndVoiceThoughtsEnabled()
     override fun setWakeWordEnabled(enabled: Boolean) = appSettings.setWakeWordEnabled(enabled)
     override fun isWakeWordEnabled(): Boolean = appSettings.isWakeWordEnabled()
     override fun setWakeWordModelLang(lang: String) = appSettings.setWakeWordModelLang(lang)

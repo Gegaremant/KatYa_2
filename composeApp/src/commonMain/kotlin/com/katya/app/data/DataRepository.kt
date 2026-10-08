@@ -156,6 +156,18 @@ interface DataRepository {
 
     // Voice & Wake Word
     fun isVoiceResponseEnabled(): Boolean
+
+    /**
+     * «Показ и озвучка размышлений»: reasoning показывается в чате и уходит в
+     * голосовой движок.
+     *
+     * Feedback 08.10: чат спрашивал этот флаг у [ChatUiState.voiceThoughtsEnabled],
+     * но интерфейс репозитория его не объявлял — значение всегда оставалось
+     * `false`, и озвучка размышлений не работала ни при каком положении
+     * переключателя.
+     */
+    fun isShowAndVoiceThoughtsEnabled(): Boolean
+
     fun setWakeWordEnabled(enabled: Boolean)
     fun isWakeWordEnabled(): Boolean
     fun setWakeWordModelLang(lang: String)

@@ -215,7 +215,11 @@ private fun ReasoningBlockquote(
     segments: ImmutableList<String>,
     modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    // Feedback 08.10: по умолчанию открыто. Размышления показываются только когда
+    // пользователь сам включил «Показ и озвучка размышлений» — то есть уже выразил
+    // намерение их читать, и прятать их за ещё один тап было лишним. Свёртка осталась:
+    // длинные размышления мешают читать сам ответ.
+    var expanded by remember { mutableStateOf(true) }
     // Preview always reflects the MOST RECENT thinking segment so the user gets a
     // visual update each time a new reasoning phase starts, without expanding.
     val preview = remember(segments) {

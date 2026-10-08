@@ -742,7 +742,11 @@ fun WatchIntegrationToggle(
     Column(modifier = Modifier.fillMaxWidth()) {
         ToggleableHeadline(
             title = "Управление с часов / гарнитуры",
-            description = "Использовать кнопки плеера на часах и микрофон наушника для голосовых команд",
+            // Feedback 08.10 п.4: надпись обещала только «кнопки плеера и микрофон
+            // наушника», но переключатель управлял SCO-микрофоном, а кнопки работали
+            // всегда. Теперь флаг решает и то, и другое — надпись описывает ровно то,
+            // что включается.
+            description = "Кнопки плеера на часах и микрофон наушника — для голосовых команд",
             checked = isWatchIntegrationEnabled,
             onCheckedChange = onToggleWatchIntegration,
         )

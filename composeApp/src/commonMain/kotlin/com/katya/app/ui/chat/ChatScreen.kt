@@ -110,6 +110,7 @@ import com.katya.app.ui.dynamicui.toSpeakableText
 import com.katya.app.ui.handCursor
 import com.katya.app.ui.markdown.KatyaUiBlock
 import com.katya.app.ui.markdown.parseMarkdown
+import com.katya.app.ui.markdown.toSpeakableText
 import katya.composeapp.generated.resources.Res
 import katya.composeapp.generated.resources.fallback_answered_by
 import katya.composeapp.generated.resources.fallback_service_failed
@@ -652,12 +653,25 @@ private fun ChatModeScreen(
                                 listState.scrollToItem(history.lastIndex)
                                 val lastMessage = history.last()
                                 if (lastMessage.role == History.Role.ASSISTANT) {
-                                    val shouldSpeak = if (lastMessage.isThinking) {
-                                        uiState.voiceThoughtsEnabled
-                                    } else {
-                                        uiState.isSpeechOutputEnabled
-                                    }
-                                    if (shouldSpeak) {
+                                    // Feedback 08.10: озвучка привязана к тексту, который реально
+                                    // видно в чате, а не к флажку `isThinking` последней записи.
+                                    // Размышление приходит как `reasoningContent` ассистентской
+                                    // записи РАНЬШЕ ответа, поэтому к моменту срабатывания
+                                    // последней уже был ответ, а `isThinking` — false. Из-за
+                                    // этого переключатель «Показ и озвучка размышлений» работал
+                                    // только на провайдерах, отдающих размышление отдельной
+                                    // записью, и молчал на всех остальных.
+                                    //
+                                    // Решает и вторую половину: флаг в ChatUiState был
+                                    // объявлен как false и нигде не заполнялся, так что
+                                    // размышления не озвучивались вообще.
+                                    val speechText = buildSpeechText(
+                                        reasoning = lastMessage.reasoningContent,
+                                        answer = lastMessage.content,
+                                        speakReasoning = uiState.voiceThoughtsEnabled,
+                                        speakAnswer = uiState.isSpeechOutputEnabled,
+                                    )
+                                    if (speechText != null) {
                                         componentScope.launch(getBackgroundDispatcher()) {
                                             val engine = textToSpeech
                                             if (engine != null) {
@@ -669,7 +683,7 @@ private fun ChatModeScreen(
                                                 }
                                                 uiState.actions.setIsSpeaking(true, lastMessage.id)
                                                 try {
-                                                    engine.speak(lastMessage.content.toSpeakableText())
+                                                    engine.speak(speechText)
                                                 } catch (_: Exception) {
                                                     // Speech was interrupted by user or engine failed
                                                     uiState.actions.setIsSpeaking(false, lastMessage.id)
@@ -764,20 +778,7 @@ private fun ChatModeScreen(
                                             ?.let { pending.add(it) }
 
                                         entry.toolCalls?.forEach { tc ->
-                                            val actionDesc = when (tc.name) {
-                                                "read_file", "view_file" -> "Читаю файл"
-                                                "write_file", "replace_file_content", "multi_replace_file_content" -> "Записываю в файл"
-                                                "run_command" -> "Выполняю команду"
-                                                "grep_search" -> "Ищу текст"
-                                                "list_dir" -> "Просматриваю директорию"
-                                                "manage_task" -> "Управляю фоновой задачей"
-                                                "search_web" -> "Ищу в сети"
-                                                "ask_question" -> "Жду ответа"
-                                                "generate_image" -> "Генерирую изображение"
-                                                "read_url_content", "browser_subagent" -> "Просматриваю веб-страницу"
-                                                else -> "Использую инструмент ${tc.name}"
-                                            }
-                                            pending.add("🛠 $actionDesc")
+                                            pending.add("🛠 ${toolDisplayName(tc.name)}")
                                         }
                                     }
                                 }
@@ -995,6 +996,94 @@ private fun ChatModeScreen(
                 showHistorySheet = false
             },
         )
+    }
+}
+
+/**
+ * Русская подпись инструмента для «видимости работы».
+ *
+ * Feedback 08.10: в чате пользователь видел `Execute Shell Command` — английскую
+ * строку `tool_execute_shell_command_name` из `strings.xml`. Подписей на английском
+ * было 32, и оставить их значило оставить英文 в интерфейсе, поэтому русские живут
+ * здесь, в одном месте, рядом с кодом, который их показывает.
+ */
+internal fun toolDisplayName(name: String): String = when (name) {
+    "execute_shell_command" -> "Выполняю команду"
+    "host_shell_command" -> "Выполняю команду на телефоне"
+    "read_file", "view_file" -> "Читаю файл"
+    "write_file", "replace_file_content", "multi_replace_file_content" -> "Записываю в файл"
+    "run_command" -> "Выполняю команду"
+    "grep_search" -> "Ищу текст"
+    "list_dir" -> "Просматриваю директорию"
+    "manage_task" -> "Управляю фоновой задачей"
+    "search_web", "web_search" -> "Ищу в сети"
+    "ask_question" -> "Жду ответа"
+    "generate_image" -> "Генерирую изображение"
+    "read_url_content", "browser_subagent" -> "Просматриваю веб-страницу"
+    "get_local_time" -> "Смотрю время"
+    "get_location" -> "Определяю местоположение"
+    "send_notification" -> "Отправляю уведомление"
+    "create_calendar_event" -> "Создаю событие в календаре"
+    "set_alarm" -> "Ставлю будильник"
+    "open_file" -> "Открываю файл"
+    "open_url" -> "Открываю ссылку"
+    "fetch_url" -> "Читаю страницу"
+    "schedule_task" -> "Планирую задачу"
+    "cancel_task" -> "Отменяю задачу"
+    "list_tasks" -> "Смотрю список задач"
+    "manage_process" -> "Управляю фоновым процессом"
+    "ssh_command" -> "Выполняю команду по SSH"
+    "ssh_configure_host" -> "Настраиваю SSH-хост"
+    "sftp_upload", "sftp_download" -> "Передаю файл по SFTP"
+    "ftp_upload", "ftp_download" -> "Передаю файл по FTP"
+    "memory_store" -> "Запоминаю"
+    "memory_forget" -> "Забываю"
+    "memory_learn" -> "Запоминаю навык"
+    "memory_reinforce" -> "Укрепляю навык"
+    "promote_learning" -> "Переношу в память"
+    "setup_email" -> "Настраиваю почту"
+    "check_email", "read_email", "search_email" -> "Читаю почту"
+    "reply_email" -> "Отвечаю на письмо"
+    "compose_email" -> "Пишу письмо"
+    "check_sms", "read_sms", "search_sms" -> "Читаю SMS"
+    "send_sms" -> "Отправляю SMS"
+    "reply_sms" -> "Отвечаю на SMS"
+    "check_notifications", "read_notification", "search_notifications" -> "Смотрю уведомления"
+    "set_reminder" -> "Ставлю напоминание"
+    "text_to_speech" -> "Озвучиваю текст"
+    "send_email" -> "Отправляю письмо"
+    else -> "Использую инструмент $name"
+}
+
+/**
+ * Что именно уходит в голосовой движок для одной ассистентской записи.
+ *
+ * Feedback 08.10. Размышление говорится **перед** ответом — иначе объяснение хода
+ * решения звучало бы после вывода, и слушатель уже не понимал, к чему оно
+ * относится. Обе части опциональны независимо: «Показ и озвучка размышлений»
+ * управляет первой, обычный переключатель «голос» — второй.
+ *
+ * Markdown разбирается здесь же, а не на стороне движка: `toSpeakableText()`
+ * снимает разметку, иначе голос читал бы «звёздочка» и «решётка».
+ */
+internal fun buildSpeechText(
+    reasoning: String?,
+    answer: String,
+    speakReasoning: Boolean,
+    speakAnswer: Boolean,
+): String? {
+    val reasonPart = reasoning
+        ?.takeIf { speakReasoning && it.isNotBlank() }
+        ?.let { parseMarkdown(it).toSpeakableText() }
+        ?.takeIf { it.isNotBlank() }
+    val answerPart = answer
+        .takeIf { speakAnswer && it.isNotBlank() }
+        ?.let { parseMarkdown(it).toSpeakableText() }
+        ?.takeIf { it.isNotBlank() }
+    return when {
+        reasonPart != null && answerPart != null -> "$reasonPart\n\n$answerPart"
+        reasonPart != null -> reasonPart
+        else -> answerPart
     }
 }
 

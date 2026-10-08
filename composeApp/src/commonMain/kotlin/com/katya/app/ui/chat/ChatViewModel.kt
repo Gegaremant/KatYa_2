@@ -99,6 +99,11 @@ class ChatViewModel(
             monitorOverlayMode = appSettings.getMonitorOverlayMode(),
             isAgentVisibilityEnabled = dataRepository.isAgentVisibilityEnabled(),
             isVlessEnabled = appSettings.isVlessEnabled(),
+            // Feedback 08.10: поле было объявлено со значением `false` и больше нигде
+            // не заполнялось. Переключатель «Показ и озвучка размышлений» писал флаг в
+            // настройки, а в чат он не доходил — озвучка размышлений не работала никогда,
+            // при любом состоянии переключателя.
+            voiceThoughtsEnabled = dataRepository.isShowAndVoiceThoughtsEnabled(),
             systemStatus = null,
         ),
     )
