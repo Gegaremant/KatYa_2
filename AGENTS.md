@@ -40,6 +40,57 @@ builds both bundles, verifies the signing certificate against the expected SHA-2
 the unit tests and publishes the APKs. A local `assembleFossFullDebug` is a debug-signed
 build and will *not* install over an existing release.
 
+### Three platforms: Android, Windows, Linux
+
+`composeApp` is a KMP module with three targets sharing one `commonMain` (240
+files). The platform is supplied through ~90 `expect` declarations; everything else
+is written once.
+
+| Target | Source set | Entry point |
+|---|---|---|
+| Android | `androidMain` | `androidApp` → `KatyaApplication` / `MainActivity` |
+| Windows, Linux | `desktopMain` | `composeApp/src/desktopMain/.../Main.kt` |
+
+Builds:
+
+```bash
+./gradlew :composeApp:run                       # run from source
+./gradlew :composeApp:packageDeb                # Linux, .deb
+./gradlew :composeApp:packageRpm                # Linux, .rpm
+./gradlew :composeApp:packageMsi                # Windows
+```
+
+App state lives in `~/.katya` on desktop (`conversations.db`, `katya.log`,
+`secure-prefs`, `skills/`) instead of the Android app-private directory. The
+backup format and the database schema are the same on both, so a backup taken on
+a phone restores on a desktop and back.
+
+What desktop deliberately does **not** have, and why — each returns a
+well-typed "unsupported" rather than a fake success:
+
+- **sandbox, root, VLESS/xray, FreeDeepSeek proxy** — proot and `su` are
+  Android things. On desktop a command runs straight in the OS shell, which is
+  the same job with none of the emulation.
+- **SMS, notification listener, device admin, accessibility, battery
+  optimization** — Android permission surfaces with no counterpart.
+- **Vosk STT, wake word, Piper voices** — the engines play through
+  `android.media.AudioTrack`; no port yet.
+- **scheduled tasks after the window closes** — needs `systemd --user` or an OS
+  scheduler; while the app is open they do run.
+- **audio focus** — AWT has no focus API, so music is *not* paused during
+  speech rather than being paused blindly.
+
+### Shared JVM code
+
+Code that is plain JVM — no Android imports — goes in
+`composeApp/src/jvmShared/kotlin/`, wired into both `androidMain` and
+`desktopMain` via `kotlin.srcDir`. Do **not** create a `jvmShared` source set
+with `dependsOn`: Gradle rejects the same file being a source for both
+`jvmShared` and the `androidMain` that inherits it.
+
+Currently there: SSH client, Hive crypto, e-mail socket, SSH tunnel,
+`~/.ssh/config` manager, and the `/proc/stat` CPU sampler.
+
 ### Two bundles: `full` and `lite`
 
 Two flavor dimensions, so a variant name carries both: `distribution` (`foss`,
