@@ -90,13 +90,18 @@ jobs:
           if (-not (Test-Path $cfg)) {
             throw "no KatYa.cfg in $libDir"
           }
-          $entries = Get-Content $cfg | Where-Object { $_ -match '^app\.classpath=' }
+          # Разделитель в `$APPDIR/...` разный на разных ОС: в Linux — прямой
+          # слэш, в Windows — обратный. Раньше стоял класс символов со слэшем
+          # вперёд, из-за чего на Windows `-replace` не срабатывал, имя
+          # оставалось вида `app.classpath=$APPDIR\foo.jar`, проверка находила
+          # «отсутствующие» файлы, которых нет, и отвергала исправный образ.
+          $entries = @(Get-Content $cfg | Where-Object { $_ -match '^app\.classpath=' })
           if ($entries.Count -lt 50) {
             throw "classpath lists only $($entries.Count) jars — the app classes did not get packaged"
           }
           $missing = 0
           foreach ($entry in $entries) {
-            $name = $entry -replace '^app\.classpath=\$APPDIR/', ''
+            $name = $entry -replace '^app\.classpath=\$APPDIR[\\/]', ''
             if ($name -and -not (Test-Path (Join-Path $libDir $name))) {
               Write-Host "::error::classpath references a missing file: $name"
               $missing++
@@ -127,8 +132,18 @@ jobs:
           $output = ''
           $status = 0
           try {
-            $p = Start-Process -FilePath $exe -NoNewWindow -Wait -PassThru `
+            # Без `-Wait` и с явным таймаутом: у раннера нет интерактивной
+            # сессии, и если приложение всё-таки дойдёт до бесконечного цикла
+            # событий, обычный `Start-Process -Wait` провисит до лимита job'а в
+            # шесть часов вместо трёх минут.
+            $p = Start-Process -FilePath $exe -NoNewWindow -PassThru `
               -RedirectStandardOutput 'app-out.txt' -RedirectStandardError 'app-err.txt'
+            try {
+              Wait-Process -Id $p.Id -Timeout 180
+            } catch {
+              Write-Host "::warning::the app was still running after 180s — killing it"
+              Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            }
             $status = $p.ExitCode
             $output = (Get-Content 'app-out.txt' -Raw -ErrorAction SilentlyContinue) +
                       (Get-Content 'app-err.txt' -Raw -ErrorAction SilentlyContinue)
