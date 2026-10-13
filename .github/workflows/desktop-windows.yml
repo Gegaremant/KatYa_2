@@ -111,11 +111,23 @@ jobs:
             throw "$missing of $($entries.Count) classpath entries are missing"
           }
 
-          $skiko = @(Get-ChildItem -Path $libDir -Filter 'libskiko-*.dll' -File -ErrorAction SilentlyContinue)
-          if ($skiko.Count -eq 0) {
-            throw 'no libskiko-*.dll in the image — the app cannot draw anything'
+          # Нативный код Skiko не обязательно лежит отдельным файлом: на Linux
+          # Compose распаковывает `libskiko-linux-x64.so` в `app/`, а на Windows
+          # dll может остаться внутри `skiko-awt-runtime-windows-x64-*.jar` и
+          # распаковываться уже при запуске. Поэтому проверка принимает оба
+          # варианта, а если не нашла ни одного — печатает содержимое каталога,
+          # чтобы следующий прогон разбирался по фактам, а не по догадкам.
+          $skikoFile = @(Get-ChildItem -Path $app -Recurse -Filter '*skiko*.dll' -File -ErrorAction SilentlyContinue)
+          $skikoJar = @(Get-ChildItem -Path $libDir -Filter 'skiko-awt-runtime-*.jar' -File -ErrorAction SilentlyContinue)
+          if ($skikoFile.Count -eq 0 -and $skikoJar.Count -eq 0) {
+            Write-Host '::group::contents of the image'
+            Get-ChildItem $app -Recurse -File |
+              Select-Object -First 60 -ExpandProperty FullName | Write-Host
+            Write-Host '::endgroup::'
+            throw 'no skiko native library in the image — the app cannot draw anything'
           }
-          Write-Host "classpath: $($entries.Count) entries, skiko: $($skiko[0].Name)"
+          $where = if ($skikoFile.Count -gt 0) { $skikoFile[0].Name } else { $skikoJar[0].Name }
+          Write-Host "classpath: $($entries.Count) entries, skiko: $where"
 
       # Настоящий запуск: у раннера нет интерактивной сессии, поэтому окно не
       # откроется — это ожидаемо. Важно, ЧТО при этом упадёт: HeadlessException или
@@ -144,7 +156,10 @@ jobs:
               Write-Host "::warning::the app was still running after 180s — killing it"
               Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
             }
-            $status = $p.ExitCode
+            # ExitCode читается только у завершившегося процесса; после
+            # принудительного завершения он недоступен — это не ошибка проверки,
+            # а результат, который нужно просто зафиксировать.
+            try { $status = $p.ExitCode } catch { $status = -1 }
             $output = (Get-Content 'app-out.txt' -Raw -ErrorAction SilentlyContinue) +
                       (Get-Content 'app-err.txt' -Raw -ErrorAction SilentlyContinue)
           } finally {
