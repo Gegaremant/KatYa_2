@@ -75,6 +75,32 @@ jobs:
           }
           Write-Host "candle: $((Get-Command candle.exe -ErrorAction SilentlyContinue).Source)"
 
+      # `light.exe` (сборщик MSI) валит пакет с кодом 311 при длинных путях: он
+      # не умеет длинные пути и падает на проверке целостности, а не на сборке.
+      # На раннере путь до временных файлов jpackage и так длинный
+      # (`C:\Users\RUNNER~1\AppData\Local\Temp\jdk.jpackage…\wixobj\…`),
+      # поэтому temp переносится в короткий каталог, а длинные пути в системе
+      # включаются — обе меры нужны, по одной недостаточно.
+      - name: Enable long paths and shorten TEMP
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' `
+            -Name 'LongPathsEnabled' -Value 1 -PropertyType DWord -Force | Out-Null
+          New-Item -ItemType Directory -Force -Path 'C:\t' | Out-Null
+          foreach ($var in 'TEMP', 'TMP') {
+            "TMP=$var" | Out-Null
+            [System.Environment]::SetEnvironmentVariable($var, 'C:\t', 'Process')
+          }
+          # Gradle и Gradle Daemon читают TEMP при старте, поэтому переменная
+          # ставится и в GITHUB_ENV — иначе дочерний процесс её не увидит.
+          "TEMP=C:\t" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TMP=C:\t" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "TEMP=$env:TEMP"
+
+      # Установка без прав администратора. Помимо удобства (нет окна UAC) это
+      # убирает из MSI требование elevated, с которым light.exe спотыкается на
+      # валидации при per-machine установке.
       - name: Build desktop package
         run: .\gradlew.bat :composeApp:packageMsi --no-daemon --stacktrace
 
