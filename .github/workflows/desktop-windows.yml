@@ -42,8 +42,59 @@ jobs:
 
       # Компоненты Android-сборки не нужны: rootfs, proot и jniLibs в пакет
       # для Windows не попадают. Скрипт их не тянет сознательно.
+      # jpackage собирает .msi через WiX Toolset 3, а на образе windows-latest его
+      # нет: без него jpackage падает с «Cannot find WiX tools» и Gradle показывает
+      # только «External tool execution failed». Ставится до сборки, потому что
+      # проверить наличие дешевле, чем разбирать упавший пакет.
+      #
+      # Версия 3 зафиксирована: WiX 4 и 5 — это другой инструмент с другой командой
+      # строки, и jpackage их не понимает.
+      - name: Install WiX Toolset 3
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          if (Get-Command candle.exe -ErrorAction SilentlyContinue) {
+            Write-Host 'WiX already present'
+            exit 0
+          }
+          choco install wixtoolset --version=3.14 -y --no-progress
+          # Chocolatebox кладёт WiX в Program Files, а не в PATH процесса.
+          $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
+                       [System.Environment]::GetEnvironmentVariable('PATH', 'User')
+          if (-not (Get-Command candle.exe -ErrorAction SilentlyContinue)) {
+            # Известная проблема Chocolatey на свежих образах: пакет ставится,
+            # но candle не находится. Тогда берём MSI напрямую.
+            Write-Host 'choco did not expose candle, falling back to the official MSI'
+            $msi = "$env:RUNNER_TEMP\wix.msi"
+            Invoke-WebRequest -Uri 'https://github.com/wixtoolset/wix3/releases/download/wix314rtm/wix3-14.3705-64bit.msi' -OutFile $msi
+            Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart" -Wait
+            $wixDir = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
+            if (Test-Path $wixDir) {
+              "PATH=$wixDir;$env:PATH" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+            }
+          }
+          Write-Host "candle: $((Get-Command candle.exe -ErrorAction SilentlyContinue).Source)"
+
       - name: Build desktop package
         run: .\gradlew.bat :composeApp:packageMsi --no-daemon --stacktrace
+
+      # Gradle в сводке ошибки пишет только «External tool execution failed» и
+      # путь к логу jpackage на раннере. Что именно сказал jpackage — там. Без
+      # этого шага диагностика упирается в догадки, поэтому лог выводится всегда,
+      # а не только при провале шага сборки.
+      - name: Dump jpackage logs
+        if: always()
+        shell: pwsh
+        run: |
+          $logs = Get-ChildItem -Path 'composeApp/build/compose/logs/packageMsi' -Filter '*.txt' -ErrorAction SilentlyContinue
+          if (-not $logs) {
+            Write-Host 'no jpackage logs (the build failed before running it)'
+            exit 0
+          }
+          foreach ($log in $logs) {
+            Write-Host "===== $($log.Name) ====="
+            Get-Content $log.FullName | Select-Object -Last 40
+          }
 
       - name: Locate package
         id: pkg

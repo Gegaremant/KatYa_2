@@ -91,6 +91,7 @@ jobs:
             echo "::error::launcher $LAUNCHER is missing or not executable"
             exit 1
           fi
+          LIBDIR=$(dirname "$(find "$APP/../lib" -name 'KatYa.cfg' -type f | head -n 1)")
           # Каждая запись classpath обязана существовать на диске: один потерянный
           # jar даёт приложение, которое стартует и падает при первом обращении к
           # нему — то есть ломается не в момент установки, а позже у пользователя.
