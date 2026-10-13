@@ -146,6 +146,12 @@ kotlin {
         val desktopMain by getting {
             kotlin.srcDir("src/jvmShared/kotlin")
             dependencies {
+                // Нативная библиотека Skiko для текущей ОС. Без неё приложение
+                // падает на старте с `LibraryLoadException`: проверено на
+                // распакованном .deb — в classpath был skiko-awt без
+                // skiko-awt-linux-x64, то есть без самого нативного кода.
+                // Именно этот currentOs и приносит `-linux-x64` / `-windows-x64`.
+                implementation(compose.desktop.currentOs)
                 // Всё, что нужно JVM, но не нужно Android-модулю: OkHttp вместо
                 // Android-движка, файловые диалоги, синтезатор речи.
                 implementation(libs.compose.ui)
