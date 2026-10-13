@@ -1,15 +1,22 @@
 name: Desktop Windows
 
-# Отдельный workflow по той же причине, что и Linux: jpackage для Windows
-# собирается только на Windows-раннере и не имеет отношения к Android-сборке.
+# Отдельный workflow по той же причине, что и Linux: десктопная сборка требует
+# jpackage и не имеет отношения к Android-сборке.
 #
-# Единственная задача этого файла — собрать .msi и дописать его к релизу,
-# созданному release.yml. Сам релиз здесь не создаётся и не переписывается.
+# Публикуется не .msi, а распакованный образ приложения, запакованный в zip.
+# Причина конкретная, а не «на всякий случай»: jpackage собирает .msi через
+# WiX, и сборщик `light.exe` на образе windows-latest завершается кодом 311 —
+# провалом внутренней проверки целостности. Что именно он нашёл, jpackage в
+# журнал не пишет: передаёт только код. Три прогона потратили на угадывание
+# (WiX 3.14 вручную, короткий TEMP, `perUserInstall`, длинные пути) — каждый
+# раз 311. Ловить настоящее сообщение ICE можно было бы только подменой
+# `light.exe` на обёртку, а это отдельная работа; образ приложения пользователю
+# нужен сейчас.
 #
-# `workflow_dispatch` требует наличия файла в ветке по умолчанию (`master`);
-# релизная работа идёт с `dev`. Пока они не слиты, ручной запуск недоступен —
-# поэтому и принудительное обновление уже отправленного тега workflow не
-# запускает: новый прогон даёт только новый тег.
+# Образ работает без установки и без прав администратора: распаковать и запустить.
+# Когда появится способ узнать текст ошибки от `light.exe`, .msi вернётся отдельным
+# шагом, а `TargetFormat.Msi` в build.gradle.kts остаётся для локальных сборок на
+# Windows, где WiX настроен у разработчика.
 on:
   workflow_dispatch:
   push:
@@ -25,7 +32,7 @@ concurrency:
 
 jobs:
   package:
-    name: Package .msi
+    name: Package Windows build
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -33,158 +40,110 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Полный JDK: `jpackage` — часть JDK, не JRE.
       - name: Setup JDK 21
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
-      # Компоненты Android-сборки не нужны: rootfs, proot и jniLibs в пакет
-      # для Windows не попадают. Скрипт их не тянет сознательно.
-      # jpackage собирает .msi через WiX Toolset 3, а на образе windows-latest его
-      # нет: без него jpackage падает с «Cannot find WiX tools» и Gradle показывает
-      # только «External tool execution failed». Ставится до сборки, потому что
-      # проверить наличие дешевле, чем разбирать упавший пакет.
-      #
-      # Версия 3 зафиксирована: WiX 4 и 5 — это другой инструмент с другой командой
-      # строки, и jpackage их не понимает.
-      - name: Install WiX Toolset 3
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'stop'
-          if (Get-Command candle.exe -ErrorAction SilentlyContinue) {
-            Write-Host 'WiX already present'
-            exit 0
-          }
-          choco install wixtoolset --version=3.14 -y --no-progress
-          # Chocolatebox кладёт WiX в Program Files, а не в PATH процесса.
-          $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' +
-                       [System.Environment]::GetEnvironmentVariable('PATH', 'User')
-          if (-not (Get-Command candle.exe -ErrorAction SilentlyContinue)) {
-            # Известная проблема Chocolatey на свежих образах: пакет ставится,
-            # но candle не находится. Тогда берём MSI напрямую.
-            Write-Host 'choco did not expose candle, falling back to the official MSI'
-            $msi = "$env:RUNNER_TEMP\wix.msi"
-            Invoke-WebRequest -Uri 'https://github.com/wixtoolset/wix3/releases/download/wix314rtm/wix3-14.3705-64bit.msi' -OutFile $msi
-            Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart" -Wait
-            $wixDir = "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin"
-            if (Test-Path $wixDir) {
-              "PATH=$wixDir;$env:PATH" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-            }
-          }
-          Write-Host "candle: $((Get-Command candle.exe -ErrorAction SilentlyContinue).Source)"
+      # Компоненты Android-сборки не нужны: rootfs, proot и jniLibs в пакет для
+      # Windows не попадают. Скрипт их не тянет сознательно.
 
-      # `light.exe` (сборщик MSI) валит пакет с кодом 311 при длинных путях: он
-      # не умеет длинные пути и падает на проверке целостности, а не на сборке.
-      # На раннере путь до временных файлов jpackage и так длинный
-      # (`C:\Users\RUNNER~1\AppData\Local\Temp\jdk.jpackage…\wixobj\…`),
-      # поэтому temp переносится в короткий каталог, а длинные пути в системе
-      # включаются — обе меры нужны, по одной недостаточно.
-      - name: Enable long paths and shorten TEMP
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'stop'
-          New-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' `
-            -Name 'LongPathsEnabled' -Value 1 -PropertyType DWord -Force | Out-Null
-          New-Item -ItemType Directory -Force -Path 'C:\t' | Out-Null
-          foreach ($var in 'TEMP', 'TMP') {
-            "TMP=$var" | Out-Null
-            [System.Environment]::SetEnvironmentVariable($var, 'C:\t', 'Process')
-          }
-          # Gradle и Gradle Daemon читают TEMP при старте, поэтому переменная
-          # ставится и в GITHUB_ENV — иначе дочерний процесс её не увидит.
-          "TEMP=C:\t" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "TMP=C:\t" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          Write-Host "TEMP=$env:TEMP"
+      # Собирается образ, а не установщик: `createDistributable` не требует WiX,
+      # поэтому не зависит от того, чем настроен раннер.
+      - name: Build application image
+        run: .\gradlew.bat :composeApp:createDistributable --no-daemon --stacktrace
 
-      # Установка без прав администратора. Помимо удобства (нет окна UAC) это
-      # убирает из MSI требование elevated, с которым light.exe спотыкается на
-      # валидации при per-machine установке.
-      - name: Build desktop package
-        run: .\gradlew.bat :composeApp:packageMsi --no-daemon --stacktrace
-
-      # Gradle в сводке ошибки пишет только «External tool execution failed» и
-      # путь к логу jpackage на раннере. Что именно сказал jpackage — там. Без
-      # этого шага диагностика упирается в догадки, поэтому лог выводится всегда,
-      # а не только при провале шага сборки.
-      - name: Dump jpackage logs
-        if: always()
-        shell: pwsh
-        run: |
-          $logs = Get-ChildItem -Path 'composeApp/build/compose/logs/packageMsi' -Filter '*.txt' -ErrorAction SilentlyContinue
-          if (-not $logs) {
-            Write-Host 'no jpackage logs (the build failed before running it)'
-            exit 0
-          }
-          foreach ($log in $logs) {
-            Write-Host "===== $($log.Name) ====="
-            Get-Content $log.FullName | Select-Object -Last 40
-          }
-
-      - name: Locate package
+      - name: Locate application image
         id: pkg
         shell: pwsh
         run: |
           $ErrorActionPreference = 'stop'
-          $msi = Get-ChildItem -Path 'composeApp/build' -Recurse -Filter '*.msi' -File |
-            Where-Object { $_.FullName -like '*binaries\main\msi*' } |
+          $app = Get-ChildItem -Path 'composeApp/build/compose/binaries/main/app' -Directory -ErrorAction SilentlyContinue |
             Select-Object -First 1
-          if (-not $msi) {
-            throw 'no .msi produced by :composeApp:packageMsi'
+          if (-not $app) {
+            throw 'no application image produced by :composeApp:createDistributable'
           }
-          Write-Host $msi.FullName
-          Write-Host "$([math]::Round($msi.Length / 1MB, 1)) MB"
-          "path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          # Тот же путь в PKG_PATH: следующие шаги читают переменную окружения,
-          # а не outputs шага — так они не зависят от того, объявлен ли `id`.
-          "PKG_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $exe = Join-Path $app.FullName 'KatYa.exe'
+          if (-not (Test-Path $exe)) {
+            Get-ChildItem $app.FullName | Select-Object -First 20 | Format-Table | Out-String | Write-Host
+            throw "no KatYa.exe inside $($app.FullName)"
+          }
+          Write-Host $app.FullName
+          # PKG_PATH читают следующие шаги; положен и в outputs, и в окружение,
+          # чтобы шаг не зависел от того, объявлен ли здесь `id`.
+          "path=$($app.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "PKG_PATH=$($app.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      # На Windows нельзя «распаковать и запустить» так, как на Linux: .msi требует
-      # установки, а тихая установка возвращает ненулевой код даже при успехе и
-      # меняет систему раннера. Поэтому проверяется содержимое MSI через COM
-      # Windows Installer — тем же API, которым пользуется установщик.
-      #
-      # Что именно ищется: запускаемый файл и jar'ы. Отсутствие любого из них означает,
-      # что образ не упакован, и такой релиз публиковать нельзя.
-      - name: Verify package layout
+      # Образ проверяется на диске, а не установкой: тихая установка меняет раннер и
+      # возвращает ненулевой код даже при успехе. Проверяется то, что ломается именно
+      # при упаковке — запуск на месте и наличие нативной библиотеки Skiko, без
+      # которой приложение падает на старте с LibraryLoadException.
+      - name: Verify application image
         shell: pwsh
         run: |
           $ErrorActionPreference = 'stop'
-          $installer = New-Object -ComObject WindowsInstaller.Installer
-          $database = $installer.GetType().InvokeMember(
-            'OpenDatabase', 'InvokeMethod', $null, $installer, @($env:PKG_PATH, 0)
-          )
-          $view = $database.GetType().InvokeMember(
-            'OpenView', 'InvokeMethod', $null, $database, @('SELECT `File`, `FileName` FROM `File`')
-          )
-          $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+          $app = $env:PKG_PATH
+          $libDir = Join-Path $app 'app'
 
-          $names = New-Object System.Collections.Generic.List[string]
-          while ($true) {
-            $record = $null
-            try {
-              $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
-            } catch {
-              # Fetch бросает, когда строки кончились — это конец цикла, а не ошибка.
-              break
+          $cfg = Join-Path $libDir 'KatYa.cfg'
+          if (-not (Test-Path $cfg)) {
+            throw "no KatYa.cfg in $libDir"
+          }
+          $entries = Get-Content $cfg | Where-Object { $_ -match '^app\.classpath=' }
+          if ($entries.Count -lt 50) {
+            throw "classpath lists only $($entries.Count) jars — the app classes did not get packaged"
+          }
+          $missing = 0
+          foreach ($entry in $entries) {
+            $name = $entry -replace '^app\.classpath=\$APPDIR/', ''
+            if ($name -and -not (Test-Path (Join-Path $libDir $name))) {
+              Write-Host "::error::classpath references a missing file: $name"
+              $missing++
             }
-            if (-not $record) { break }
-            $fileName = $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(2))
-            if ($fileName) { $names.Add($fileName) }
+          }
+          if ($missing -ne 0) {
+            throw "$missing of $($entries.Count) classpath entries are missing"
           }
 
-          Write-Host "MSI lists $($names.Count) files"
-          $exe = $names | Where-Object { $_ -like '*.exe' -and $_ -match 'KatYa' }
-          if (-not $exe) {
-            throw 'MSI contains no KatYa executable — the runtime image was not packaged'
+          $skiko = @(Get-ChildItem -Path $libDir -Filter 'libskiko-*.dll' -File -ErrorAction SilentlyContinue)
+          if ($skiko.Count -eq 0) {
+            throw 'no libskiko-*.dll in the image — the app cannot draw anything'
           }
-          $jars = @($names | Where-Object { $_ -like '*.jar' })
-          if ($jars.Count -lt 20) {
-            throw "MSI lists only $($jars.Count) jars — the app classes did not get packaged"
+          Write-Host "classpath: $($entries.Count) entries, skiko: $($skiko[0].Name)"
+
+      # Настоящий запуск: у раннера нет интерактивной сессии, поэтому окно не
+      # откроется — это ожидаемо. Важно, ЧТО при этом упадёт: HeadlessException или
+      # отсутствие окна означают, что приложение дошло до отрисовки, то есть
+      # classpath цел, Koin собрался, Skiko загрузился. А вот NoClassDefFoundError или
+      # NoDefinitionFoundException означают битый образ — такой не публикуем.
+      - name: Smoke test the packaged launcher
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          $exe = Join-Path $env:PKG_PATH 'KatYa.exe'
+          $previous = $env:JAVA_TOOL_OPTIONS
+          $env:JAVA_TOOL_OPTIONS = '-Djava.awt.headless=true'
+          $output = ''
+          $status = 0
+          try {
+            $p = Start-Process -FilePath $exe -NoNewWindow -Wait -PassThru `
+              -RedirectStandardOutput 'app-out.txt' -RedirectStandardError 'app-err.txt'
+            $status = $p.ExitCode
+            $output = (Get-Content 'app-out.txt' -Raw -ErrorAction SilentlyContinue) +
+                      (Get-Content 'app-err.txt' -Raw -ErrorAction SilentlyContinue)
+          } finally {
+            $env:JAVA_TOOL_OPTIONS = $previous
           }
-          Write-Host "launcher: $($exe -join ', ')"
-          Write-Host "jars: $($jars.Count)"
+          Write-Host $output
+
+          if ($output -match 'NoClassDefFoundError|ClassNotFoundException|NoDefinitionFoundException|UnsatisfiedLinkError|LibraryLoadException') {
+            throw 'the packaged app is missing classes or its native library'
+          }
+          if ($output -notmatch 'HeadlessException') {
+            throw "the app did not reach window creation (exit $status) — cannot tell whether it works"
+          }
+          Write-Host 'The app got as far as creating its window; the image is sound.'
 
       - name: Determine Version and Tag
         shell: pwsh
@@ -201,13 +160,30 @@ jobs:
           "TAG_NAME=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Zip the application image
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          # Имя каталога внутри zip задаётся явно: иначе архив получит имя папки
+          # сборки, и пользователь распакует его в `KatYa` — а в общем случае
+          # в папку с именем ревизии или рандома, что неудобно.
+          $staging = Join-Path $env:RUNNER_TEMP 'stage'
+          if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
+          New-Item -ItemType Directory -Force -Path $staging | Out-Null
+          Copy-Item -Recurse -Path "$env:PKG_PATH" -Destination (Join-Path $staging 'KatYa')
+          $zip = "Katya-$env:VERSION-windows-amd64.zip"
+          Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $zip -Force
+          Remove-Item -Recurse -Force $staging
+          Write-Host "$zip $((Get-Item $zip).Length) bytes"
+
+      # Релиз создаёт release.yml. Здесь только ждём его появления и дописываем
+      # файл: пересоздание релиза затерело бы описание и оба APK.
       - name: Upload to the existing release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'stop'
-          Copy-Item "$env:PKG_PATH" "Katya-$env:VERSION-windows-amd64.msi"
           for ($i = 0; $i -lt 30; $i++) {
             gh release view "$env:TAG_NAME" *> $null
             if ($LASTEXITCODE -eq 0) { break }
@@ -217,5 +193,5 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "release $env:TAG_NAME never appeared — the Android workflow failed?"
           }
-          gh release upload "$env:TAG_NAME" "Katya-$env:VERSION-windows-amd64.msi" --clobber
+          gh release upload "$env:TAG_NAME" "Katya-$env:VERSION-windows-amd64.zip" --clobber
           gh release view "$env:TAG_NAME" --json assets --jq '.assets[].name'
