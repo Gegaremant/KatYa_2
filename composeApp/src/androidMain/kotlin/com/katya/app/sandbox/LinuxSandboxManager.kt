@@ -11,6 +11,7 @@ import com.katya.app.data.Distro
 import com.katya.app.tools.AppLogger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -133,6 +134,45 @@ class LinuxSandboxManager(
         }
         if (bashExists) {
             _state.value = SandboxState.Ready
+            ensureIntrospectionToolsInBackground()
+        }
+    }
+
+    /**
+     * Постановка инструментов разведки при уже готовой песочнице — в фоне, при
+     * первом касании.
+     *
+     * Именно здесь, а не в [execute_shell_command]: ждать установки пришлось бы
+     * той самой первой команде после обновления, и обычный `ls` встал бы на
+     * минуту ради того, что нужно не ему. Здесь manager создаётся лениво, то
+     * есть ровно в момент первого обращения к песочнице, и установка успевает
+     * идти параллельно работе.
+     *
+     * Остаточный зазор честно: агент, спросивший `ss` первой же командой, может
+     * застать установку незавершённой и получить 127. Повторная попытка через
+     * пару секунд работает, а ждать в каждом вызове — нельзя.
+     */
+    private fun ensureIntrospectionToolsInBackground() {
+        if (introspectionAttempted) return
+        if (!IntrospectionMarker.shouldAttempt(
+                introspectionMarker.takeIf { it.isFile }?.readText(),
+                nowMillis(),
+            )
+        ) {
+            return
+        }
+        scope.launch {
+            try {
+                ensureIntrospectionTools()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Фоновая задача не имеет наблюдателя: исключение из неё уронило бы
+                // корутину и потерялось бы. Пишем в журнал и идём дальше —
+                // песочница от отсутствующих инструментов разведки не перестаёт
+                // работать.
+                AppLogger.e("LinuxSandbox", "Фоновая установка инструментов разведки не удалась: ${e.message}")
+            }
         }
     }
 
@@ -469,8 +509,8 @@ class LinuxSandboxManager(
 
         _state.value = SandboxState.Installing("Installing Python, SQLite, Curl...")
         val installCmd = when (distro) {
-            Distro.DEBIAN -> "apt-get install -y --no-install-recommends python3 python3-pip sqlite3 curl"
-            Distro.TERMUX -> "apt install -y python sqlite curl"
+            Distro.DEBIAN -> "apt-get install -y --no-install-recommends python3 python3-pip sqlite3 curl iproute2 net-tools procps lsof"
+            Distro.TERMUX -> "apt install -y python sqlite curl iproute2 net-tools procps lsof"
         }
         AppLogger.action("Песочница: установка Python, SQLite, Curl", "начата")
         val installResult = executor.execute(installCmd, timeoutSeconds = APT_INSTALL_TIMEOUT_SECONDS)
@@ -481,9 +521,108 @@ class LinuxSandboxManager(
         }
         AppLogger.action("Песочница: установка Python, SQLite, Curl", "OK")
 
+        // Маркера ещё нет, поэтому шаг пройдёт по файлам на диске и сразу
+        // поставит отметку — без второго вызова apt.
+        ensureIntrospectionTools()
+
         _state.value = SandboxState.Ready
         AppLogger.action("Песочница", "готова")
     }
+
+    /**
+     * Инструменты разведки: `ss`, `ip`, `netstat`, `ps`, `top`, `lsof`.
+     *
+     * Их в песочнице не было, и дело было не в удобстве. Без них агент
+     * физически не мог посмотреть, что слушает порт и жив ли процесс, — а
+     * описание `execute_shell_command` обещало ему ровно это («ps aux» для
+     * процессов, «top -bn1» для снимка). В логе 08.10 `ss` и `netstat`
+     * возвращают exit 127, то есть бинаря нет; вывод про `ps` там же оборвался,
+     * поэтому его отсутствие недоказанное, но лишний пакет ничего не ломает.
+     *
+     * Отдельная функция, а не правка команды установки, потому что
+     * `checkExistingInstallation()` помечает песочницу готовой, ничего не
+     * запуская. Установленные сборки `setupInternal` больше не проходят, и
+     * правка одной команды до них бы не дошла вовсе.
+     *
+     * Повреждённой песочницу эта функция не делает: при неудаче она пишет в
+     * журнал и выходит, оставляя маркер непроставленным, чтобы попробовать
+     * снова через [INTROSPECTION_RETRY_AFTER_MS] — сети может не быть сейчас,
+     * а через час она будет.
+     */
+    suspend fun ensureIntrospectionTools() {
+        if (introspectionAttempted) return
+        val marker = introspectionMarker
+        val recorded = marker.takeIf { it.isFile }?.readText()
+        if (!IntrospectionMarker.shouldAttempt(recorded, nowMillis())) return
+        introspectionAttempted = true
+
+        val rootfs = File(sandboxDir, "rootfs")
+        if (!rootfs.isDirectory) return
+        // Проверка идёт по файлам на диске, а не через proot: она ничего не
+        // стоит и не трогает dpkg-блокировку, даже если агент в этот же момент
+        // ставит что-то сам.
+        if (hasIntrospectionTools(rootfs)) {
+            marker.writeText(IntrospectionMarker.OK)
+            AppLogger.d("LinuxSandbox", "Инструменты разведки уже на месте")
+            return
+        }
+
+        val distro = currentDistro()
+        AppLogger.action("Песочница: ставлю инструменты разведки", "начато")
+        val executor = createProotExecutor(distro)
+        val updateCmd = when (distro) {
+            Distro.DEBIAN -> "apt-get update -qq"
+            Distro.TERMUX -> "apt update"
+        }
+        val installCmd = when (distro) {
+            Distro.DEBIAN ->
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends " +
+                    "iproute2 net-tools procps lsof"
+            Distro.TERMUX -> "apt install -y iproute2 net-tools procps lsof"
+        }
+
+        val update = executor.execute(updateCmd, timeoutSeconds = APT_UPDATE_TIMEOUT_SECONDS)
+        if (update["success"] as? Boolean != true) {
+            marker.writeText(IntrospectionMarker.failedAt(nowMillis()))
+            AppLogger.e("LinuxSandbox", "Списки пакетов не обновились: ${commandFailure(updateCmd, update)}")
+            return
+        }
+        val install = executor.execute(installCmd, timeoutSeconds = APT_INSTALL_TIMEOUT_SECONDS)
+        if (install["success"] as? Boolean != true) {
+            marker.writeText(IntrospectionMarker.failedAt(nowMillis()))
+            AppLogger.e("LinuxSandbox", "Инструменты не поставились: ${commandFailure(installCmd, install)}")
+            return
+        }
+
+        // Доверяем не коду выхода, а файлам на диске: apt возвращает 0 и когда
+        // пакет под этим именем недоступен, — тогда маркер был бы враньём.
+        if (hasIntrospectionTools(rootfs)) {
+            marker.writeText(IntrospectionMarker.OK)
+            AppLogger.action("Песочница: инструменты разведки", "OK — ss, ip, netstat, ps, top, lsof")
+        } else {
+            marker.writeText(IntrospectionMarker.failedAt(nowMillis()))
+            AppLogger.e("LinuxSandbox", "apt отработал без ошибки, но ss/netstat/ps на диске не появились")
+        }
+    }
+
+    /**
+     * Наличие бинарей проверяется по обоим путям: в Debian с usrmerge `/bin` —
+     * симлинк на `usr/bin`, и `File.exists()` такой симлинк разыменовывает, но
+     * полагаться на это молча не стоит — если разыменования вдруг не случилось,
+     * проверка молча сочла бы пакеты установленными.
+     */
+    private fun hasIntrospectionTools(rootfs: File): Boolean {
+        fun present(name: String): Boolean = File(rootfs, "usr/bin/$name").exists() || File(rootfs, "bin/$name").exists()
+        return present("ss") && present("netstat") && present("ps")
+    }
+
+    private fun nowMillis(): Long = kotlin.time.Clock.System.now().toEpochMilliseconds()
+
+    private val introspectionMarker: File get() = File(sandboxDir, "introspection-v1")
+
+    /** Один вызов на процесс: apt держит блокировку dpkg, и параллельный вызов
+     *  от второго инструмента кончился бы занятым lock-файлом. */
+    private var introspectionAttempted = false
 
     /** Turns a [ProotExecutor] result into a message that says what actually went
      *  wrong — the raw "… failed: null" used to hide every real cause. */
