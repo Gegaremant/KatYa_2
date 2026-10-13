@@ -35,10 +35,40 @@ set -a && . ./.env.katya && set +a
 ./gradlew assembleFossFullDebug       # FOSS version
 ```
 
-Release builds are made by CI (`.github/workflows/release.yml`): push a `v*` tag and it
-builds both bundles, verifies the signing certificate against the expected SHA-256, runs
-the unit tests and publishes the APKs. A local `assembleFossFullDebug` is a debug-signed
-build and will *not* install over an existing release.
+Release builds are made by CI. Push a `v*` tag and three workflows run independently:
+
+- `release.yml` — both APKs. Builds them, verifies the signing certificate against the
+  expected SHA-256, runs the unit tests, **creates the GitHub release**.
+- `desktop-linux.yml` — `.deb` and `.rpm` via `jpackage`.
+- `desktop-windows.yml` — a zip containing the application image.
+
+The two desktop workflows **append their files to the release** and never create or
+rewrite it: re-creating it would wipe the description and both APKs. They wait up to
+ten minutes for `release.yml` to publish the release first, because they otherwise race
+it. A forced update to an already-pushed tag does *not* start a workflow — a new run
+needs a new tag.
+
+`workflow_dispatch` only works once the workflow file is on the default branch (`master`).
+Release work happens on `dev`, which is ahead, so manual runs are unavailable until the
+branches are merged.
+
+Desktop packaging is verified before publication, not after: the `.deb` is unpacked and
+every classpath entry in `KatYa.cfg` is checked against disk, and the launcher is run
+headless until it reaches window creation. That check is what caught the release build
+shipping without Skiko's native code.
+
+Note `.gitignore` no longer ignores `.github` wholesale — that rule silently swallowed
+new workflow files, so CI never saw them.
+
+A local `assembleFossFullDebug` is a debug-signed build and will *not* install over an
+existing release.
+
+Windows publishes a zip, not an `.msi`: `jpackage`'s MSI builder (`light.exe`) exits with
+code 311 on the GitHub Windows image — an internal-consistency failure whose message
+`jpackage` does not log — and three separate attempts (manual WiX 3.14, short `TEMP` with
+long paths enabled, `perUserInstall`) did not move it. `TargetFormat.Msi` is kept for
+local builds on a configured Windows machine. Capturing `light.exe`'s own output would
+need a wrapper around it and is the thing to do first if an installer is ever required.
 
 ### Three platforms: Android, Windows, Linux
 
