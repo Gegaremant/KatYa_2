@@ -30,6 +30,13 @@ class TaskStore(
     private val mutex = Mutex()
 
     /**
+     * Сохранённый список не читается целиком. Ставится в [loadTasks] и держит
+     * запись: пустой список, показанный пользователю при битом значении, не
+     * должен тут же превратиться в новую запись поверх этого значения.
+     */
+    private var corrupt = false
+
+    /**
      * Live view of every persisted task. Updated on every mutation (add/update/
      * remove), including updates coming from the scheduler completing a task, so
      * the Settings UI and the chat task widget never show stale lists.
@@ -43,6 +50,16 @@ class TaskStore(
 
     private fun loadTasks(): MutableList<ScheduledTask> {
         val raw = appSettings.getScheduledTasksJson()
+        // Пустое значение — это «ничего не хранится», а не «хранится мусор».
+        // Различать это обязательно: у пользователей, у которых на диске уже
+        // лежит `""` (его писал прежний импорт), попытка считать файл битым
+        // заблокировала бы им добавление задач навсегда — до бэкапа, который
+        // они как раз и не могут сделать. Пустое значение лечится само собой
+        // первой же записью.
+        if (raw.isBlank()) {
+            corrupt = false
+            return mutableListOf()
+        }
         // Feedback 06.10 #4: a task created long ago vanished across an update, while a
         // new one created afterwards worked fine. The cause was here, not in the
         // scheduler: `decodeFromString<List<…>>` is all-or-nothing, so ONE row that the
@@ -53,11 +70,22 @@ class TaskStore(
         //
         // So: decode row by row, keep what reads, report what does not, and refuse to
         // write back a list that came out shorter than the one on disk.
-        val rows = runCatching { json.parseToJsonElement(raw).jsonArray }
-            .getOrElse {
-                AppLogger.e("TaskStore", "задачи не прочитались (${it.message}) — показываю пустой список")
-                return mutableListOf()
-            }
+        val parsed = runCatching { json.parseToJsonElement(raw).jsonArray }
+        val rows = parsed.getOrNull()
+        if (rows == null) {
+            // Нечитаемо не одна строка, а значение целиком. Пустой список здесь
+            // был первой половиной потери: следующий addTask записывал поверх
+            // файла список из одного элемента, и лежавшее там исчезало без следа.
+            // Флаг ниже не даёт записи завершить начатое.
+            AppLogger.e(
+                "TaskStore",
+                "список задач не читается целиком (${parsed.exceptionOrNull()?.message}) — " +
+                    "запись поверх него заблокирована, чтобы не потерять то, что там лежит",
+            )
+            corrupt = true
+            return mutableListOf()
+        }
+        corrupt = false
 
         val tasks = mutableListOf<ScheduledTask>()
         var broken = 0
@@ -92,6 +120,17 @@ class TaskStore(
     }
 
     private fun saveTasks(tasks: List<ScheduledTask>) {
+        // Пока значение на диске целиком нечитаемо, запись поверх него — это
+        // гарантированная потеря всего, что там было. Молча блокируем её и
+        // говорим в журнал: список останется читаемым для пользователя через
+        // восстановление из бэкапа, который ещё можно сделать до записи.
+        if (corrupt) {
+            AppLogger.e(
+                "TaskStore",
+                "запись отменена — сохранённый список не читается, новая запись стёрла бы его",
+            )
+            return
+        }
         appSettings.setScheduledTasksJson(json.encodeToString(tasks))
     }
 

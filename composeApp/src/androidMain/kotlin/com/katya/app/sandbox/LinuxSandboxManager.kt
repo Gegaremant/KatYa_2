@@ -132,10 +132,30 @@ class LinuxSandboxManager(
             Distro.TERMUX -> File(rootfs, "usr/bin/bash").exists()
             Distro.DEBIAN -> File(rootfs, "bin/bash").exists() || File(rootfs, "usr/bin/bash").exists()
         }
-        if (bashExists) {
-            _state.value = SandboxState.Ready
-            ensureIntrospectionToolsInBackground()
+        if (!bashExists) return
+
+        // Настройка и образ могут разойтись: смена дистрибутива в UI меняет
+        // `sandbox_distro`, а rootfs — единственный каталог, и он ничем не
+        // помечен. Прежде всё выглядело как «переключил, ничего не произошло»,
+        // а на пересборке `apt update` уходил в Alpine-образ, где `apt` нет
+        // вовсе, и установка падала.
+        //
+        // Здесь важно не чинить молча: смена дистрибутива означает пересборку
+        // образа, то есть повторную загрузку. Состояние возвращается в
+        // «не установлена», и UI честно предлагает поставить заново — файлы в
+        // /root при этом не теряются, они лежат вне образа.
+        val wanted = appSettings.getDistro()
+        if (d != wanted) {
+            AppLogger.e(
+                "LinuxSandbox",
+                "На диске образ $d, а в настройках $wanted — образ нужно пересобрать",
+            )
+            _state.value = SandboxState.NotInstalled
+            return
         }
+
+        _state.value = SandboxState.Ready
+        ensureIntrospectionToolsInBackground()
     }
 
     /**
@@ -450,6 +470,14 @@ class LinuxSandboxManager(
         val rootfsDir = File(sandboxDir, "rootfs")
         val flattened = flattenNestedRootfs(rootfsDir)
         if (!flattened || !rootfsDir.isDirectory) {
+            rootfsDir.deleteRecursively()
+        }
+        // Смена дистрибутива требует пересборки образа: Debian и Termux — разные
+        // системы пакетов, и старая сборка не станет новой ни при каком раскладе.
+        // Каталог один, поэтому старый образ удаляется целиком. `/root` с
+        // файлами агента при этом не страдает — он bind-mounted извне образа.
+        if (rootfsDir.isDirectory && detectDistro(rootfsDir) != distro) {
+            AppLogger.action("Песочница", "дистрибутив сменён на $distro — пересобираю образ")
             rootfsDir.deleteRecursively()
         }
         File(sandboxDir, "home").deleteRecursively()

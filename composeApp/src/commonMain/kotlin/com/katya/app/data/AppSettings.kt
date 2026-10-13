@@ -813,8 +813,23 @@ class AppSettings(internal val settings: Settings) {
 
     fun getScheduledTasksJson(): String = settings.getString(AppSettingsKeys.KEY_SCHEDULED_TASKS, "[]")
 
+    /**
+     * Пустая строка сюда больше не пишется, и это единственная причина, по
+     * которой список задач исчезал «сам».
+     *
+     * `""` не то же самое, что «нет задач»: значение уходит в [TaskStore],
+     * который честно пытается его распарсить и, не сумев, возвращает пустой
+     * список. Следующее же сохранение — добавление одной новой задачи —
+     * записывало поверх этого список из одного элемента, и старые задачи
+     * пропадали навсегда. Дальше становилось хуже: экспорт пропускает пустое
+     * значение (`isNotBlank`), то есть после `""` ключ `scheduled_tasks`
+     * исчезал и из бэкапа, и любое восстановление уже ничего не возвращало.
+     *
+     * Нормализация здесь, а не в импорте: тогда это состояние недостижимо в
+     * принципе, а не «не должно случаться».
+     */
     fun setScheduledTasksJson(json: String) {
-        settings.putString(AppSettingsKeys.KEY_SCHEDULED_TASKS, json)
+        settings.putString(AppSettingsKeys.KEY_SCHEDULED_TASKS, json.ifBlank { "[]" })
     }
 
     // Heartbeat config
@@ -1023,7 +1038,13 @@ class AppSettings(internal val settings: Settings) {
 
     fun getQuickActionsJson(): String = settings.getString(AppSettingsKeys.KEY_QUICK_ACTIONS, "[]")
 
+    /**
+     * Нормализация по той же причине, что и у списка задач: пустая строка здесь
+     * означала бы «список нечитаем», а читатель на той стороне (UI) трактует
+     * нечитаемое как пустой список — то есть быстрые действия молча исчезали бы
+     * из интерфейса.
+     */
     fun setQuickActionsJson(json: String) {
-        settings.putString(AppSettingsKeys.KEY_QUICK_ACTIONS, json)
+        settings.putString(AppSettingsKeys.KEY_QUICK_ACTIONS, json.ifBlank { "[]" })
     }
 }

@@ -378,18 +378,18 @@ private fun AppSettings.importLegacyFromJson(
     if (ImportSection.SCHEDULING in sections) {
         try {
             json["scheduling_enabled"]?.jsonPrimitive?.content?.toBoolean()?.let { setSchedulingEnabled(it) }
-            val tasksElement = json["scheduled_tasks"]
-            if (tasksElement != null) {
-                setScheduledTasksJson(sanitizeScheduledTasks(tasksElement))
-            } else if (replace) {
-                setScheduledTasksJson("")
-            }
+            // Feedback 06.10 #4 / 07.10 #7: an absent key means "the file says
+            // nothing", exactly as HEARTBEAT below already established — an old
+            // backup must not blank out tasks the user configured themselves.
+            // This used to write `""`, which is not "no tasks": the value went to
+            // TaskStore, failed to parse, produced an empty list, and the next
+            // add overwrote the file with a single-element list, destroying the old
+            // tasks for good. Worse, export skips blank values, so `""` also made
+            // the key invisible to every later backup — the loss baked itself in.
+            json["scheduled_tasks"]?.let { setScheduledTasksJson(sanitizeScheduledTasks(it)) }
         } catch (_: Exception) {
             errors++
         }
-    } else if (replace) {
-        setSchedulingEnabled(false)
-        setScheduledTasksJson("")
     }
 
     if (ImportSection.HEARTBEAT in sections) {
@@ -403,6 +403,15 @@ private fun AppSettings.importLegacyFromJson(
             errors++
         }
     } else if (replace) {
+        // Тот же случай, что и с задачами, только на уровне целой секции: бэкап,
+        // в котором секции HEARTBEAT просто нет, не должен стирать пульс,
+        // настроенный вручную. Секции нет у бэкапов, сделанных до её появления, —
+        // то есть ровно у тех, ради которых восстановление и делается.
+        //
+        // Это осознанное изменение смысла режима «Заменить»: секция, о которой
+        // бэкап молчит, больше не затирается молча. Переключатель
+        // `heartbeat_enabled` при этом по-прежнему выключается — выключенный
+        // пульс видно и можно включить обратно, а вот стёртое — нет.
         setHeartbeatConfigJson("")
         setHeartbeatPrompt("")
         setHeartbeatLogJson("")

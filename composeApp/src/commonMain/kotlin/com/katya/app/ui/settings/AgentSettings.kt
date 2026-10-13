@@ -2047,8 +2047,9 @@ private fun SandboxDistroCard(
             fontWeight = FontWeight.Bold,
         )
         Text(
-            text = "Выберите дистрибутив Linux внутри песочницы. Существующая установка сохраняется, данные не удаляются. " +
-                "От этого выбора зависит, какие функции станут доступны: VLESS, SSH-туннель и FreeDeepSeek работают только внутри песочницы.",
+            text = "Выберите дистрибутив Linux внутри песочницы. От этого выбора зависит, какие функции станут доступны: " +
+                "VLESS, SSH-туннель и FreeDeepSeek работают только внутри песочницы. " +
+                "Смена дистрибутива пересобирает образ системы — это повторная загрузка, но файлы в /root сохраняются.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
