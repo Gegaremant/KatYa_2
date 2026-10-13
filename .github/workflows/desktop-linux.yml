@@ -1,0 +1,200 @@
+name: Desktop Linux
+
+# Отдельный workflow, а не job внутри release.yml: десктопная сборка требует
+# jpackage и занимает минуты, Android — секунды. В одном файле они блокировали бы
+# друг друга, и падение одной платформы гасило бы релиз другой.
+#
+# Только теги, а не push в master: десктопные бинари весят ~120 МБ каждый и
+# нужны пользователю как файлы релиза.
+#
+# `workflow_dispatch` работает не всегда: GitHub показывает и запускает workflow
+# только если его файл лежит в ветке по умолчанию (здесь `master`), а релизная
+# работа идёт с `dev`, который на 28 коммитов впереди. То есть ручной запуск
+# заработает после слияния dev в master; до тех пор — только по тегу.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+# Один прогон на ветку: два тега, отправленные подряд, не должны драться за
+# один и тот же каталог сборки.
+concurrency:
+  group: desktop-linux-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package .deb and .rpm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Полная история нужна, чтобы fallback на лог коммитов в описании релиза
+          # не оказался пустым.
+          fetch-depth: 0
+
+      # Полный JDK, а не JRE: `jpackage` собирает образ приложения и без Temurin
+      # падает с "jpackage is not part of the runtime".
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Компоненты для Android-сборки (rootfs, proot, jniLibs) в десктопной
+      # сборке не участвуют, и намеренно не тянутся: это ~130 МБ, которые
+      # jpackage всё равно не положил бы в пакет.
+      - name: Set execution flag for gradlew
+        run: chmod +x gradlew
+
+      - name: Build desktop packages
+        run: ./gradlew :composeApp:packageDeb :composeApp:packageRpm --no-daemon --stacktrace
+
+      - name: Locate packages
+        id: pkg
+        run: |
+          set -euo pipefail
+          DEB=$(find composeApp/build -path '*binaries/main/deb*' -name '*.deb' -type f | head -n 1)
+          RPM=$(find composeApp/build -path '*binaries/main/rpm*' -name '*.rpm' -type f | head -n 1)
+          if [ -z "$DEB" ] || [ -z "$RPM" ]; then
+            echo "::error::missing a package — deb='$DEB' rpm='$RPM'"
+            exit 1
+          fi
+          echo "deb=${DEB}" >> "$GITHUB_OUTPUT"
+          echo "rpm=${RPM}" >> "$GITHUB_OUTPUT"
+          ls -la "$DEB" "$RPM"
+
+      # Установка не проверяется «dpkg -i», потому что это требует root на
+      # раннере и общесистемных изменений. Проверяется ровно то, что может сломаться
+      # при упаковке: распакованное дерево содержит все jar'ы из classpath и
+      # запускается настолько далеко, что Koin собирает граф зависимостей.
+      - name: Verify unpacked package
+        run: |
+          set -euo pipefail
+          DEB="${{ steps.pkg.outputs.deb }}"
+          WORK="${RUNNER_TEMP}/deb-root"
+          rm -rf "$WORK"
+          mkdir -p "$WORK"
+          dpkg-deb -x "$DEB" "$WORK"
+          APP=$(find "$WORK/opt" -maxdepth 2 -type d -name bin | head -n 1)
+          if [ -z "$APP" ]; then
+            echo "::error::no launcher directory inside the package"
+            exit 1
+          fi
+          LAUNCHER="${APP}/KatYa"
+          if [ ! -x "$LAUNCHER" ]; then
+            echo "::error::launcher $LAUNCHER is missing or not executable"
+            exit 1
+          fi
+          # Каждая запись classpath обязана существовать на диске: один потерянный
+          # jar даёт приложение, которое стартует и падает при первом обращении к
+          # нему — то есть ломается не в момент установки, а позже у пользователя.
+          #
+          # `$APPDIR` в cfg — это каталог, где лежит сам cfg (lib/app). Раньше здесь
+          # стоял `grep -o '"[^"]*\.jar"'`, который не нашёл ни одной записи, потому
+          # что значения не в кавычках, и проверка молча проходила, ничего не делая.
+          CFG="$LIBDIR/KatYa.cfg"
+          if [ ! -f "$CFG" ]; then
+            echo "::error::no KatYa.cfg in the package"
+            exit 1
+          fi
+          MISSING=0
+          TOTAL=0
+          while IFS= read -r entry; do
+            TOTAL=$((TOTAL + 1))
+            path="${entry#\$APPDIR/}"
+            if [ ! -e "$LIBDIR/$path" ]; then
+              echo "::error::classpath references a missing file: $path"
+              MISSING=$((MISSING + 1))
+            fi
+          done < <(grep -o '^app\.classpath=\$APPDIR/[^ ]*\.jar' "$CFG" | sed 's/^app\.classpath=//')
+          if [ "$TOTAL" -lt 50 ]; then
+            echo "::error::classpath lists only ${TOTAL} jars — the app classes did not get packaged"
+            exit 1
+          fi
+          if [ "$MISSING" -ne 0 ]; then
+            echo "::error::${MISSING} of ${TOTAL} classpath entries are missing from the package"
+            exit 1
+          fi
+          # Нативная библиотека Skiko: без неё приложение падает на старте с
+          # LibraryLoadException, и пакет формально собран, а запустить нельзя.
+          if ! ls "$LIBDIR"/libskiko-*.so > /dev/null 2>&1; then
+            echo "::error::no libskiko-*.so in the package — the app cannot draw anything"
+            exit 1
+          fi
+          echo "Launcher and classpath verified: ${TOTAL} entries, skiko present"
+
+      # Настоящий запуск. У раннера нет дисплея, поэтому окно не откроется — и
+      # это ожидаемо. Важно, ЧТО именно при этом упадёт: HeadlessException
+      # означает «дошёл до окна», то есть classpath цел и Koin собрался. А вот
+      # NoClassDefFoundError или NoDefinitionFoundException означают, что пакет
+      # битый, и такой релиз публиковать нельзя.
+      - name: Smoke test the packaged launcher
+        run: |
+          set -euo pipefail
+          DEB="${{ steps.pkg.outputs.deb }}"
+          WORK="${RUNNER_TEMP}/deb-root"
+          APP=$(find "$WORK/opt" -maxdepth 2 -type d -name bin | head -n 1)
+          set +e
+          OUTPUT=$(JAVA_TOOL_OPTIONS="-Djava.awt.headless=true" timeout 120 "${APP}/KatYa" 2>&1)
+          STATUS=$?
+          set -e
+          echo "$OUTPUT" | tail -30
+          if printf '%s' "$OUTPUT" | grep -qE "NoClassDefFoundError|ClassNotFoundException|NoDefinitionFoundException|UnsatisfiedLinkError"; then
+            echo "::error::the packaged app is missing classes — the build is incomplete"
+            exit 1
+          fi
+          if ! printf '%s' "$OUTPUT" | grep -qE "HeadlessException|java.awt.HeadlessException"; then
+            echo "::error::the app did not reach window creation (exit ${STATUS}) — cannot tell whether it works"
+            exit 1
+          fi
+          echo "The app got as far as creating its window; the package is sound."
+
+      - name: Determine Version and Tag
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION="${TAG_NAME#v}"
+            VERSION="${VERSION#.}"
+          else
+            VERSION=$(grep 'appVersion =' gradle/libs.versions.toml | cut -d '"' -f 2)
+            TAG_NAME="v${VERSION}"
+          fi
+          echo "TAG_NAME=${TAG_NAME}" >> "$GITHUB_ENV"
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Rename packages for the release
+        run: |
+          set -euo pipefail
+          cp "${{ steps.pkg.outputs.deb }}" "Katya-${VERSION}-linux-amd64.deb"
+          cp "${{ steps.pkg.outputs.rpm }}" "Katya-${VERSION}-linux-amd64.rpm"
+          ls -la Katya-"${VERSION}"-linux-amd64.*
+
+      # Релиз создаёт release.yml. Здесь только ждём его появления и дописываем
+      # файлы: пересоздание релиза затерело бы описание и оба APK.
+      - name: Upload to the existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 30); do
+            if gh release view "${{ env.TAG_NAME }}" > /dev/null 2>&1; then
+              break
+            fi
+            sleep 20
+          done
+          if ! gh release view "${{ env.TAG_NAME }}" > /dev/null 2>&1; then
+            echo "::error::release ${{ env.TAG_NAME }} never appeared — the Android workflow failed?"
+            exit 1
+          fi
+          gh release upload "${{ env.TAG_NAME }}" \
+            "Katya-${VERSION}-linux-amd64.deb" \
+            "Katya-${VERSION}-linux-amd64.rpm" \
+            --clobber
+          gh release view "${{ env.TAG_NAME }}" --json assets --jq '.assets[].name'

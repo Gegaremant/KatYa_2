@@ -61,7 +61,14 @@ scris/
 #helpers settings
 .claude
 .continue
-.github
+# `.github` целиком игнорировать нельзя: правило молча проглатывало новые
+# workflow-файлы, и они не доходили до репозитория — CI их просто не видел, без
+# единого предупреждения. Уже отслеживаемые release.yml и test.yml правило не
+# трогало (gitignore не действует на tracked-файлы), поэтому поломка была
+# невидимой ровно для самого старого workflow и била по новым.
+# Игнорируем только локальные настройки помощников внутри .github.
+.github/copilot-instructions.md
+.github/*.local.yml
 .vscode
 .tmp
 .native-check/

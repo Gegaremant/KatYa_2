@@ -1,0 +1,144 @@
+name: Desktop Windows
+
+# Отдельный workflow по той же причине, что и Linux: jpackage для Windows
+# собирается только на Windows-раннере и не имеет отношения к Android-сборке.
+#
+# Единственная задача этого файла — собрать .msi и дописать его к релизу,
+# созданному release.yml. Сам релиз здесь не создаётся и не переписывается.
+#
+# `workflow_dispatch` требует наличия файла в ветке по умолчанию (`master`);
+# релизная работа идёт с `dev`. Пока они не слиты, ручной запуск недоступен —
+# поэтому и принудительное обновление уже отправленного тега workflow не
+# запускает: новый прогон даёт только новый тег.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Package .msi
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Полный JDK: `jpackage` — часть JDK, не JRE.
+      - name: Setup JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Компоненты Android-сборки не нужны: rootfs, proot и jniLibs в пакет
+      # для Windows не попадают. Скрипт их не тянет сознательно.
+      - name: Build desktop package
+        run: .\gradlew.bat :composeApp:packageMsi --no-daemon --stacktrace
+
+      - name: Locate package
+        id: pkg
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          $msi = Get-ChildItem -Path 'composeApp/build' -Recurse -Filter '*.msi' -File |
+            Where-Object { $_.FullName -like '*binaries\main\msi*' } |
+            Select-Object -First 1
+          if (-not $msi) {
+            throw 'no .msi produced by :composeApp:packageMsi'
+          }
+          Write-Host $msi.FullName
+          Write-Host "$([math]::Round($msi.Length / 1MB, 1)) MB"
+          "path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          # Тот же путь в PKG_PATH: следующие шаги читают переменную окружения,
+          # а не outputs шага — так они не зависят от того, объявлен ли `id`.
+          "PKG_PATH=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # На Windows нельзя «распаковать и запустить» так, как на Linux: .msi требует
+      # установки, а тихая установка возвращает ненулевой код даже при успехе и
+      # меняет систему раннера. Поэтому проверяется содержимое MSI через COM
+      # Windows Installer — тем же API, которым пользуется установщик.
+      #
+      # Что именно ищется: запускаемый файл и jar'ы. Отсутствие любого из них означает,
+      # что образ не упакован, и такой релиз публиковать нельзя.
+      - name: Verify package layout
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          $database = $installer.GetType().InvokeMember(
+            'OpenDatabase', 'InvokeMethod', $null, $installer, @($env:PKG_PATH, 0)
+          )
+          $view = $database.GetType().InvokeMember(
+            'OpenView', 'InvokeMethod', $null, $database, @('SELECT `File`, `FileName` FROM `File`')
+          )
+          $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+
+          $names = New-Object System.Collections.Generic.List[string]
+          while ($true) {
+            $record = $null
+            try {
+              $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+            } catch {
+              # Fetch бросает, когда строки кончились — это конец цикла, а не ошибка.
+              break
+            }
+            if (-not $record) { break }
+            $fileName = $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(2))
+            if ($fileName) { $names.Add($fileName) }
+          }
+
+          Write-Host "MSI lists $($names.Count) files"
+          $exe = $names | Where-Object { $_ -like '*.exe' -and $_ -match 'KatYa' }
+          if (-not $exe) {
+            throw 'MSI contains no KatYa executable — the runtime image was not packaged'
+          }
+          $jars = @($names | Where-Object { $_ -like '*.jar' })
+          if ($jars.Count -lt 20) {
+            throw "MSI lists only $($jars.Count) jars — the app classes did not get packaged"
+          }
+          Write-Host "launcher: $($exe -join ', ')"
+          Write-Host "jars: $($jars.Count)"
+
+      - name: Determine Version and Tag
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'stop'
+          if ($env:GITHUB_REF -like 'refs/tags/*') {
+            $tag = $env:GITHUB_REF_NAME
+            $version = $tag.TrimStart('v').TrimStart('.')
+          } else {
+            $version = (Select-String -Path 'gradle/libs.versions.toml' -Pattern 'appVersion = "([^"]+)"' |
+              Select-Object -First 1).Matches[0].Groups[1].Value
+            $tag = "v$version"
+          }
+          "TAG_NAME=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Upload to the existing release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'stop'
+          Copy-Item "$env:PKG_PATH" "Katya-$env:VERSION-windows-amd64.msi"
+          for ($i = 0; $i -lt 30; $i++) {
+            gh release view "$env:TAG_NAME" *> $null
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 20
+          }
+          gh release view "$env:TAG_NAME" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            throw "release $env:TAG_NAME never appeared — the Android workflow failed?"
+          }
+          gh release upload "$env:TAG_NAME" "Katya-$env:VERSION-windows-amd64.msi" --clobber
+          gh release view "$env:TAG_NAME" --json assets --jq '.assets[].name'
