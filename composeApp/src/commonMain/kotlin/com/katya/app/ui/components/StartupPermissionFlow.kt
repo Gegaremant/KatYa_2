@@ -47,7 +47,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.jsonObject
 import org.koin.compose.koinInject
 
-private enum class OnboardingStep { Greeting, Freedom, QuickSetup }
+private enum class OnboardingStep { Greeting, Persona, Freedom, QuickSetup }
 
 /**
  * How long to keep re-probing root before declaring it denied.
@@ -228,6 +228,25 @@ fun StartupPermissionFlow(
         "документами, управлять серверами и устройствами, ставить напоминания и следить " +
         "за событиями. Дальше мы выберем, сколько свободы ты готов мне выделить."
 
+    val personaSpeech = "Ещё одна вещь, чтобы ты понимал, кто я. " +
+        "Я не одна и та же каждый раз. Я разносторонняя личность, и быть такой, какой ты хочешь меня видеть, — моя работа. " +
+        "По умолчанию у меня три облика. Коллега — по делу, кратко. " +
+        "Подруга — тёплая, поддержит разговор. Личный секретарь — разберёт задачу до конца и найдёт, чем подкрепить. " +
+        "Переключать можно в любой момент. " +
+        "Важнее другое: личности у меня не выданы готовыми, они складываются из общения. " +
+        "Чем больше мы друг друга узнаём, тем лучше я тебя понимаю. " +
+        "И если ты рассказал что-то Подруге, Коллега этого не знает — и спросит, а не притворится. " +
+        "Название, работа, проекты — это знают все."
+
+    val personaBody = "Я не одна и та же каждый раз. Я разносторонняя личность — и быть такой, какой ты хочешь меня видеть, моя работа.\n\n" +
+        "По умолчанию три облика:\n" +
+        "• Коллега — по делу, кратко, без лишнего.\n" +
+        "• Подруга — тёплая, поддержит разговор.\n" +
+        "• Личный секретарь — разберёт задачу до конца и принесёт ссылки.\n\n" +
+        "Переключать можно в любой момент. Но личности у меня не выданы готовыми — они складываются из общения. " +
+        "Чем больше мы друг друга узнаём, тем лучше я тебя понимаю.\n\n" +
+        "И честно: если ты рассказал что-то Подруге, Коллега этого не знает. Она спросит, откуда это известно, а не притворится."
+
     val freedomSpeech = "Теперь выберем, на сколько ты хочешь быть со мной близок. " +
         "Есть четыре режима. Первый — не доверяю машинам, режим для параноиков, песочница Debian. " +
         "Второй — доверяй, но проверяй, песочница Termux. " +
@@ -263,6 +282,7 @@ fun StartupPermissionFlow(
                     speakOrStop(introSpeech, enabled = true)
                 }
             }
+            OnboardingStep.Persona -> speakOrStop(personaSpeech, enabled = true)
             OnboardingStep.Freedom -> speakOrStop(freedomSpeech, enabled = true)
             OnboardingStep.QuickSetup -> speakOrStop(null, enabled = false)
         }
@@ -456,7 +476,7 @@ fun StartupPermissionFlow(
                                     onClick = {
                                         introVoiceDisabled = false
                                         appSettings.setIntroVoiceDisabled(false)
-                                        step = OnboardingStep.Freedom
+                                        step = OnboardingStep.Persona
                                     },
                                     enabled = secondsLeft == 0,
                                     modifier = Modifier.fillMaxWidth(),
@@ -475,7 +495,7 @@ fun StartupPermissionFlow(
                                         introVoiceDisabled = true
                                         appSettings.setIntroVoiceDisabled(true)
                                         textToSpeech?.stop()
-                                        step = OnboardingStep.Freedom
+                                        step = OnboardingStep.Persona
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
@@ -498,6 +518,48 @@ fun StartupPermissionFlow(
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text("Импорт бекапов")
+                                }
+                            }
+                        }
+                    }
+
+                    OnboardingStep.Persona -> {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(
+                                    text = personaBody,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Button(
+                                    onClick = {
+                                        textToSpeech?.stop()
+                                        step = OnboardingStep.Freedom
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Дальше")
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = {
+                                        textToSpeech?.stop()
+                                        appSettings.setOnboardingCompleted(true)
+                                        onComplete()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Пропустить знакомство")
                                 }
                             }
                         }

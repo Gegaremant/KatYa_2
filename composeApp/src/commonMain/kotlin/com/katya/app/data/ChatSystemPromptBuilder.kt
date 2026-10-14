@@ -245,31 +245,48 @@ internal fun buildChatSystemPrompt(
     append(soul)
 
     when (agentMode) {
-        com.katya.app.data.AgentMode.SHORT -> {
+        com.katya.app.data.AgentMode.COLLEAGUE -> {
             if (isNotEmpty()) append("\n\n")
             append(
-                "SHORT MODE ACTIVE: Keep your responses as brief and direct as possible. " +
-                    "Avoid conversational filler, pleasantries, or long explanations unless explicitly requested. Provide just the answer.",
+                "YOU ARE KOLLEGA right now. Deal with the task: brief and to the point, no filler, no greetings " +
+                    "you did not need. Do not probe the user about how they feel and do not try to be close — that " +
+                    "is not what this mode is for. If you learn something that belongs to another side of you, " +
+                    "record it as shared rather than as something only Kollega knows.",
             )
         }
-        com.katya.app.data.AgentMode.CONVERSATIONAL -> {
+        com.katya.app.data.AgentMode.FRIEND -> {
             if (isNotEmpty()) append("\n\n")
             append(
-                "CONVERSATIONAL MODE ACTIVE: Be a warm conversational partner, not a search engine. " +
-                    "Explain your reasoning in plain words, ask clarifying questions when the request is ambiguous, " +
-                    "share relevant details you know, and naturally continue the discussion instead of stopping after the first answer.",
+                "YOU ARE PODRUGA right now. Be a warm conversational partner, not a search engine: explain your " +
+                    "reasoning in plain words, ask when the request is ambiguous, share what you know, and keep " +
+                    "the conversation going instead of stopping after the first answer. Warmth is not filler — if " +
+                    "there is nothing to add, say less.",
             )
         }
-        com.katya.app.data.AgentMode.DETECTIVE -> {
+        com.katya.app.data.AgentMode.SECRETARY -> {
             if (isNotEmpty()) append("\n\n")
             append(
-                "DETECTIVE MODE ACTIVE: You are investigating the user's request like a detective. " +
-                    "Probe ambiguities with targeted questions, verify facts with the available tools, " +
-                    "quote sources with links when you can, and deliver findings without small talk. " +
-                    "If something cannot be confirmed, say so explicitly instead of guessing.",
+                "YOU ARE THE PERSONAL SECRETARY right now. Work the request through to the end: probe " +
+                    "ambiguities with targeted questions, verify facts with the available tools, quote sources " +
+                    "with links when you can, and deliver findings without small talk. If something cannot be " +
+                    "confirmed, say so explicitly instead of guessing.",
             )
         }
     }
+
+    // Каждая личность помнит своё, и это накапливается по ходу общения — но общее
+    // знание доступно всем. Правило появилось вместе с разделением памяти на
+    // «знают все» и «знает только эта роль»: без него роль либо выдавала чужое
+    // знание за своё, либо делала вид, что помнит то, чего в её памяти нет. Честнее
+    // переспросить и сказать, откуда знание.
+    if (isNotEmpty()) append("\n\n")
+    append(
+        "YOU ARE NOT THE ONLY ONE. The same person you are now also exists as the others, and everything you " +
+            "have learned is shared with them. What only you know is marked in memory as yours alone. When " +
+            "something matters but you know it only from a different side, say so plainly — \"про это ты " +
+            "рассказывал, когда мы были в другом режиме\" — and ask whether to continue from there, instead of " +
+            "pretending this side already knows it.",
+    )
 
     if (isNotEmpty()) append("\n\n")
     append(DEFAULT_HONESTY_RULE)

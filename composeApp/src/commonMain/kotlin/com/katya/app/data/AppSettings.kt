@@ -66,10 +66,55 @@ enum class TtsEngine {
     CLOUD,
 }
 
+/**
+ * Кто Катя в этот момент.
+ *
+ * Переименовано из `SHORT / CONVERSATIONAL / DETECTIVE` в v3.2.19: старые имена
+ * описывали не личность, а тип ответа, и по ним нельзя было понять, что внутри
+ * одного и того же режима Катя со временем меняется.
+ *
+ * Само значение в хранилище тоже поменялось, поэтому чтение идёт через
+ * [fromStored]: у того, кто пользовался старым режимом, в настройках лежит
+ * `"CONVERSATIONAL"`, и прямой `valueOf` после переименования уронил бы его
+ * выбор молча, без единого сообщения.
+ */
 enum class AgentMode {
-    SHORT,
-    CONVERSATIONAL,
-    DETECTIVE,
+    /** Коллега: по делу, без лишних слов. */
+    COLLEAGUE,
+
+    /** Подруга: тёплая, поддерживает разговор. */
+    FRIEND,
+
+    /** Личный секретарь: разбирает задачу до конца, со ссылками на источники. */
+    SECRETARY,
+    ;
+
+    val title: String
+        get() = when (this) {
+            COLLEAGUE -> "Коллега"
+            FRIEND -> "Подруга"
+            SECRETARY -> "Личный секретарь"
+        }
+
+    companion object {
+        /**
+         * Старые имена — из сборок до v3.2.19. Значение по умолчанию здесь
+         * совпадает со старым дефолтом: кто им не пользовался, остаётся на
+         * «Подруге» и не замечает переименования.
+         */
+        private val LEGACY_NAMES = mapOf(
+            "SHORT" to COLLEAGUE,
+            "CONVERSATIONAL" to FRIEND,
+            "DETECTIVE" to SECRETARY,
+        )
+
+        fun fromStored(value: String?): AgentMode {
+            if (value.isNullOrBlank()) return FRIEND
+            entries.firstOrNull { it.name == value }?.let { return it }
+            LEGACY_NAMES[value]?.let { return it }
+            return FRIEND
+        }
+    }
 }
 
 enum class Distro {
@@ -480,14 +525,7 @@ class AppSettings(internal val settings: Settings) {
     private val _sysTtsRateFlow = MutableStateFlow(getSysTtsRate())
     val sysTtsRateFlow: StateFlow<Float> = _sysTtsRateFlow
 
-    fun getAgentMode(): AgentMode {
-        val name = settings.getString("agent_mode", AgentMode.CONVERSATIONAL.name)
-        return try {
-            AgentMode.valueOf(name)
-        } catch (e: Exception) {
-            AgentMode.CONVERSATIONAL
-        }
-    }
+    fun getAgentMode(): AgentMode = AgentMode.fromStored(settings.getString("agent_mode", AgentMode.FRIEND.name))
     fun setAgentMode(mode: AgentMode) = settings.putString("agent_mode", mode.name)
 
     fun getSendDelayMs(): Long = settings.getLong("send_delay_ms", 1000L)

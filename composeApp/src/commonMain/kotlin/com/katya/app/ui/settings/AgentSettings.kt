@@ -235,46 +235,57 @@ private fun AgentModeCard(
         )
 
         Column(modifier = Modifier.fillMaxWidth().katyaAdaptiveCardSurface(RoundedCornerShape(8.dp)).padding(12.dp)) {
-            Text("Режим работы", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                "Кем она сейчас",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                "Это одна и та же Катя в трёх обликах. Общее — имя, работа, проекты — знают все. " +
+                    "А то, что ты рассказал одной, остаётся её: переключившись, она не притворяется, " +
+                    "что знает, а спросит, откуда это известно.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(modifier = Modifier.height(8.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.SHORT) }.padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.COLLEAGUE) }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     androidx.compose.material3.RadioButton(
-                        selected = agentMode == com.katya.app.data.AgentMode.SHORT,
-                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.SHORT) },
+                        selected = agentMode == com.katya.app.data.AgentMode.COLLEAGUE,
+                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.COLLEAGUE) },
                     )
                     Column {
-                        Text("Только по делу", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Text("Ответы краткие, без лишних деталей и уточнений", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Коллега", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("По делу: кратко, без лишнего. Узнаёт тебя в работе и привыкает к твоему делу", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.CONVERSATIONAL) }.padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.FRIEND) }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     androidx.compose.material3.RadioButton(
-                        selected = agentMode == com.katya.app.data.AgentMode.CONVERSATIONAL,
-                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.CONVERSATIONAL) },
+                        selected = agentMode == com.katya.app.data.AgentMode.FRIEND,
+                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.FRIEND) },
                     )
                     Column {
-                        Text("Собеседник", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Text("Рассказывает все, что знает, думает, уточняет. Старается поддержать разговор.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Подруга", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Тёплая, поддерживает разговор. Помнит, о чём вы говорили, и берёт своё", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.DETECTIVE) }.padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onChangeAgentMode(com.katya.app.data.AgentMode.SECRETARY) }.padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     androidx.compose.material3.RadioButton(
-                        selected = agentMode == com.katya.app.data.AgentMode.DETECTIVE,
-                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.DETECTIVE) },
+                        selected = agentMode == com.katya.app.data.AgentMode.SECRETARY,
+                        onClick = { onChangeAgentMode(com.katya.app.data.AgentMode.SECRETARY) },
                     )
                     Column {
-                        Text("Сыскун", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-                        Text("Поиск заданной информации с ссылками на источники, без болтовни.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Личный секретарь", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Разбирает задачу до конца, со ссылками. Знает твои дела и обязательства", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

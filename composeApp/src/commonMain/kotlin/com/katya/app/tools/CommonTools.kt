@@ -414,12 +414,22 @@ object CommonTools {
     fun memoryLearnTool(memoryStore: MemoryStore) = object : Tool {
         override val schema = ToolSchema(
             name = "memory_learn",
-            description = "Store a structured learning with a category. Use LEARNING for things that worked, ERROR for error resolutions, PREFERENCE for user corrections/preferences.",
+            description = "Store a structured learning with a category. Use LEARNING for things that worked, ERROR for error resolutions, PREFERENCE for user corrections/preferences. " +
+                "Set `scope` to decide who this belongs to: leave it empty for anything true about the user in general " +
+                "(name, job, projects) — every side of you knows it. Set it to a personality name when the fact only " +
+                "means something in the mode you are in right now, or when the user told you something personal while " +
+                "you were being that side of yourself.",
             parameters = mapOf(
                 "key" to ParameterSchema(type = "string", description = "Descriptive key for the learning", required = true),
                 "content" to ParameterSchema(type = "string", description = "What was learned", required = true),
                 "category" to ParameterSchema(type = "string", description = "Category: LEARNING, ERROR, or PREFERENCE", required = true),
                 "source" to ParameterSchema(type = "string", description = "How this was learned: user_correction, observation, or error_resolution", required = false),
+                "scope" to ParameterSchema(
+                    type = "string",
+                    description = "Empty (or omitted) = shared by all sides. Otherwise the name of the side that owns it: " +
+                        "KOLLEGA, PODRUGA, or SECRETARY. Only use a name when the other side should NOT have it.",
+                    required = false,
+                ),
             ),
         )
 
@@ -439,8 +449,14 @@ object CommonTools {
                 return mapOf("success" to false, "error" to "Use memory_store for GENERAL memories. memory_learn is for LEARNING, ERROR, or PREFERENCE")
             }
 
-            val entry = memoryStore.store(key, content, category, source)
-            return mapOf("success" to true, "key" to entry.key, "category" to entry.category.name, "content" to entry.content)
+            val entry = memoryStore.store(key, content, category, source, com.katya.app.data.parseMemoryScope(args["scope"]))
+            return mapOf(
+                "success" to true,
+                "key" to entry.key,
+                "category" to entry.category.name,
+                "content" to entry.content,
+                "scope" to (entry.role ?: "shared"),
+            )
         }
     }
 

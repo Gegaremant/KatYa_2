@@ -1950,7 +1950,11 @@ Your task is to restore the connection to the main server.
             null
         }
 
-        val memories = if (memoryEnabled) memoryStore.getAllMemories() else emptyList()
+        // Личность видит общее ядро и своё. Чужое — то, что человек сказал Подруге,
+        // остаётся Подруге, поэтому в промпт оно не попадает вовсе; за это отвечает
+        // правило «скажи прямо, что знаешь это из другого режима».
+        val activeRole = appSettings.getAgentMode().name
+        val memories = if (memoryEnabled) memoryStore.getMemoriesForRole(activeRole) else emptyList()
         val byCategory = memories.groupBy { it.category }
 
         val tasksSplit = if (schedulingEnabled) taskStore.getPendingTasksPartitioned() else PendingTaskPartition(emptyList(), emptyList())
