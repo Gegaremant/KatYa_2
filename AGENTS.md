@@ -142,6 +142,21 @@ Those payloads are **not in git** — that is the point of `.gitignore`. Before 
 before any network call and falls back to download-with-mirrors when the file is absent.
 CI runs the same script, so both bundles come from the same archives a user would fetch.
 
+### SQLite: миграции проверяются на пустой базе
+
+`verifyMigrations.set(true)` в `composeApp/build.gradle.kts` прогоняет миграции против
+**пустой** базы. Практическое следствие: любая миграция, трогающая уже существующую
+таблицу — `ALTER TABLE … ADD COLUMN` или пересоздание таблицы, — падает проверку с
+«No table found». Это проверено пробой на посторонней `conversationEntity`.
+
+Значит структуру `memoryEntry` менять нельзя. Отсюда и решение v3.2.19: разделение
+памяти по личностям сделано **в ключе**, а не в отдельном столбце — ключ и есть то
+единственное поле, где различие уже выражается, ведь уникальность и требуется
+раздельно по ролям. Код и обоснование — в `RoleScopedMemoryKey.kt`.
+
+Если когда-нибудь понадобится настоящий столбец, сначала придётся починить саму
+проверку, иначе миграция просто не соберётся.
+
 ### Gradle Dependencies
 The project uses a centralized version catalog (`gradle/libs.versions.toml`) for dependency management. To update dependencies:
 1. Edit versions in the `[versions]` section
