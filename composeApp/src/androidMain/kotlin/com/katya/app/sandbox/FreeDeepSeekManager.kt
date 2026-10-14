@@ -4,6 +4,9 @@ import android.util.Log
 import com.katya.app.data.DataRepository
 import com.katya.app.data.Service
 import com.katya.app.tools.AppLogger
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 sealed class DeepSeekProxyState {
@@ -91,6 +96,113 @@ class FreeDeepSeekManager(
      */
     private val lastOutputLine = MutableStateFlow<String?>(null)
 
+    /**
+     * Ставит nodejs/npm/git и разворачивает FreeDeepSeekAPI — но только когда это
+     * действительно нужно.
+     *
+     * До этого обе операции выполнялись на каждом запуске шлюза безусловно. По
+     * логу 08.10 `npm start` поднимался каждые 2–3 минуты, и каждый подъём
+     * тащил `apt-get install` плюс `git pull` и `npm install`: ночью это десятки
+     * полных переустановок уже стоящих пакетов. Вопрос пользователя «зачем раз в
+     * секунду долбиться?» был, по сути, про это — долбился установщик, а не
+     * модель.
+     *
+     * Что здесь меняется по существу:
+     *
+     * - пакеты проверяются по файлам на диске и ставятся один раз: если `node`
+     *   и `npm` уже лежат в rootfs, proot ради проверки вообще не запускается;
+     * - репозиторий обновляется по ревизии, а не «каждый раз». Ревизия — это
+     *   время последнего коммита ветки `main` с GitHub: один дешёвый запрос вместо
+     *   полного `git pull` с сетью, и обновление происходит ровно тогда, когда
+     *   исходники действительно изменились;
+     * - `npm install` идёт только после того, как обновился код, и только если
+     *   `package.json` изменился (сверяются размер и время изменения файла).
+     *
+     * Метки лежат рядом с репозиторием, внутри `sandbox-home`, а не в настройках:
+     * переживают обновление приложения и не зависят от того, запускался ли шлюз.
+     */
+    private suspend fun ensureRuntimeAndRepo(
+        executor: ProotExecutor,
+        distro: com.katya.app.data.Distro,
+        repoPath: String,
+    ) {
+        val hostRepoDir = File(linuxSandboxManager.homePath, "FreeDeepSeekAPI")
+
+        // 1. Node и npm — проверка без proot, если файлы уже на месте.
+        val nodePresent = rootfsFile("usr/bin/node").exists() || rootfsFile("bin/node").exists()
+        val npmPresent = rootfsFile("usr/bin/npm").exists() || rootfsFile("bin/npm").exists()
+        if (nodePresent && npmPresent) {
+            AppLogger.d("FreeDeepSeekManager", "node/npm уже стоят — установку пакетов пропускаю")
+        } else {
+            val installCmd = when (distro) {
+                com.katya.app.data.Distro.DEBIAN -> "apt-get install -y --no-install-recommends nodejs npm git"
+                com.katya.app.data.Distro.TERMUX -> "apk add nodejs npm git"
+            }
+            AppLogger.d("FreeDeepSeekManager", "Ставлю nodejs/npm/git: $installCmd")
+            executor.execute(installCmd, timeoutSeconds = 900L)
+        }
+
+        // 2. Репозиторий: клонировать, если его нет.
+        if (!hostRepoDir.isDirectory) {
+            AppLogger.d("FreeDeepSeekManager", "Клонирую FreeDeepSeekAPI")
+            executor.execute("git clone https://github.com/ForgetMeAI/FreeDeepSeekAPI.git $repoPath", timeoutSeconds = 600L)
+            executor.execute("cd $repoPath && npm install", timeoutSeconds = 900L)
+            hostRepoDir.resolve("katya-revision").writeText(upstreamRevision())
+            return
+        }
+
+        // 3. Обновление — только если исходники действительно изменились.
+        val upstream = upstreamRevision()
+        val applied = hostRepoDir.resolve("katya-revision").takeIf { it.isFile }?.readText()?.trim().orEmpty()
+        if (upstream.isNotEmpty() && upstream == applied) {
+            AppLogger.d("FreeDeepSeekManager", "Репозиторий уже на актуальной ревизии — git pull пропускаю")
+            return
+        }
+        AppLogger.d("FreeDeepSeekManager", "Обновляю FreeDeepSeekAPI: было «${applied.ifEmpty { "неизвестно" }}», стало «${upstream.ifEmpty { "неизвестно" }}»")
+
+        val packageBefore = fileFingerprint(hostRepoDir.resolve("package.json"))
+        executor.execute("cd $repoPath && git pull --ff-only", timeoutSeconds = 600L)
+        val packageAfter = fileFingerprint(hostRepoDir.resolve("package.json"))
+        if (packageBefore != null && packageBefore == packageAfter) {
+            // Зависимости не менялись — переустанавливать их незачем.
+            AppLogger.d("FreeDeepSeekManager", "package.json не изменился — npm install пропускаю")
+        } else {
+            executor.execute("cd $repoPath && npm install", timeoutSeconds = 900L)
+        }
+        hostRepoDir.resolve("katya-revision").writeText(upstream)
+    }
+
+    /** Ревизия `main` на GitHub: время последнего коммита, а не хеш. */
+    private suspend fun upstreamRevision(): String {
+        val client = io.ktor.client.HttpClient(io.ktor.client.engine.okhttp.OkHttp)
+        return try {
+            val response: String = client
+                .get("https://api.github.com/repos/ForgetMeAI/FreeDeepSeekAPI/commits/main") {
+                    header("Accept", "application/vnd.github+json")
+                }.bodyAsText()
+            val element = kotlinx.serialization.json.Json.parseToJsonElement(response)
+            element.jsonObject["commit"]?.jsonObject?.get("committer")?.jsonObject
+                ?.get("date")?.jsonPrimitive?.content.orEmpty()
+        } catch (e: Exception) {
+            // Не ответили — не значит «обновлять нечего»: возвращаем пустое, и
+            // обновление выполняется, потому что пустое не равно применённому.
+            AppLogger.w("FreeDeepSeekManager", "Не смог узнать ревизию FreeDeepSeekAPI: ${e.message}")
+            ""
+        } finally {
+            client.close()
+        }
+    }
+
+    private fun fileFingerprint(file: File): String? = if (file.isFile) "${file.length()}:${file.lastModified()}" else null
+
+    /**
+     * Rootfs на диске телефона — чтобы проверить наличие `node`/`npm` без запуска
+     * proot. Путь берётся у менеджера песочницы, а не собирается здесь заново:
+     * две копии одного пути разъедутся, как уже разъехались с `sandbox_dir` в
+     * других местах.
+     */
+    private fun rootfsFile(path: String): File = File(linuxSandboxManager.rootfsPath, path)
+
     fun start(force: Boolean = false, instanceId: String? = null) {
         // A job can be "active" while its coroutine is in its dying breath
         // (state already flipped to Stopped/Error after awaitExit). Restarting
@@ -144,30 +256,14 @@ class FreeDeepSeekManager(
                 _state.value = DeepSeekProxyState.Installing
                 val executor = linuxSandboxManager.createProotExecutor()
 
-                // Ensure Node.js and Git are installed
                 val distro = try {
                     org.koin.core.context.GlobalContext.get().get<com.katya.app.data.AppSettings>()
                         .getDistro()
                 } catch (_: Exception) {
                     com.katya.app.data.Distro.DEBIAN
                 }
-                val installCmd = when (distro) {
-                    com.katya.app.data.Distro.DEBIAN -> "apt-get install -y --no-install-recommends nodejs npm git"
-                    com.katya.app.data.Distro.TERMUX -> "apk add nodejs npm git"
-                }
-                executor.execute(installCmd)
-
                 val repoPath = "/root/FreeDeepSeekAPI"
-                val checkRepo = executor.execute("test -d $repoPath")
-                if (checkRepo["exit_code"] != 0) {
-                    AppLogger.d("FreeDeepSeekManager", "Cloning FreeDeepSeekAPI")
-                    executor.execute("git clone https://github.com/ForgetMeAI/FreeDeepSeekAPI.git $repoPath")
-                    executor.execute("cd $repoPath && npm install")
-                } else {
-                    AppLogger.d("FreeDeepSeekManager", "Pulling latest FreeDeepSeekAPI")
-                    executor.execute("cd $repoPath && git pull")
-                    executor.execute("cd $repoPath && npm install")
-                }
+                ensureRuntimeAndRepo(executor, distro, repoPath)
 
                 _state.value = DeepSeekProxyState.Starting
 
