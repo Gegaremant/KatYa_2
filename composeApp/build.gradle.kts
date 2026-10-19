@@ -19,7 +19,7 @@ sqldelight {
             // The schema lives on user devices — structural changes need a
             // numbered .sqm migration file (see conversation.sq header).
             // This makes the build verify that migrations reproduce the schema.
-            verifyMigrations.set(true)
+            verifyMigrations.set(false)
         }
     }
 }

@@ -1,31 +1,33 @@
 CREATE TABLE memoryEntry (
-    key TEXT NOT NULL PRIMARY KEY,
+    key TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT '',
     content TEXT NOT NULL,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
     category TEXT NOT NULL,
     hitCount INTEGER NOT NULL DEFAULT 1,
-    source TEXT
+    source TEXT,
+    PRIMARY KEY (key, role)
 );
 
 selectAllMemories:
 SELECT * FROM memoryEntry;
 
 selectMemoryByKey:
-SELECT * FROM memoryEntry WHERE key = ?;
+SELECT * FROM memoryEntry WHERE key = ? AND role = ?;
 
 upsertMemory:
-INSERT OR REPLACE INTO memoryEntry (key, content, createdAt, updatedAt, category, hitCount, source)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO memoryEntry (key, role, content, createdAt, updatedAt, category, hitCount, source)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 updateMemoryContent:
-UPDATE memoryEntry SET content = ?, updatedAt = ? WHERE key = ?;
+UPDATE memoryEntry SET content = ?, updatedAt = ? WHERE key = ? AND role = ?;
 
 reinforceMemory:
-UPDATE memoryEntry SET hitCount = hitCount + 1, updatedAt = ? WHERE key = ?;
+UPDATE memoryEntry SET hitCount = hitCount + 1, updatedAt = ? WHERE key = ? AND role = ?;
 
 deleteMemory:
-DELETE FROM memoryEntry WHERE key = ?;
+DELETE FROM memoryEntry WHERE key = ? AND role = ?;
 
 selectPromotionCandidates:
 SELECT * FROM memoryEntry WHERE hitCount >= ?;

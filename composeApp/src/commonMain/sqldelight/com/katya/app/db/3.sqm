@@ -1,0 +1,59 @@
+-- Роль переезжает из ключа в собственную колонку.
+--
+-- До этой миграции адрес записи был один — key, а принадлежность личности
+-- кодировалась префиксом `katya-role:РОЛЬ:ключ`. Составной первичный ключ
+-- (key, role) выражает то же самое честно, и запросы больше не обязаны знать
+-- про формат префикса.
+--
+-- Разбор прежнего ключа идёт здесь, в SQL, а не в Kotlin: миграции выполняются
+-- до того, как приложение получит доступ к базе, и код того времени, когда
+-- префикс появился, уже не обязан существовать.
+
+CREATE TABLE memoryEntry_new (
+    key TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    category TEXT NOT NULL,
+    hitCount INTEGER NOT NULL DEFAULT 1,
+    source TEXT,
+    PRIMARY KEY (key, role)
+);
+
+-- Переносим данные, разбирая старый ключ.
+--
+-- Ветка 1: ключ начинается с префикса и после него есть второе двоеточие —
+-- это личная запись. Роль — между первым и вторым двоеточием, ключ — всё
+-- после второго. instr ищет двоеточие от позиции 12 (длина 'katya-role:' + 1).
+--
+-- Ветка 2: префикс есть, а второго двоеточия нет — запись битая. Прежний
+-- код читал её как общую и брал остаток ключом; повторяем это, чтобы не
+-- потерять содержимое.
+--
+-- Ветка 3: префикса нет — обычная общая запись.
+INSERT INTO memoryEntry_new (key, role, content, createdAt, updatedAt, category, hitCount, source)
+SELECT
+    CASE
+        WHEN key LIKE 'katya-role:%' AND instr(substr(key, 12), ':') > 0
+            THEN substr(substr(key, 12), instr(substr(key, 12), ':') + 1)
+        WHEN key LIKE 'katya-role:%'
+            THEN substr(key, 12)
+        ELSE key
+    END AS key,
+    CASE
+        WHEN key LIKE 'katya-role:%' AND instr(substr(key, 12), ':') > 0
+            THEN substr(substr(key, 12), 1, instr(substr(key, 12), ':') - 1)
+        ELSE ''
+    END AS role,
+    content,
+    createdAt,
+    updatedAt,
+    category,
+    hitCount,
+    source
+FROM memoryEntry;
+
+DROP TABLE memoryEntry;
+
+ALTER TABLE memoryEntry_new RENAME TO memoryEntry;

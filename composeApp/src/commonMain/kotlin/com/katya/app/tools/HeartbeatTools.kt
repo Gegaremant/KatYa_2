@@ -12,7 +12,7 @@ import katya.composeapp.generated.resources.tool_promote_learning_name
 
 object HeartbeatTools {
 
-    fun promoteLearningTool(memoryStore: MemoryStore, appSettings: AppSettings) = object : Tool {
+    fun promoteLearningTool(memoryStore: MemoryStore, appSettings: AppSettings, role: String? = null) = object : Tool {
         override val schema = ToolSchema(
             name = "promote_learning",
             description = "Promote a well-established memory into the soul/system prompt. Use this for patterns that have been reinforced multiple times and should become permanent behavior.",
@@ -28,8 +28,11 @@ object HeartbeatTools {
             val soulAddition = args["soul_addition"]?.toString()
                 ?: return mapOf("success" to false, "error" to "Missing soul_addition")
 
-            val memories = memoryStore.getAllMemories()
-            val memory = memories.find { it.key == memoryKey }
+            // Свою личность ищем в первую очередь: одноимённая запись другой
+            // роли не должна ни продвигаться, ни стираться по нашей просьбе.
+            val visible = memoryStore.getMemoriesForRole(role)
+            val memory = visible.find { it.key == memoryKey && it.role == role }
+                ?: visible.find { it.key == memoryKey }
                 ?: return mapOf("success" to false, "error" to "Memory not found: $memoryKey")
 
             // Append to soul text
@@ -41,8 +44,9 @@ object HeartbeatTools {
             }
             appSettings.setSoulText(newSoul)
 
-            // Remove the promoted memory
-            memoryStore.forget(memoryKey)
+            // Убираем именно продвинутую запись. Общий `forget` стёр бы её и у
+            // остальных личностей, а они про это продвижение не просили.
+            memoryStore.forgetRole(memoryKey, memory.role)
 
             return mapOf(
                 "success" to true,
@@ -63,7 +67,7 @@ object HeartbeatTools {
 
     val heartbeatToolDefinitions = listOf(promoteLearningToolInfo)
 
-    fun getHeartbeatTools(memoryStore: MemoryStore, appSettings: AppSettings): List<Tool> = listOf(
-        promoteLearningTool(memoryStore, appSettings),
+    fun getHeartbeatTools(memoryStore: MemoryStore, appSettings: AppSettings, role: String? = null): List<Tool> = listOf(
+        promoteLearningTool(memoryStore, appSettings, role),
     )
 }

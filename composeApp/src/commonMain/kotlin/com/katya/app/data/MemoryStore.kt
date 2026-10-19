@@ -35,11 +35,6 @@ data class MemoryEntry(
     /**
      * Кому принадлежит знание: `null` — общее ядро, доступное всем личностям,
      * иначе имя роли, которой оно известно одному.
-     *
-     * В хранилище роль записывается пустой строкой, а не NULL: в составном
-     * первичном ключе NULL в SQLite допустим, и две записи с одинаковым ключом и
-     * NULL считались бы разными — уникальность молча исчезла бы именно там, где
-     * она держит всё.
      */
     val role: String? = null,
 )
@@ -69,9 +64,8 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
      * Записывает знание.
      *
      * [role] — `null` для общего ядра (имя, работа, постоянные факты), иначе имя
-     * личности, которой знание принадлежит. Общее ядро и личное хранятся по
-     * одному ключу и в одной таблице, но различаются ролью, поэтому одна и та же
-     * формулировка может честно принадлежать и общему ядру, и личности.
+     * личности, которой знание принадлежит. Одна и та же формулировка может
+     * честно принадлежать и общему ядру, и личности: их различает роль, а не ключ.
      */
     suspend fun store(
         key: String,
@@ -82,11 +76,12 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     ): MemoryEntry = if (database != null) {
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val now = Clock.System.now().toEpochMilliseconds()
-            val storedKey = RoleScopedMemoryKey.encode(key, role)
-            val existing = database.memoryQueries.selectMemoryByKey(storedKey).executeAsOneOrNull()
+            val roleValue = role.orEmpty()
+            val existing = database.memoryQueries.selectMemoryByKey(key, roleValue).executeAsOneOrNull()
             if (existing != null) {
                 database.memoryQueries.upsertMemory(
-                    key = storedKey,
+                    key = key,
+                    role = roleValue,
                     content = content,
                     createdAt = existing.createdAt,
                     updatedAt = now,
@@ -94,10 +89,11 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
                     hitCount = existing.hitCount,
                     source = source ?: existing.source,
                 )
-                MemoryEntry(key, content, existing.createdAt, now, category, existing.hitCount.toInt(), source ?: existing.source, RoleScopedMemoryKey.decode(storedKey).first)
+                MemoryEntry(key, content, existing.createdAt, now, category, existing.hitCount.toInt(), source ?: existing.source, existing.role.toRoleOrNull())
             } else {
                 database.memoryQueries.upsertMemory(
-                    key = storedKey,
+                    key = key,
+                    role = roleValue,
                     content = content,
                     createdAt = now,
                     updatedAt = now,
@@ -130,10 +126,10 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     suspend fun updateContent(key: String, content: String, role: String? = null): MemoryEntry? = if (database != null) {
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val now = Clock.System.now().toEpochMilliseconds()
-            val storedKey = RoleScopedMemoryKey.encode(key, role)
-            val existing = database.memoryQueries.selectMemoryByKey(storedKey).executeAsOneOrNull() ?: return@withContext null
-            database.memoryQueries.updateMemoryContent(content, now, storedKey)
-            MemoryEntry(key, content, existing.createdAt, now, MemoryCategory.valueOf(existing.category), existing.hitCount.toInt(), existing.source, RoleScopedMemoryKey.decode(storedKey).first)
+            val roleValue = role.orEmpty()
+            val existing = database.memoryQueries.selectMemoryByKey(key, roleValue).executeAsOneOrNull() ?: return@withContext null
+            database.memoryQueries.updateMemoryContent(content, now, key, roleValue)
+            MemoryEntry(key, content, existing.createdAt, now, MemoryCategory.valueOf(existing.category), existing.hitCount.toInt(), existing.source, existing.role.toRoleOrNull())
         }
     } else {
         mutex.withLock {
@@ -151,10 +147,10 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     suspend fun reinforceMemory(key: String, role: String? = null): MemoryEntry? = if (database != null) {
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             val now = Clock.System.now().toEpochMilliseconds()
-            val storedKey = RoleScopedMemoryKey.encode(key, role)
-            val existing = database.memoryQueries.selectMemoryByKey(storedKey).executeAsOneOrNull() ?: return@withContext null
-            database.memoryQueries.reinforceMemory(now, storedKey)
-            MemoryEntry(key, existing.content, existing.createdAt, now, MemoryCategory.valueOf(existing.category), existing.hitCount.toInt() + 1, existing.source, RoleScopedMemoryKey.decode(storedKey).first)
+            val roleValue = role.orEmpty()
+            val existing = database.memoryQueries.selectMemoryByKey(key, roleValue).executeAsOneOrNull() ?: return@withContext null
+            database.memoryQueries.reinforceMemory(now, key, roleValue)
+            MemoryEntry(key, existing.content, existing.createdAt, now, MemoryCategory.valueOf(existing.category), existing.hitCount.toInt() + 1, existing.source, existing.role.toRoleOrNull())
         }
     } else {
         mutex.withLock {
@@ -172,7 +168,7 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     suspend fun getPromotionCandidates(minHits: Int = 5): List<MemoryEntry> = if (database != null) {
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             database.memoryQueries.selectPromotionCandidates(minHits.toLong()).executeAsList().map {
-                toEntry(it.key, it.content, it.createdAt, it.updatedAt, it.category, it.hitCount.toInt(), it.source)
+                toEntry(it.key, it.role, it.content, it.createdAt, it.updatedAt, it.category, it.hitCount.toInt(), it.source)
             }
         }
     } else {
@@ -182,18 +178,18 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     /**
      * Забывает знание целиком — во всех ролях сразу.
      *
-     * Явно [role], удаляющий только запись одной личности, был бы ловушкой: «забудь,
-     * что я курю» стирало бы только Подругу, а Коллега продолжала бы помнить то же
-     * самое. Если действительно нужно стереть у одной роли, а не у всех, это должен
-     * быть отдельный явный вызов, а не побочный эффект `forget`.
+     * Удаление только записи одной личности было бы ловушкой: «забудь, что я
+     * курю» стёрло бы только Подругу, а Коллега продолжала бы помнить то же
+     * самое. Если когда-нибудь понадобится стереть у одной роли, а не у всех,
+     * это должен быть отдельный явный вызов, а не побочный эффект `forget`.
      */
     suspend fun forget(key: String): Boolean = if (database != null) {
         withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
-            val removed = database.memoryQueries.selectAllMemories().executeAsList()
-                .map { it.key }
-                .filter { stored -> RoleScopedMemoryKey.decode(stored).second == key }
-            removed.forEach { database.memoryQueries.deleteMemory(it) }
-            removed.isNotEmpty()
+            val roles = database.memoryQueries.selectAllMemories().executeAsList()
+                .filter { it.key == key }
+                .map { it.role }
+            roles.forEach { database.memoryQueries.deleteMemory(key, it) }
+            roles.isNotEmpty()
         }
     } else {
         mutex.withLock {
@@ -204,9 +200,36 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
         }
     }
 
+    /**
+     * Забывает знание только у одной личности.
+     *
+     * Отдельный вызов нужен там, где стирание у всех — ошибка: продвижение
+     * записи в душу касается только той роли, которая это сделала. Общий
+     * `forget` оставлен для явной просьбы пользователя «забудь совсем».
+     */
+    suspend fun forgetRole(key: String, role: String?): Boolean = if (database != null) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+            val roleValue = role.orEmpty()
+            val existing = database.memoryQueries.selectMemoryByKey(key, roleValue).executeAsOneOrNull()
+            if (existing == null) {
+                false
+            } else {
+                database.memoryQueries.deleteMemory(key, roleValue)
+                true
+            }
+        }
+    } else {
+        mutex.withLock {
+            val memories = loadMemoriesJson()
+            val removed = memories.removeAll { it.key == key && it.role == role }
+            if (removed) saveMemoriesJson(memories)
+            removed
+        }
+    }
+
     fun getAllMemories(): List<MemoryEntry> = if (database != null) {
         database.memoryQueries.selectAllMemories().executeAsList().map {
-            toEntry(it.key, it.content, it.createdAt, it.updatedAt, it.category, it.hitCount.toInt(), it.source)
+            toEntry(it.key, it.role, it.content, it.createdAt, it.updatedAt, it.category, it.hitCount.toInt(), it.source)
         }
     } else {
         loadMemoriesJson()
@@ -223,25 +246,26 @@ class MemoryStore(private val database: KatyaDatabase?, private val appSettings:
     fun getMemoriesForRole(role: String?): List<MemoryEntry> = getAllMemories().filter { it.role == null || it.role == role }
 }
 
-/** Строка из базы в [MemoryEntry]: роль разбирается из ключа. */
+/** Строка из базы в [MemoryEntry]: пустая роль означает общее ядро. */
 private fun toEntry(
-    storedKey: String,
+    key: String,
+    role: String,
     content: String,
     createdAt: Long,
     updatedAt: Long,
     category: String,
     hitCount: Int,
     source: String?,
-): MemoryEntry {
-    val (role, key) = RoleScopedMemoryKey.decode(storedKey)
-    return MemoryEntry(
-        key = key,
-        content = content,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        category = MemoryCategory.valueOf(category),
-        hitCount = hitCount,
-        source = source,
-        role = role,
-    )
-}
+): MemoryEntry = MemoryEntry(
+    key = key,
+    content = content,
+    createdAt = createdAt,
+    updatedAt = updatedAt,
+    category = MemoryCategory.valueOf(category),
+    hitCount = hitCount,
+    source = source,
+    role = role.toRoleOrNull(),
+)
+
+/** Пустая роль в хранилище означает общее ядро, а не «роль без имени». */
+private fun String.toRoleOrNull(): String? = ifEmpty { null }
