@@ -49,8 +49,34 @@ it. A forced update to an already-pushed tag does *not* start a workflow — a n
 needs a new tag.
 
 `workflow_dispatch` only works once the workflow file is on the default branch (`master`).
-Release work happens on `dev`, which is ahead, so manual runs are unavailable until the
-branches are merged.
+
+### Two branches, two lines of Katya
+
+There are exactly two release branches, and they release independently:
+
+| Branch | What it is | Next version |
+|---|---|---|
+| `master` | the simple Katya: one personality, one memory | `v3.2.20` |
+| `simulator` | the same Katya, but many-sided: Коллега, Подруга and Личный секретарь, each with her own memory | `v3.2.21` |
+
+The version numbers are deliberately not the same: the release tag is derived from
+`appVersion`, so two branches sharing a number would fight over one tag. That is
+also why `3.2.19` is skipped in `master` — it is already taken by the personalities
+build.
+
+`android-versionCode` must keep growing across both branches: Android refuses to
+install a build whose code is lower than the one already on the phone, and the
+user's phone carries the `3.2.19` build (code 3230). `master` is 3231,
+`simulator` is 3232.
+
+`release.yml` runs on a push to `master` and on a `v*` tag; the two desktop
+workflows run on a `v*` tag only. A `simulator` release therefore needs the tag
+pushed, not just the branch:
+
+```bash
+git push origin master v3.2.20
+git push origin simulator v3.2.21
+```
 
 Desktop packaging is verified before publication, not after: the `.deb` is unpacked and
 every classpath entry in `KatYa.cfg` is checked against disk, and the launcher is run
