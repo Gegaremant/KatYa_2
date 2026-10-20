@@ -1563,14 +1563,16 @@ private fun AudioEnginesCard(
     onToggleVoiceResponse: (Boolean) -> Unit,
     isVoiceRecognitionEnabled: Boolean,
     onToggleVoiceRecognition: (Boolean) -> Unit,
-    sendDelayMs: Long,
-    onChangeSendDelayMs: (Long) -> Unit,
+    sendDelaySeconds: Float = 0.5f,
+    isSendManualMode: Boolean = false,
+    onChangeSendDelaySeconds: (Float) -> Unit = {},
+    onChangeSendManualMode: (Boolean) -> Unit = {},
     onChangeSttEngine: (com.katya.app.data.SttEngine) -> Unit,
     onChangeTtsEngine: (com.katya.app.data.TtsEngine) -> Unit,
-    sysTtsPitch: Float = 1.0f,
-    sysTtsRate: Float = 1.5f,
-    onChangeSysTtsPitch: (Float) -> Unit = {},
-    onChangeSysTtsRate: (Float) -> Unit = {},
+    sysTtsPitchPercent: Int = 0,
+    sysTtsRatePercent: Int = 0,
+    onChangeSysTtsPitchPercent: (Int) -> Unit = {},
+    onChangeSysTtsRatePercent: (Int) -> Unit = {},
     cloudSttUrl: String = "",
     cloudSttKey: String = "",
     cloudSttModel: String = "",
@@ -1752,27 +1754,43 @@ private fun AudioEnginesCard(
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        // Feedback #2: the label states what the position *means*, and
-                        // both ends of the slider mean something — the right-hand end is
-                        // "send it myself", not "wait five seconds". bodySmall is the
-                        // size the rest of this card uses for its captions.
+                        // Задержка отправки: секунды с шагом 0.1, ноль — ручной
+                        // режим. Тумблер под ползунком — тот же ручной режим, но
+                        // выбранный явно, а не положением ползунка.
                         val delayTextColor = com.katya.app.ui.adaptiveTextColor()
-                        val isManual = sendDelayMs >= com.katya.app.data.AppSettings.SEND_DELAY_MANUAL
+                        val isManual = isSendManualMode || sendDelaySeconds <= 0f
                         Text(
                             text = if (isManual) {
                                 "Отправка вручную"
                             } else {
-                                "Автоматически отправлять через $sendDelayMs мс тишины"
+                                "Автоматически отправлять через ${formatDelay(sendDelaySeconds)} тишины"
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = delayTextColor,
                         )
-                        androidx.compose.material3.Slider(
-                            value = sendDelayMs.toFloat(),
-                            onValueChange = { onChangeSendDelayMs(it.toLong()) },
-                            valueRange = 0f..com.katya.app.data.AppSettings.SEND_DELAY_MAX.toFloat(),
-                            steps = 50,
+                        com.katya.app.ui.components.SteppedSlider(
+                            value = sendDelaySeconds,
+                            onValueChange = { onChangeSendDelaySeconds(roundDelay(it)) },
+                            valueRange = com.katya.app.data.AppSettings.SEND_DELAY_MIN_SECONDS..com.katya.app.data.AppSettings.SEND_DELAY_MAX_SECONDS,
+                            steps = listOf(-1f, -0.5f, -0.1f, 0.1f, 0.5f, 1f),
+                            stepLabels = listOf("−1", "−0,5", "−0,1", "+0,1", "+0,5", "+1"),
+                            enabled = !isSendManualMode,
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            androidx.compose.material3.Switch(
+                                checked = isSendManualMode,
+                                onCheckedChange = onChangeSendManualMode,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Ручная отправка",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = delayTextColor,
+                            )
+                        }
                     }
                 }
             }
@@ -1807,10 +1825,17 @@ private fun AudioEnginesCard(
                             color = headingColor,
                             modifier = Modifier.padding(bottom = 8.dp),
                         )
+                        val isDesktop = com.katya.app.currentPlatform is com.katya.app.Platform.Desktop
                         com.katya.app.data.TtsEngine.entries.forEach { engine ->
                             val name = when (engine) {
-                                com.katya.app.data.TtsEngine.SYSTEM -> "По умолчанию (Android)"
-                                com.katya.app.data.TtsEngine.LOCAL -> "Локальный"
+                                com.katya.app.data.TtsEngine.SYSTEM ->
+                                    if (isDesktop) {
+                                        "Системный голос (${com.katya.app.currentPlatform.displayName})"
+                                    } else {
+                                        "По умолчанию (Android)"
+                                    }
+                                com.katya.app.data.TtsEngine.LOCAL ->
+                                    if (isDesktop) "Локальный голос Piper (только на Android)" else "Локальный"
                                 com.katya.app.data.TtsEngine.CLOUD -> "Cloud API"
                             }
                             val isCloudTts = engine == com.katya.app.data.TtsEngine.CLOUD
@@ -1851,25 +1876,57 @@ private fun AudioEnginesCard(
                             }
                         }
 
-                        // Pitch/rate apply to any engine (system TTS or local).
-                        // Speed comes first (that's what people tweak most); pitch below it.
+                        // Почему на этой системе нечем говорить — говорим прямо.
+                        // Молчащий синтезатор выглядит как поломка Кати, а на
+                        // десктопе это обычно просто не установленный пакет.
+                        com.katya.app.tts.systemTtsUnavailableReason()?.let { reason ->
+                            Text(
+                                text = reason,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.9f),
+                                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                            )
+                        }
+
+                        // Скорость и тембр — в процентах: 0 это голос Кати, ±100 — в
+                        // десять раз медленнее или быстрее. Пределы не прижимаем:
+                        // каждый движок сам ограничивает то, что умеет.
+                        // Скорость идёт первой — её чаще всего и крутят.
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                             val textColor = com.katya.app.ui.adaptiveTextColor()
-                            Text("Скорость (Speed): %.2f".format(sysTtsRate), style = MaterialTheme.typography.labelSmall, color = textColor)
-                            androidx.compose.material3.Slider(
-                                value = sysTtsRate,
-                                onValueChange = onChangeSysTtsRate,
+                            val tuningSupport = textToSpeech?.voiceTuningSupport
+                            com.katya.app.ui.components.SteppedSlider(
+                                value = sysTtsRatePercent.toFloat(),
+                                onValueChange = { onChangeSysTtsRatePercent(it.toInt()) },
+                                valueRange = -100f..100f,
+                                title = "Скорость речи",
+                                valueText = formatPercent(sysTtsRatePercent),
+                                steps = listOf(-10f, -5f, -1f, 1f, 5f, 10f),
+                                stepLabels = listOf("−10", "−5", "−1", "+1", "+5", "+10"),
                                 onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                                // Wider range towards "fast": Katya should be able to talk briskly.
-                                valueRange = 0.5f..3f,
                             )
-                            Text("Тональность (Pitch): %.2f".format(sysTtsPitch), style = MaterialTheme.typography.labelSmall, color = textColor)
-                            androidx.compose.material3.Slider(
-                                value = sysTtsPitch,
-                                onValueChange = onChangeSysTtsPitch,
+                            Spacer(modifier = Modifier.height(12.dp))
+                            com.katya.app.ui.components.SteppedSlider(
+                                value = sysTtsPitchPercent.toFloat(),
+                                onValueChange = { onChangeSysTtsPitchPercent(it.toInt()) },
+                                valueRange = -100f..100f,
+                                title = "Тембр голоса",
+                                valueText = formatPercent(sysTtsPitchPercent),
+                                steps = listOf(-10f, -5f, -1f, 1f, 5f, 10f),
+                                stepLabels = listOf("−10", "−5", "−1", "+1", "+5", "+10"),
+                                // Движок, который не умеет менять тембр, получает
+                                // честное «не поддерживается», а не ползунок,
+                                // который тихо ничего не делает.
+                                enabled = tuningSupport?.pitch ?: true,
                                 onValueChangeFinished = { textToSpeech?.speak("Это теперь будет мой голос?") },
-                                valueRange = 0.5f..2f,
                             )
+                            if (tuningSupport != null && !tuningSupport.pitch) {
+                                Text(
+                                    text = "Этот движок не умеет менять тембр — только скорость.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                )
+                            }
                         }
                     }
                 }
@@ -2331,16 +2388,18 @@ internal fun VoiceAndSandboxSection(
             textToSpeech = textToSpeech,
             isVoiceRecognitionEnabled = uiState.isVoiceRecognitionEnabled,
             onToggleVoiceRecognition = actions.onToggleVoiceRecognition,
-            sendDelayMs = uiState.sendDelayMs,
-            onChangeSendDelayMs = actions.onChangeSendDelayMs,
+            sendDelaySeconds = uiState.sendDelaySeconds,
+            isSendManualMode = uiState.isSendManualMode,
+            onChangeSendDelaySeconds = actions.onChangeSendDelaySeconds,
+            onChangeSendManualMode = actions.onChangeSendManualMode,
             isVoiceResponseEnabled = uiState.isVoiceResponseEnabled,
             onToggleVoiceResponse = actions.onToggleVoiceResponse,
             onChangeSttEngine = actions.onChangeSttEngine,
             onChangeTtsEngine = actions.onChangeTtsEngine,
-            sysTtsPitch = uiState.sysTtsPitch,
-            sysTtsRate = uiState.sysTtsRate,
-            onChangeSysTtsPitch = actions.onChangeSysTtsPitch,
-            onChangeSysTtsRate = actions.onChangeSysTtsRate,
+            sysTtsPitchPercent = uiState.sysTtsPitchPercent,
+            sysTtsRatePercent = uiState.sysTtsRatePercent,
+            onChangeSysTtsPitchPercent = actions.onChangeSysTtsPitchPercent,
+            onChangeSysTtsRatePercent = actions.onChangeSysTtsRatePercent,
             cloudSttUrl = uiState.cloudSttUrl,
             cloudSttKey = uiState.cloudSttKey,
             cloudSttModel = uiState.cloudSttModel,
@@ -2388,3 +2447,21 @@ internal fun VoiceAndSandboxSection(
         }
     }
 }
+
+/** Задержка в секундах словами: «0,5 с», «1 с», «2,5 с». */
+private fun formatDelay(seconds: Float): String {
+    val tenths = kotlin.math.round(seconds * 10f).toInt()
+    val whole = tenths / 10
+    val fraction = tenths % 10
+    return if (fraction == 0) "$whole с" else "$whole,$fraction с"
+}
+
+/** Процент со знаком: «+10», «−5», «0». */
+private fun formatPercent(percent: Int): String = when {
+    percent == 0 -> "0"
+    percent > 0 -> "+$percent"
+    else -> "−${-percent}"
+}
+
+/** Округление задержки до шага 0.1 секунды. */
+private fun roundDelay(value: Float): Float = kotlin.math.round(value * 10f) / 10f

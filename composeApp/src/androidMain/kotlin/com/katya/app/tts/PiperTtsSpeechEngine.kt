@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.PlaybackParams
 import com.katya.app.data.AppSettings
 import com.katya.app.tools.AppLogger
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +55,17 @@ class PiperTtsSpeechEngine(
 
     // Guards stale completions: only the newest utterance may fire the callback.
     private var generation = 0L
+
+    @Volatile
+    private var tuning: VoiceTuning = VoiceTuning()
+
+    // Piper играет уже синтезированное аудио, поэтому скорость и тембр
+    // меняются на стороне воспроизведения: Android умеет менять их независимо.
+    override val voiceTuningSupport: VoiceTuningSupport = VoiceTuningSupport.FULL
+
+    override fun applyTuning(tuning: VoiceTuning) {
+        this.tuning = tuning
+    }
 
     /** Tries to (re)load the Piper voice; returns a user-facing error or null on success. */
     fun refresh(): String? = try {
@@ -206,12 +218,31 @@ class PiperTtsSpeechEngine(
         return try {
             track.write(pcm, 0, pcm.size)
             track.play()
+            applyPlaybackParams(track)
             track
         } catch (e: Exception) {
             AppLogger.w("PiperTts", "Playback failed: $e")
             stopPlayback()
             null
         }
+    }
+
+    /**
+     * Скорость и тембр на стороне воспроизведения.
+     *
+     * `PlaybackParams` умеет и то, и другое независимо: тембр меняется через
+     * растяжение времени, поэтому длительность фразы не «плывёт» вместе с
+     * высотой. Пределы — те, что задаёт Android: скорость 0.25…4, тембр 0.5…2.
+     * Наши ±100 процентов в эти пределы не влезают, и Android их обрезает сам.     */
+    private fun applyPlaybackParams(track: AudioTrack) {
+        runCatching {
+            val rate = VoiceTuning.percentToFactor(tuning.ratePercent).coerceIn(0.25f, 4f)
+            val pitch = VoiceTuning.percentToFactor(tuning.pitchPercent).coerceIn(0.5f, 2f)
+            val params = PlaybackParams()
+            params.setSpeed(rate)
+            params.setPitch(pitch)
+            track.playbackParams = params
+        }.onFailure { AppLogger.w("PiperTts", "Не удалось применить настройки голоса: ${it.message}") }
     }
 
     private fun stopPlayback() {

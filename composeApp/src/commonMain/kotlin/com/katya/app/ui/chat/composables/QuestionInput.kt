@@ -157,11 +157,16 @@ fun QuestionInput(
     val handleSttResult: (String) -> Unit = { result ->
         val text = result.trim()
         if (text.isNotEmpty()) {
-            // Feedback #2: both ends of the slider mean something — 0 sends at once,
-            // the right-hand end never sends by itself. Only the middle is a wait.
-            val delayMs = appSettings?.getSendDelayMs() ?: 0L
-            val autoSend = appSettings?.isAutoSendDelay() == true
-            if (autoSend) {
+            // Ручной режим: текст остаётся в поле, отправляет пользователь.
+            // Раньше край ползунка назывался «отправка вручную», а код в этом
+            // случае отправлял всё немедленно — подпись обещала одно, а
+            // приложение делало другое.
+            val manual = appSettings?.isManualSendMode() == true
+            if (manual) {
+                onTextStateChange(TextFieldValue(text, TextRange(text.length)))
+            } else {
+                // Задержка в секундах, шаг 0.1: сначала тишина, потом отправка.
+                val delayMs = appSettings?.getSendDelayMs() ?: 0L
                 onTextStateChange(TextFieldValue(text, TextRange(text.length)))
                 autoSendJob?.cancel()
                 autoSendJob = coroutineScope.launch {
@@ -169,9 +174,6 @@ fun QuestionInput(
                     onTextStateChange(TextFieldValue(""))
                     ask(text)
                 }
-            } else {
-                onTextStateChange(TextFieldValue(""))
-                ask(text)
             }
         }
     }

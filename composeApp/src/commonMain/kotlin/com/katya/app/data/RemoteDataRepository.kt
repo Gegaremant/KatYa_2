@@ -1904,6 +1904,11 @@ Your task is to restore the connection to the main server.
 
     override fun getAgentMode(): AgentMode = appSettings.getAgentMode()
     override fun setAgentMode(mode: AgentMode) = appSettings.setAgentMode(mode)
+    override fun getSendDelaySeconds(): Float = appSettings.getSendDelaySeconds()
+    override fun setSendDelaySeconds(seconds: Float) = appSettings.setSendDelaySeconds(seconds)
+    override fun isManualSendMode(): Boolean = appSettings.isManualSendMode()
+    override fun setManualMode(enabled: Boolean) = appSettings.setSendManualMode(enabled)
+    override fun isAutoSendDelay(): Boolean = appSettings.isAutoSendDelay()
     override fun getSendDelayMs(): Long = appSettings.getSendDelayMs()
     override fun setSendDelayMs(delay: Long) = appSettings.setSendDelayMs(delay)
 
@@ -1914,12 +1919,12 @@ Your task is to restore the connection to the main server.
     override fun getTtsEngine(): TtsEngine = appSettings.getTtsEngine()
     override fun setTtsEngine(engine: TtsEngine) = appSettings.setTtsEngine(engine)
     override val ttsEngineFlow: StateFlow<TtsEngine> = appSettings.ttsEngineFlow
-    override fun getSysTtsPitch(): Float = appSettings.getSysTtsPitch()
-    override fun setSysTtsPitch(pitch: Float) = appSettings.setSysTtsPitch(pitch)
-    override val sysTtsPitchFlow: StateFlow<Float> = appSettings.sysTtsPitchFlow
-    override fun getSysTtsRate(): Float = appSettings.getSysTtsRate()
-    override fun setSysTtsRate(rate: Float) = appSettings.setSysTtsRate(rate)
-    override val sysTtsRateFlow: StateFlow<Float> = appSettings.sysTtsRateFlow
+    override fun getSysTtsPitchPercent(): Int = appSettings.getSysTtsPitchPercent()
+    override fun setSysTtsPitchPercent(percent: Int) = appSettings.setSysTtsPitchPercent(percent)
+    override val sysTtsPitchPercentFlow: StateFlow<Int> = appSettings.sysTtsPitchPercentFlow
+    override fun getSysTtsRatePercent(): Int = appSettings.getSysTtsRatePercent()
+    override fun setSysTtsRatePercent(percent: Int) = appSettings.setSysTtsRatePercent(percent)
+    override val sysTtsRatePercentFlow: StateFlow<Int> = appSettings.sysTtsRatePercentFlow
 
     override fun getCloudSttUrl(): String = appSettings.getCloudSttUrl()
     override fun setCloudSttUrl(url: String) = appSettings.setCloudSttUrl(url)

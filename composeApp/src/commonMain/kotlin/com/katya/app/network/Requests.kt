@@ -435,6 +435,7 @@ class Requests {
         model: String,
         voice: String,
         text: String,
+        speed: Float = 1.0f,
     ): Result<ByteArray> {
         val safeUrl = url.ifBlank { DEFAULTS.TTS_URL }
         val response: HttpResponse = try {
@@ -446,6 +447,7 @@ class Requests {
                         model = model.ifBlank { DEFAULTS.TTS_MODEL },
                         input = text,
                         voice = voice.ifBlank { DEFAULTS.TTS_VOICE },
+                        speed = speed.coerceIn(0.25f, 4.0f),
                     ),
                 )
             }

@@ -43,6 +43,10 @@ local.properties
 build.log
 thing/
 
+# Отчёт о секретах: в нём — где что лежит. Само содержимое секретов туда не
+# попадает (значения обрезаны), но и такой файл в общий репозиторий не нужен.
+secret.txt
+
 # CI runner artifacts
 job_log.txt
 jobs_*.json

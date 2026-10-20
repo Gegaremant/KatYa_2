@@ -94,6 +94,15 @@ interface DataRepository {
     // Agent Mode & Send Delay
     fun getAgentMode(): AgentMode
     fun setAgentMode(mode: AgentMode)
+
+    /** Задержка автоотправки в секундах; 0 — ручной режим. */
+    fun getSendDelaySeconds(): Float
+    fun setSendDelaySeconds(seconds: Float)
+
+    /** Ручной режим по факту: тумблер включён или задержка нулевая. */
+    fun isManualSendMode(): Boolean
+    fun setManualMode(enabled: Boolean)
+    fun isAutoSendDelay(): Boolean
     fun getSendDelayMs(): Long
     fun setSendDelayMs(delay: Long)
 
@@ -104,12 +113,16 @@ interface DataRepository {
     fun getTtsEngine(): TtsEngine
     fun setTtsEngine(engine: TtsEngine)
     val ttsEngineFlow: StateFlow<TtsEngine>
-    fun getSysTtsPitch(): Float
-    fun setSysTtsPitch(pitch: Float)
-    val sysTtsPitchFlow: StateFlow<Float>
-    fun getSysTtsRate(): Float
-    fun setSysTtsRate(rate: Float)
-    val sysTtsRateFlow: StateFlow<Float>
+
+    /** Тембр голоса в процентах: −100…+100, ноль — норма Кати. */
+    fun getSysTtsPitchPercent(): Int
+    fun setSysTtsPitchPercent(percent: Int)
+    val sysTtsPitchPercentFlow: StateFlow<Int>
+
+    /** Скорость голоса в процентах: −100…+100, ноль — норма Кати. */
+    fun getSysTtsRatePercent(): Int
+    fun setSysTtsRatePercent(percent: Int)
+    val sysTtsRatePercentFlow: StateFlow<Int>
     fun getCloudSttUrl(): String
     fun setCloudSttUrl(url: String)
     fun getCloudSttKey(): String
