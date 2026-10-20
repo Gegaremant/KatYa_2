@@ -72,6 +72,8 @@ KatYa/
 3. **Настройка агента и голоса**
    - Вкладка **Агент**: включите «Озвучка» — без неё голосовые функции агента заблокированы (приложение само подсветит и предложит перейти на нужную вкладку).
    - Выберите режим голоса: «По умолчанию», «Локальный» (Vosk для распознавания, Piper для синтеза — работают офлайн) или «Cloud API».
+   - **Скорость речи** и **тембр голоса** — ползунки от −100 до +100 (ноль — голос Кати, ±100 — в десять раз медленнее или быстрее). Под каждым ползунком — кнопки точной подстройки: −10, −5, −1 и +1, +5, +10.
+   - **Задержка отправки** — ползунок в секундах с шагом 0.1 (по умолчанию 0.5 с). Ноль и тумблер «Ручная отправка» включают ручной режим: текст остаётся в поле, и отправляет его уже человек.
 
 4. **Песочница (нужна для автономной работы и VLESS)**
    - Вкладка **Сервер** → **Sandbox** → «Скачать песочницу». Приложение само скачает и распакует:
@@ -89,6 +91,16 @@ KatYa/
 
 7. **Отладка**
    - Если что-то не работает — проверьте логи: вкладка **Сервер** → **Отладка** или спец. экран логов. Там видно состояние туннеля, sandbox и сетевых запросов.
+
+## 💻 Версия для компьютера
+
+Кроме телефона Катя собирается и для компьютера: Windows и Linux из того же кода,
+что и Android. Релизы лежат на той же странице — файл `.deb` или `.rpm` для
+Linux, zip для Windows.
+
+- **Голос.** На десктопе Катя говорит голосом самой операционной системы: `speech-dispatcher` на Linux, SAPI5 (через PowerShell) на Windows, `say` на macOS. Скорость и тембр настраиваются теми же ползунками, что и на телефоне. Если синтезатора в системе нет, Катя об этом говорит прямо в настройках, а не молчит.
+- **Данные.** На компьютере всё лежит в `~/.katya` — та же база, те же настройки, тот же формат резервной копии. Бэкап с телефона восстанавливается на компьютере и наоборот.
+- **Чего на десктопе нет.** Песочницы и root (их роль играет сама ОС), SMS и уведомлений, Vosk и Piper, пробуждения по слову, фоновых задач после закрытия окна. Каждая такая возможность отвечает честным «не поддерживается», а не делает вид, что сработала. Подробности — в `AGENTS.md`.
 
 ## 🚀 Сборка локально
 
@@ -163,6 +175,8 @@ KatYa/
 3. **Agent & Voice Setup**
    - **Agent** tab: enable "Voice" (Озвучка) — voice features stay locked without it (the app highlights this and offers a shortcut to the Agent tab).
    - Choose a voice mode: "Default", "Local" (Vosk for offline STT, Piper for offline TTS) or "Cloud API".
+   - **Speech speed** and **voice pitch** are sliders from −100 to +100 (zero is Katya's own voice, ±100 is ten times slower or faster). Under each slider are the fine-tuning buttons: −10, −5, −1 and +1, +5, +10.
+   - **Send delay** is a slider in seconds with a 0.1 step (0.5 s by default). Zero and the "Manual send" switch turn on the manual mode: the text stays in the field and the user sends it.
 
 4. **Sandbox (required for autonomous work and VLESS)**
    - **Servers** tab → **Sandbox** → "Download sandbox". The app downloads and unpacks automatically:
@@ -180,6 +194,16 @@ KatYa/
 
 7. **Debugging**
    - If something breaks, check logs on the **Servers** tab → **Debug** or the dedicated log screen: tunnel state, sandbox state, and network requests are all visible there.
+
+## 💻 Desktop version
+
+Besides the phone, Katya is built for the desktop: Windows and Linux run the same
+code as Android. The files sit on the same releases page — `.deb` or `.rpm` for
+Linux, a zip for Windows.
+
+- **Voice.** On the desktop Katya speaks with the voice of the operating system itself: `speech-dispatcher` on Linux, SAPI5 (through PowerShell) on Windows, `say` on macOS. Speed and pitch are tuned with the very same sliders as on the phone. If the system has no synthesizer, Katya says so in the settings instead of falling silent.
+- **Data.** Everything lives in `~/.katya` — the same database, the same settings, the same backup format. A backup taken on the phone restores on the desktop and back.
+- **What the desktop does not have.** The sandbox and root (the OS itself takes that role), SMS and notifications, Vosk and Piper, the wake word, and background tasks after the window is closed. Each of those answers with an honest "not supported" rather than pretending to have worked. Details are in `AGENTS.md`.
 
 ## 🚀 Local Build Instructions
 

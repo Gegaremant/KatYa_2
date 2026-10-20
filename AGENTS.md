@@ -104,11 +104,56 @@ well-typed "unsupported" rather than a fake success:
 - **SMS, notification listener, device admin, accessibility, battery
   optimization** — Android permission surfaces with no counterpart.
 - **Vosk STT, wake word, Piper voices** — the engines play through
-  `android.media.AudioTrack`; no port yet.
+  `android.media.AudioTrack`; no port yet. The *voice output* is not among
+  them: desktop speaks with the voice of the operating system.
 - **scheduled tasks after the window closes** — needs `systemd --user` or an OS
   scheduler; while the app is open they do run.
 - **audio focus** — AWT has no focus API, so music is *not* paused during
   speech rather than being paused blindly.
+
+### Voice: one scale, four platforms
+
+Speed and pitch are **percentages from −100 to +100**, not multipliers. Zero is
+Katya's own voice, ±100 is ten times slower or faster; the percentage becomes a
+multiplier through `10^(percent/100)`. A percentage is used because a slider has
+to mean the same thing everywhere: "+10 %" on a fast voice and "+10 %" on a slow
+one are different accelerations, and a multiplier hides that.
+
+The scale is stored in `sys_tts_rate_percent` / `sys_tts_pitch_percent`. The old
+keys (`sys_tts_rate`, `sys_tts_pitch`) held multipliers and are converted once,
+on first read — see `migrateVoiceSettingsIfNeeded` in `AppSettings`.
+
+Each engine maps the percentages onto its own scale and says what it cannot do
+through `SpeechEngine.voiceTuningSupport`:
+
+| Engine | Speed | Pitch |
+|---|---|---|
+| Android system TTS | multiplier on the system rate | multiplier on the system pitch |
+| Piper (on-device) | `PlaybackParams.setSpeed` | `PlaybackParams.setPitch` |
+| Cloud TTS (`/audio/speech`) | the `speed` parameter, 0.25…4.0 | not in the API |
+| Linux speech-dispatcher | its own −100…+100 scale | its own −100…+100 scale |
+| Windows SAPI5 | `Rate` −10…+10 | `Pitch` −50…+50 |
+| macOS `say` | words per minute | not in the API |
+
+The slider is disabled when the active engine cannot do it, and the reason is
+written next to it. `SpeechEngine.applyTuning` is the single seam: the app never
+reaches into a concrete engine to set a rate.
+
+Desktop speech is `DesktopTts` (`desktopMain`): speech-dispatcher on Linux,
+SAPI5 through PowerShell on Windows, `say` on macOS. If the system has no
+synthesizer at all, `systemTtsUnavailableReason()` explains it in the settings
+instead of leaving the user wondering why nothing is spoken.
+
+Two details that cost real time to find:
+
+- **speech-dispatcher may never confirm the end of a parameterised message.**
+  With speed or pitch set, the daemon can finish speaking and still not answer
+  the client, so `spd-say -w` waits forever. The engine therefore waits with a
+  limit computed from the length of the text, kills the process and reports it
+  in the log. Without the limit the "stop" button never came back.
+- **Windows text goes through a temporary file.** The text is written to a file
+  and read by the PowerShell script: in a command line it is visible in the
+  process list, and that is private.
 
 ### Shared JVM code
 
