@@ -1,5 +1,6 @@
 package com.katya.app.tts
 
+import com.katya.app.data.AppSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +21,16 @@ class SystemTtsSpeechEngine(
 
     // Guards stale completions: only the newest utterance may fire the callback.
     private var generation = 0L
+
+    override val voiceTuningSupport: VoiceTuningSupport = VoiceTuningSupport.FULL
+
+    override fun applyTuning(tuning: VoiceTuning) {
+        // Ноль процентов — это голос Кати, а не голос системы: скорость по
+        // умолчанию у неё 1.5, а не 1.0. Иначе после перехода на новую шкалу
+        // Катя заговорила бы в полтора раза медленнее, чем раньше.
+        instance.rate = AppSettings.DEFAULT_TTS_RATE * tuning.rateFactor
+        instance.pitch = AppSettings.DEFAULT_TTS_PITCH * tuning.pitchFactor
+    }
 
     override fun speak(text: String) {
         val myGeneration = ++generation

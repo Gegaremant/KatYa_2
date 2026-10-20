@@ -351,8 +351,15 @@ private fun snapshotSpecs(): List<Spec> = listOf(
     strSpec("cloud_tts_key", ImportSection.SETTINGS, secret = true, read = { getCloudTtsKey() }, write = { app, v -> app.setCloudTtsKey(v) }),
     strSpec("cloud_tts_model", ImportSection.SETTINGS, read = { getCloudTtsModel() }, write = { app, v -> app.setCloudTtsModel(v) }),
     strSpec("cloud_tts_voice", ImportSection.SETTINGS, read = { getCloudTtsVoice() }, write = { app, v -> app.setCloudTtsVoice(v) }),
-    floatSpec("sys_tts_pitch", ImportSection.SETTINGS, read = { getSysTtsPitch() }, write = { app, v -> app.setSysTtsPitch(v) }),
-    floatSpec("sys_tts_rate", ImportSection.SETTINGS, read = { getSysTtsRate() }, write = { app, v -> app.setSysTtsRate(v) }),
+    // Голос и задержка — в новой шкале: проценты и секунды.
+    //
+    // Старые ключи («sys_tts_pitch», «sys_tts_rate», «send_delay_ms») больше не
+    // выгружаются: они читаются при переносе настроек, а в резервной копии
+    // должны лежать значения в том виде, в котором их понимает текущая версия.
+    intSpec(AppSettingsKeys.KEY_SYS_TTS_PITCH_PERCENT, ImportSection.SETTINGS, read = { getSysTtsPitchPercent() }, write = { app, v -> app.setSysTtsPitchPercent(v) }),
+    intSpec(AppSettingsKeys.KEY_SYS_TTS_RATE_PERCENT, ImportSection.SETTINGS, read = { getSysTtsRatePercent() }, write = { app, v -> app.setSysTtsRatePercent(v) }),
+    floatSpec(AppSettingsKeys.KEY_SEND_DELAY_SECONDS, ImportSection.SETTINGS, read = { getSendDelaySeconds() }, write = { app, v -> app.setSendDelaySeconds(v) }),
+    boolSpec(AppSettingsKeys.KEY_SEND_MANUAL_MODE, ImportSection.SETTINGS, read = { isSendManualMode() }, write = { app, v -> app.setSendManualMode(v) }),
 
     // --- Sandbox, root, onboarding, daemon ----------------------------------
     boolSpec(AppSettingsKeys.KEY_SANDBOX_ENABLED, ImportSection.SETTINGS, read = { isSandboxEnabled() }, write = { app, v -> app.setSandboxEnabled(v) }),

@@ -98,4 +98,20 @@ object AppSettingsKeys {
     const val KEY_WAKE_WORD_VIBRATION = "wake_word_vibration"
 
     const val KEY_MONITOR_OVERLAY_MODE = "monitor_overlay_mode"
+
+    // Голос: скорость и тембр в процентах (−100…+100), ноль — норма Кати.
+    const val KEY_SYS_TTS_RATE_PERCENT = "sys_tts_rate_percent"
+    const val KEY_SYS_TTS_PITCH_PERCENT = "sys_tts_pitch_percent"
+
+    // Прежние ключи голоса: множители. Остаются в настройках после переноса,
+    // чтобы откат на старой версии не потерял голос.
+    const val KEY_LEGACY_SYS_TTS_RATE = "sys_tts_rate"
+    const val KEY_LEGACY_SYS_TTS_PITCH = "sys_tts_pitch"
+
+    // Задержка автоотправки: секунды с шагом 0.1; ноль — ручной режим.
+    const val KEY_SEND_DELAY_SECONDS = "send_delay_seconds"
+    const val KEY_SEND_MANUAL_MODE = "send_manual_mode"
+
+    // Прежний ключ задержки: миллисекунды.
+    const val KEY_LEGACY_SEND_DELAY_MS = "send_delay_ms"
 }

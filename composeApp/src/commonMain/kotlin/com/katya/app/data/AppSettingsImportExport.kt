@@ -34,10 +34,10 @@ fun AppSettings.exportToJson(
         map["current_service_id"] = JsonPrimitive(settings.getString(KEY_CURRENT_SERVICE_ID, Service.Free.id))
         map["free_fallback_enabled"] = JsonPrimitive(isFreeFallbackEnabled())
         map["monitor_overlay_mode"] = JsonPrimitive(settings.getString(AppSettingsKeys.KEY_MONITOR_OVERLAY_MODE, MonitorOverlayMode.SHORT.name))
-        map["send_delay_ms"] = JsonPrimitive(getSendDelayMs())
-        map["sys_tts_pitch"] = JsonPrimitive(getSysTtsPitch())
-        map["sys_tts_rate"] = JsonPrimitive(getSysTtsRate())
-
+        map["send_delay_seconds"] = JsonPrimitive(getSendDelaySeconds())
+        map["send_manual_mode"] = JsonPrimitive(isSendManualMode())
+        map["sys_tts_pitch_percent"] = JsonPrimitive(getSysTtsPitchPercent())
+        map["sys_tts_rate_percent"] = JsonPrimitive(getSysTtsRatePercent())
         val instances = getConfiguredServiceInstances()
         if (instances.isNotEmpty()) {
             val instanceSettings = JsonArray(
@@ -313,9 +313,30 @@ private fun AppSettings.importLegacyFromJson(
                     setMonitorOverlayMode(mode)
                 } catch (_: Exception) {}
             }
-            json["send_delay_ms"]?.jsonPrimitive?.content?.toLongOrNull()?.let { setSendDelayMs(it) }
-            json["sys_tts_pitch"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { setSysTtsPitch(it) }
-            json["sys_tts_rate"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { setSysTtsRate(it) }
+            // Новая шкала: секунды и проценты. Старые ключи читаются как
+            // запасной путь — резервная копия, сделанная прошлой версией, должна
+            // восстановить голос и задержку, а не молча оставить умолчания.
+            json["send_delay_seconds"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { seconds ->
+                setSendDelaySeconds(seconds)
+                // Нулевая задержка — это ручной режим. Без этого в копии может
+                // лежать ноль, а тумблер — нет, и состояния будут врать друг другу.
+                if (seconds <= 0f) setSendManualMode(true)
+            }
+                ?: json["send_delay_ms"]?.jsonPrimitive?.content?.toLongOrNull()?.let { legacyMs ->
+                    when {
+                        legacyMs >= 5000L -> setSendManualMode(true)
+                        legacyMs > 0L -> setSendDelaySeconds(legacyMs / 1000f)
+                    }
+                }
+            json["send_manual_mode"]?.jsonPrimitive?.content?.toBoolean()?.let { setSendManualMode(it) }
+            json["sys_tts_pitch_percent"]?.jsonPrimitive?.content?.toIntOrNull()?.let { setSysTtsPitchPercent(it) }
+                ?: json["sys_tts_pitch"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { legacyPitch ->
+                    setSysTtsPitchPercent(legacyMultiplierToPercent(legacyPitch, AppSettings.DEFAULT_TTS_PITCH))
+                }
+            json["sys_tts_rate_percent"]?.jsonPrimitive?.content?.toIntOrNull()?.let { setSysTtsRatePercent(it) }
+                ?: json["sys_tts_rate"]?.jsonPrimitive?.content?.toFloatOrNull()?.let { legacyRate ->
+                    setSysTtsRatePercent(legacyMultiplierToPercent(legacyRate, AppSettings.DEFAULT_TTS_RATE))
+                }
         } catch (_: Exception) {
             errors++
         }

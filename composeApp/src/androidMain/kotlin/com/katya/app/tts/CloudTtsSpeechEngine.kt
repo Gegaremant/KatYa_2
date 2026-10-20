@@ -10,6 +10,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
+import kotlin.math.pow
 
 /**
  * Cloud TTS engine: synthesizes speech through an OpenAI-compatible
@@ -32,6 +33,17 @@ class CloudTtsSpeechEngine(
     // Guards stale completions: only the newest utterance may fire the callback.
     private var generation = 0L
 
+    @Volatile
+    private var tuning: VoiceTuning = VoiceTuning()
+
+    // У облачного синтеза есть скорость, но нет тембра: `/audio/speech` тембра
+    // не знает. Поэтому ползунок тембра на этом движке честно гаснет.
+    override val voiceTuningSupport: VoiceTuningSupport = VoiceTuningSupport.RATE_ONLY
+
+    override fun applyTuning(tuning: VoiceTuning) {
+        this.tuning = tuning
+    }
+
     override fun speak(text: String) {
         if (text.isBlank()) return
         val myGeneration = ++generation
@@ -45,6 +57,10 @@ class CloudTtsSpeechEngine(
                 model = appSettings.getCloudTtsModel(),
                 voice = appSettings.getCloudTtsVoice(),
                 text = text,
+                // Скорость в API измеряется множителем 0.25…4.0, поэтому проценты
+                // Кати переводятся в него через корень четвёртой степени: −100 → 0.25,
+                // 0 → 1, +100 → 4.
+                speed = 4f.pow(tuning.ratePercent / 100f),
             )
             result.onSuccess { bytes ->
                 play(bytes, myGeneration)

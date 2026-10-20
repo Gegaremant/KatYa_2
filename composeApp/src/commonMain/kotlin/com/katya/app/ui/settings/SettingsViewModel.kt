@@ -108,11 +108,12 @@ class SettingsViewModel(
         tools = dataRepository.getToolDefinitions().toImmutableList(),
         soulText = dataRepository.getSoulText(),
         agentMode = dataRepository.getAgentMode(),
-        sendDelayMs = dataRepository.getSendDelayMs(),
+        sendDelaySeconds = dataRepository.getSendDelaySeconds(),
+        isSendManualMode = dataRepository.isManualSendMode(),
         sttEngine = dataRepository.getSttEngine(),
         ttsEngine = dataRepository.getTtsEngine(),
-        sysTtsPitch = dataRepository.getSysTtsPitch(),
-        sysTtsRate = dataRepository.getSysTtsRate(),
+        sysTtsPitchPercent = dataRepository.getSysTtsPitchPercent(),
+        sysTtsRatePercent = dataRepository.getSysTtsRatePercent(),
         ttsEngineInstalled = isTtsEngineInstalled(dataRepository.getTtsEngine()),
         cloudSttUrl = dataRepository.getCloudSttUrl(),
         cloudSttKey = dataRepository.getCloudSttKey(),
@@ -210,11 +211,12 @@ class SettingsViewModel(
         onToggleTool = ::onToggleTool,
         onSaveSoul = ::onSaveSoul,
         onChangeAgentMode = ::onChangeAgentMode,
-        onChangeSendDelayMs = ::onChangeSendDelayMs,
+        onChangeSendDelaySeconds = ::onChangeSendDelaySeconds,
+        onChangeSendManualMode = ::onChangeSendManualMode,
         onChangeSttEngine = ::onChangeSttEngine,
         onChangeTtsEngine = ::onChangeTtsEngine,
-        onChangeSysTtsPitch = ::onChangeSysTtsPitch,
-        onChangeSysTtsRate = ::onChangeSysTtsRate,
+        onChangeSysTtsPitchPercent = ::onChangeSysTtsPitchPercent,
+        onChangeSysTtsRatePercent = ::onChangeSysTtsRatePercent,
         onChangeCloudSttUrl = ::onChangeCloudSttUrl,
         onChangeCloudSttKey = ::onChangeCloudSttKey,
         onChangeCloudSttModel = ::onChangeCloudSttModel,
@@ -634,9 +636,32 @@ class SettingsViewModel(
         _state.update { it.copy(agentMode = mode) }
     }
 
-    private fun onChangeSendDelayMs(delay: Long) {
-        dataRepository.setSendDelayMs(delay)
-        _state.update { it.copy(sendDelayMs = delay) }
+    private fun onChangeSendDelaySeconds(seconds: Float) {
+        dataRepository.setSendDelaySeconds(seconds)
+        // Нулевая задержка — это ручной режим, и тумблер под ползунком должен
+        // показать то же самое, что и положение ползунка. Иначе человек видит
+        // «ручная отправка» в подписи и выключенный тумблер рядом.
+        if (seconds <= 0f) {
+            dataRepository.setManualMode(true)
+        }
+        val manual = dataRepository.isManualSendMode()
+        _state.update { it.copy(sendDelaySeconds = seconds, isSendManualMode = manual) }
+    }
+
+    private fun onChangeSendManualMode(enabled: Boolean) {
+        dataRepository.setManualMode(enabled)
+        // Тумблер выключили, а задертка нулевая — автоотправки не будет, хотя
+        // человек её явно просил. Возвращаем половину секунды: это значение по
+        // умолчанию, и оно означает ровно то, что показывает подпись.
+        if (!enabled && dataRepository.getSendDelaySeconds() <= 0f) {
+            dataRepository.setSendDelaySeconds(com.katya.app.data.AppSettings.SEND_DELAY_DEFAULT_SECONDS)
+        }
+        _state.update {
+            it.copy(
+                isSendManualMode = dataRepository.isManualSendMode(),
+                sendDelaySeconds = dataRepository.getSendDelaySeconds(),
+            )
+        }
     }
 
     private fun onChangeSttEngine(engine: com.katya.app.data.SttEngine) {
@@ -649,14 +674,14 @@ class SettingsViewModel(
         _state.update { it.copy(ttsEngine = engine, ttsEngineInstalled = isTtsEngineInstalled(engine)) }
     }
 
-    private fun onChangeSysTtsPitch(pitch: Float) {
-        dataRepository.setSysTtsPitch(pitch)
-        _state.update { it.copy(sysTtsPitch = pitch) }
+    private fun onChangeSysTtsPitchPercent(percent: Int) {
+        dataRepository.setSysTtsPitchPercent(percent)
+        _state.update { it.copy(sysTtsPitchPercent = percent) }
     }
 
-    private fun onChangeSysTtsRate(rate: Float) {
-        dataRepository.setSysTtsRate(rate)
-        _state.update { it.copy(sysTtsRate = rate) }
+    private fun onChangeSysTtsRatePercent(percent: Int) {
+        dataRepository.setSysTtsRatePercent(percent)
+        _state.update { it.copy(sysTtsRatePercent = percent) }
     }
 
     private fun onChangeCloudSttUrl(url: String) {

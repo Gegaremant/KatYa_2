@@ -25,6 +25,7 @@ fun KatyaSlider(
     modifier: Modifier = Modifier,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int = 0,
+    enabled: Boolean = true,
 ) {
     Slider(
         value = value,
@@ -33,6 +34,7 @@ fun KatyaSlider(
         modifier = modifier.handCursor(),
         valueRange = valueRange,
         steps = steps,
+        enabled = enabled,
         colors = kaiSliderColors(),
         thumb = { KatyaSliderThumb() },
         track = { sliderState ->

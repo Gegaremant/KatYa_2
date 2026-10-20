@@ -1,10 +1,6 @@
 package com.katya.app
 
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -13,25 +9,17 @@ import androidx.compose.ui.window.rememberWindowState
 import androidx.navigation.compose.rememberNavController
 import com.katya.app.ui.DarkColorScheme
 import com.katya.app.ui.LightColorScheme
-import nl.marc_apps.tts.TextToSpeechEngine
-import nl.marc_apps.tts.experimental.ExperimentalDesktopTarget
-import nl.marc_apps.tts.rememberTextToSpeechOrNull
 import org.koin.core.context.startKoin
 import java.io.File
 
 /**
- * Запуск Кати на Windows и Linux.
+ * Запуск Кати на Windows, Linux и macOS.
  *
  * Отличие от Android ровно одно: Koin здесь не получает `androidContext`.
  * Всё остальное — тот же `appModule`, те же инструменты из общего кода и те же
  * настройки; просто они лежат в `~/.katya`, а не внутри приватного хранилища
  * приложения.
- *
- * `ExperimentalDesktopTarget` — пометка библиотеки синтезатора: её desktop-реализация
- * молода и API может измениться. Ставится здесь, а не на весь файл, чтобы
- * экспериментальность не распространялась на остальной код точки входа.
  */
-@OptIn(ExperimentalDesktopTarget::class)
 fun main() {
     // Skiko на Linux и Wayland игнорирует GDK_SCALE без этих двух свойств, и окно
     // рисуется в 1× на hi-res мониторе — выглядит как сломанное приложение,
@@ -66,16 +54,14 @@ fun main() {
             state = windowState,
             title = "Катя",
         ) {
-            // Синтезатор инициализируется после первого кадра: до этого окно
-            // ещё не готово, а TTS на Windows любит падать без окна.
-            var ttsReady by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { ttsReady = true }
-            val textToSpeech = if (ttsReady) {
-                rememberTextToSpeechOrNull(TextToSpeechEngine.SystemDefault)
-            } else {
-                null
+            // Синтезатор — голос операционной системы: speech-dispatcher на
+            // Linux, SAPI5 на Windows, `say` на macOS. Если его в системе нет,
+            // Катя молчит — и говорит об этом в журнале, а не делает вид,
+            // что ответы произносятся.
+            val speechEngine = remember { com.katya.app.tts.DesktopTts.createOrNull() }
+            com.katya.app.tts.DesktopTts.unavailableReason()?.let { reason ->
+                com.katya.app.tools.AppLogger.w("TTS", reason)
             }
-            val speechEngine = textToSpeech?.let { com.katya.app.tts.SystemTtsSpeechEngine(it) }
             App(
                 navController = rememberNavController(),
                 lightColorScheme = LightColorScheme,

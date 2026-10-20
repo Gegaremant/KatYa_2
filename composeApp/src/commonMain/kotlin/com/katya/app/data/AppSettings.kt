@@ -233,14 +233,32 @@ class AppSettings(internal val settings: Settings) {
     companion object {
         private const val KEY_LOG_FILE_PATH = "log_file_path"
 
-        /** Send the dictated text the instant it is recognised. */
-        const val SEND_DELAY_IMMEDIATE = 0L
+        /**
+         * Скорость голоса, которую Катя считает своей нормой.
+         *
+         * Множитель системного TTS: 1.5 — заметно бодрее, чем 1.0, и приветствие
+         * с ним не тянулось. Ноль процентов в новой шкале означает именно эту
+         * скорость, а не «как есть у системы».
+         */
+        const val DEFAULT_TTS_RATE = 1.5f
 
-        /** The right-hand end of the slider: the user presses send themselves. */
-        const val SEND_DELAY_MANUAL = 5000L
+        /** Тембр по умолчанию: системный голос без смещения. */
+        const val DEFAULT_TTS_PITCH = 1.0f
 
-        /** The full range of the slider, so the UI and the chat agree on the ends. */
-        const val SEND_DELAY_MAX = SEND_DELAY_MANUAL
+        /** Задержка автоотправки по умолчанию: полсекунды тишины. */
+        const val SEND_DELAY_DEFAULT_SECONDS = 0.5f
+
+        /** Нижняя граница задержки: 0 секунд — это ручной режим. */
+        const val SEND_DELAY_MIN_SECONDS = 0f
+
+        /** Верхняя граница задержки: десять секунд тишины перед автоотправкой. */
+        const val SEND_DELAY_MAX_SECONDS = 10f
+
+        /** Шаг ползунка задержки: tenth of a second. */
+        const val SEND_DELAY_STEP_SECONDS = 0.1f
+
+        /** Прежний «ручной» конец ползунка задержки, в миллисекундах. */
+        private const val LEGACY_SEND_DELAY_MANUAL_MS = 5000L
 
         /**
          * Id of the VLESS row that stands for the bare `vless_uri` value.
@@ -251,6 +269,14 @@ class AppSettings(internal val settings: Settings) {
          */
         const val ORPHAN_VLESS_PROFILE_ID = "vless_uri_field"
     }
+
+    /**
+     * Флаг однократного переноса старых настроек голоса и задержки.
+     *
+     * Не хранится в настройках: он нужен только в памяти, чтобы пересчёт шёл
+     * один раз за запуск приложения.
+     */
+    private var voiceSettingsMigrated = false
 
     fun getLogFilePath(): String? = settings.getStringOrNull(KEY_LOG_FILE_PATH)
     fun setLogFilePath(path: String?) {
@@ -461,24 +487,40 @@ class AppSettings(internal val settings: Settings) {
     private val _ttsEngineFlow = MutableStateFlow(getTtsEngine())
     val ttsEngineFlow: StateFlow<TtsEngine> = _ttsEngineFlow
 
-    fun getSysTtsPitch(): Float = settings.getFloat("sys_tts_pitch", 1.0f)
-    fun setSysTtsPitch(pitch: Float) {
-        settings.putFloat("sys_tts_pitch", pitch)
-        _sysTtsPitchFlow.value = pitch
+    /**
+     * Тембр голоса в процентах: −100…+100, ноль — норма Кати.
+     *
+     * Старое хранение было множителем (0.5…2), и переводится в проценты один раз
+     * при первом чтении: см. [migrateVoiceSettingsIfNeeded].
+     */
+    fun getSysTtsPitchPercent(): Int {
+        migrateVoiceSettingsIfNeeded()
+        return settings.getInt(AppSettingsKeys.KEY_SYS_TTS_PITCH_PERCENT, 0).coerceIn(-100, 100)
     }
-    private val _sysTtsPitchFlow = MutableStateFlow(getSysTtsPitch())
-    val sysTtsPitchFlow: StateFlow<Float> = _sysTtsPitchFlow
 
-    // 1.5 instead of 1.2: at 1.2 the greeting dragged, and the field report asked
-    // for a faster voice outright. Only the default moves — an install that already
-    // saved a rate keeps it.
-    fun getSysTtsRate(): Float = settings.getFloat("sys_tts_rate", 1.5f)
-    fun setSysTtsRate(rate: Float) {
-        settings.putFloat("sys_tts_rate", rate)
-        _sysTtsRateFlow.value = rate
+    fun setSysTtsPitchPercent(percent: Int) {
+        settings.putInt(AppSettingsKeys.KEY_SYS_TTS_PITCH_PERCENT, percent.coerceIn(-100, 100))
+        _sysTtsPitchPercentFlow.value = percent.coerceIn(-100, 100)
     }
-    private val _sysTtsRateFlow = MutableStateFlow(getSysTtsRate())
-    val sysTtsRateFlow: StateFlow<Float> = _sysTtsRateFlow
+
+    private val _sysTtsPitchPercentFlow = MutableStateFlow(getSysTtsPitchPercent())
+    val sysTtsPitchPercentFlow: StateFlow<Int> = _sysTtsPitchPercentFlow
+
+    /**
+     * Скорость голоса в процентах: −100…+100, ноль — норма Кати ([DEFAULT_TTS_RATE]).
+     */
+    fun getSysTtsRatePercent(): Int {
+        migrateVoiceSettingsIfNeeded()
+        return settings.getInt(AppSettingsKeys.KEY_SYS_TTS_RATE_PERCENT, 0).coerceIn(-100, 100)
+    }
+
+    fun setSysTtsRatePercent(percent: Int) {
+        settings.putInt(AppSettingsKeys.KEY_SYS_TTS_RATE_PERCENT, percent.coerceIn(-100, 100))
+        _sysTtsRatePercentFlow.value = percent.coerceIn(-100, 100)
+    }
+
+    private val _sysTtsRatePercentFlow = MutableStateFlow(getSysTtsRatePercent())
+    val sysTtsRatePercentFlow: StateFlow<Int> = _sysTtsRatePercentFlow
 
     fun getAgentMode(): AgentMode {
         val name = settings.getString("agent_mode", AgentMode.CONVERSATIONAL.name)
@@ -490,21 +532,126 @@ class AppSettings(internal val settings: Settings) {
     }
     fun setAgentMode(mode: AgentMode) = settings.putString("agent_mode", mode.name)
 
-    fun getSendDelayMs(): Long = settings.getLong("send_delay_ms", 1000L)
-    fun setSendDelayMs(delay: Long) = settings.putLong("send_delay_ms", delay)
+    /**
+     * Задержка перед автоотправкой в секундах, шаг 0.1.
+     *
+     * Ноль означает ручной режим: текст остаётся в поле, пока пользователь не
+     * нажмёт «Отправить». Само по себе значение — это тот же ползунок, а ручной
+     * режим можно ещё включить тумблером под ним ([isSendManualMode]).
+     */
+    fun getSendDelaySeconds(): Float {
+        migrateVoiceSettingsIfNeeded()
+        return settings.getFloat(AppSettingsKeys.KEY_SEND_DELAY_SECONDS, SEND_DELAY_DEFAULT_SECONDS)
+            .coerceIn(SEND_DELAY_MIN_SECONDS, SEND_DELAY_MAX_SECONDS)
+    }
+
+    fun setSendDelaySeconds(seconds: Float) {
+        val value = seconds.coerceIn(SEND_DELAY_MIN_SECONDS, SEND_DELAY_MAX_SECONDS)
+        settings.putFloat(AppSettingsKeys.KEY_SEND_DELAY_SECONDS, value)
+    }
+
+    /** Ручной режим, включённый тумблером под ползунком задержки. */
+    fun isSendManualMode(): Boolean {
+        migrateVoiceSettingsIfNeeded()
+        return settings.getBoolean(AppSettingsKeys.KEY_SEND_MANUAL_MODE, false)
+    }
+
+    fun setSendManualMode(enabled: Boolean) {
+        settings.putBoolean(AppSettingsKeys.KEY_SEND_MANUAL_MODE, enabled)
+    }
 
     /**
-     * How long the dictated text waits in the field before it is sent by itself.
+     * Ручной режим включён — тумблером или нулевой задержкой.
      *
-     * Both ends of the slider mean something of their own, so the delay is read
-     * through [isAutoSendDelay] rather than compared with `> 0`:
-     *
-     * - [SEND_DELAY_IMMEDIATE] — send the moment the voice is recognised;
-     * - [SEND_DELAY_MANUAL] — the right-hand end of the slider: never send by
-     *   itself, the text stays in the field until the user presses send;
-     * - anything in between — wait that many milliseconds of silence first.
+     * Оба способа приводят к одному и тому же: текст ждёт, пока пользователь
+     * нажмёт «Отправить». Нулевая задержка — это тот же ручной режим, просто
+     * выбранный положением ползунка, а не тумблером.
      */
-    fun isAutoSendDelay(): Boolean = getSendDelayMs() in (SEND_DELAY_IMMEDIATE + 1) until SEND_DELAY_MANUAL
+    fun isManualSendMode(): Boolean = isSendManualMode() || getSendDelaySeconds() <= SEND_DELAY_MIN_SECONDS
+
+    /** Автоотправка включена: не ручной режим и задержка положительная. */
+    fun isAutoSendDelay(): Boolean = !isManualSendMode()
+
+    /** Задержка в миллисекундах для чата; в ручном режиме — 0. */
+    fun getSendDelayMs(): Long {
+        if (isManualSendMode()) return 0L
+        return (getSendDelaySeconds() * 1000f).toLong()
+    }
+
+    /**
+     * Старый интерфейс в миллисекундах.
+     *
+     * Оставлен потому, что репозиторий и внешние вызовы ещё пользуются им; внутри
+     * приложения ходят в секундах, иначе шаг 0.1 секунды не выразить.
+     */
+    fun setSendDelayMs(delay: Long) {
+        setSendDelaySeconds(delay / 1000f)
+    }
+
+    /**
+     * Переносит старые настройки голоса и задержки на новую шкалу.
+     *
+     * Старое: скорость и тембр — множители, задержка — миллисекунды, где 0
+     * значил «отправить сразу», а 5000 — «отправлять вручную». Новое: скорость
+     * и тембр — проценты, задержка — секунды с шагом 0.1, где 0 значит ручной
+     * режим.
+     *
+     * Пересчёт идёт один раз и только если новых ключей ещё нет: иначе второй
+     * запуск приложения затирал бы новую настройку старым значением.
+     */
+    private fun migrateVoiceSettingsIfNeeded() {
+        if (voiceSettingsMigrated) return
+        voiceSettingsMigrated = true
+
+        if (!settings.hasKey(AppSettingsKeys.KEY_SYS_TTS_RATE_PERCENT)) {
+            val legacy = settings.getFloatOrNull(AppSettingsKeys.KEY_LEGACY_SYS_TTS_RATE)
+            if (legacy != null && legacy > 0f) {
+                settings.putInt(
+                    AppSettingsKeys.KEY_SYS_TTS_RATE_PERCENT,
+                    multiplierToPercent(legacy, DEFAULT_TTS_RATE),
+                )
+            }
+        }
+
+        if (!settings.hasKey(AppSettingsKeys.KEY_SYS_TTS_PITCH_PERCENT)) {
+            val legacy = settings.getFloatOrNull(AppSettingsKeys.KEY_LEGACY_SYS_TTS_PITCH)
+            if (legacy != null && legacy > 0f) {
+                settings.putInt(
+                    AppSettingsKeys.KEY_SYS_TTS_PITCH_PERCENT,
+                    multiplierToPercent(legacy, DEFAULT_TTS_PITCH),
+                )
+            }
+        }
+
+        if (!settings.hasKey(AppSettingsKeys.KEY_SEND_DELAY_SECONDS)) {
+            val legacyMs = settings.getLongOrNull(AppSettingsKeys.KEY_LEGACY_SEND_DELAY_MS)
+            if (legacyMs != null) {
+                when {
+                    // Прежний «ручной» конец ползунка становится тумблером.
+                    legacyMs >= LEGACY_SEND_DELAY_MANUAL_MS -> {
+                        settings.putBoolean(AppSettingsKeys.KEY_SEND_MANUAL_MODE, true)
+                        settings.putFloat(AppSettingsKeys.KEY_SEND_DELAY_SECONDS, SEND_DELAY_DEFAULT_SECONDS)
+                    }
+                    // Прежнее «отправить сразу» в новой шкале — это полсекунды:
+                    // ноль теперь означает ручной режим, и молча превращать
+                    // «сразу» в «никогда» нельзя.
+                    legacyMs <= 0L -> {
+                        settings.putFloat(AppSettingsKeys.KEY_SEND_DELAY_SECONDS, SEND_DELAY_DEFAULT_SECONDS)
+                    }
+                    else -> {
+                        val seconds = (legacyMs / 1000f / SEND_DELAY_STEP_SECONDS).toInt() * SEND_DELAY_STEP_SECONDS
+                        settings.putFloat(
+                            AppSettingsKeys.KEY_SEND_DELAY_SECONDS,
+                            seconds.coerceIn(SEND_DELAY_MIN_SECONDS, SEND_DELAY_MAX_SECONDS),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /** Старый множитель → новые проценты относительно нормы Кати. */
+    private fun multiplierToPercent(multiplier: Float, baseline: Float): Int = legacyMultiplierToPercent(multiplier, baseline)
 
     // OpenAI-compatible cloud speech settings (STT = /audio/transcriptions, TTS = /audio/speech)
     fun getCloudSttUrl(): String = settings.getString("cloud_stt_url", DEFAULTS.CLOUD_STT_URL)
@@ -1047,4 +1194,19 @@ class AppSettings(internal val settings: Settings) {
     fun setQuickActionsJson(json: String) {
         settings.putString(AppSettingsKeys.KEY_QUICK_ACTIONS, json.ifBlank { "[]" })
     }
+}
+
+/**
+ * Старый множитель голоса (0.5…3) → новая шкала процентов.
+ *
+ * Проценты считаются относительно нормы Кати ([AppSettings.DEFAULT_TTS_RATE],
+ * [AppSettings.DEFAULT_TTS_PITCH]), потому что ноль процентов означает «голос
+ * Кати», а не «голос системы». Отдельная функция, а не метод: ею пользуются и
+ * перенос настроек при первом запуске, и восстановление из резервной копии.
+ */
+internal fun legacyMultiplierToPercent(multiplier: Float, baseline: Float): Int {
+    if (multiplier <= 0f || baseline <= 0f) return 0
+    val ratio = multiplier / baseline
+    val percent = (kotlin.math.ln(ratio.toDouble()) / kotlin.math.ln(10.0) * 100.0).toInt()
+    return percent.coerceIn(-100, 100)
 }

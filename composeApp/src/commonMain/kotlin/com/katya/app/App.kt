@@ -57,6 +57,7 @@ import com.katya.app.tools.SmsPermissionController
 import com.katya.app.tools.SmsSendPermissionController
 import com.katya.app.tts.SpeechEngine
 import com.katya.app.tts.SystemTtsSpeechEngine
+import com.katya.app.tts.VoiceTuning
 import com.katya.app.ui.DarkColorScheme
 import com.katya.app.ui.LightColorScheme
 import com.katya.app.ui.Theme
@@ -195,13 +196,19 @@ private fun AppContent(
         }
     }
 
-    val sysTtsPitch by appSettings.sysTtsPitchFlow.collectAsStateWithLifecycle()
-    val sysTtsRate by appSettings.sysTtsRateFlow.collectAsStateWithLifecycle()
+    val sysTtsPitchPercent by appSettings.sysTtsPitchPercentFlow.collectAsStateWithLifecycle()
+    val sysTtsRatePercent by appSettings.sysTtsRatePercentFlow.collectAsStateWithLifecycle()
 
-    LaunchedEffect(speechEngine, sysTtsPitch, sysTtsRate) {
-        val instance = (speechEngine as? SystemTtsSpeechEngine)?.instance ?: return@LaunchedEffect
-        instance.pitch = sysTtsPitch
-        instance.rate = sysTtsRate
+    // Настройка голоса — у каждого движка своя: системный TTS Android,
+    // speech-dispatcher на Linux, SAPI5 на Windows, `say` на macOS. Движок сам
+    // решает, что умеет менять, и честно сообщает, если тембр ему не по силам.
+    LaunchedEffect(speechEngine, sysTtsPitchPercent, sysTtsRatePercent) {
+        speechEngine?.applyTuning(
+            VoiceTuning(
+                ratePercent = sysTtsRatePercent,
+                pitchPercent = sysTtsPitchPercent,
+            ),
+        )
     }
 
     val uiScale by appSettings.uiScaleFlow.collectAsStateWithLifecycle()
